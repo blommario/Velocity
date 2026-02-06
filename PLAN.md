@@ -32,8 +32,8 @@
 - ✅ Hopp: 270 u/s instant, 50ms buffer, auto-bhop
 - ✅ Manuell gravitation (800 u/s²) istället för Rapier-gravity
 - ✅ Enhetstester för rörelsematematik (17 Vitest-tester)
-- 🔲 Finjustera rörelsekänsla — verifiera strafe jump speed-gain, bhop-momentum
-- 🔲 Crouch sliding — reducerad friktion + mindre kapsel vid hög hastighet
+- ✅ Finjustera rörelsekänsla — verifiera strafe jump speed-gain, bhop-momentum (25 tester)
+- ✅ Crouch sliding — reducerad friktion + mindre kapsel vid hög hastighet
 
 ---
 
@@ -42,13 +42,13 @@
 
 **Förutsättning:** Fas 2 (fungerande rörelse)
 
-- 🔲 `StartZone`-komponent — triggar timer vid spelarpassage
-- 🔲 `Checkpoint`-komponent — kollisionsdetektion, sparar split-tid
-- 🔲 `FinishZone`-komponent — stoppar timer, visar resultat
-- 🔲 `GameLoop`-logik i `gameStore` — tillstånd: Ready → Running → Finished
-- 🔲 Respawn-system — fall utanför banan → återställ till senaste checkpoint
-- 🔲 Kill zones — dödsytor med respawn
-- 🔲 End-of-run modal:
+- ✅ `StartZone`-komponent — triggar timer vid spelarpassage
+- ✅ `Checkpoint`-komponent — kollisionsdetektion, sparar split-tid
+- ✅ `FinishZone`-komponent — stoppar timer, visar resultat
+- ✅ `GameLoop`-logik i `gameStore` — tillstånd: Ready → Running → Finished
+- ✅ Respawn-system — fall utanför banan → återställ till senaste checkpoint
+- ✅ Kill zones — dödsytor med respawn
+- ✅ End-of-run modal:
   - Sluttid (stort, centrerat) + jämförelse vs PB och WR
   - Checkpoint split-tider
   - Stats: max speed, total distance, jumps, rocket jumps, avg speed

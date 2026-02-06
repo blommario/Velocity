@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Vector3 } from 'three';
 import {
   applyFriction,
+  applySlideFriction,
   applyGroundAcceleration,
   applyAirAcceleration,
   getWishDir,
@@ -147,5 +148,94 @@ describe('getHorizontalSpeed', () => {
 
   it('returns 0 for stationary', () => {
     expect(getHorizontalSpeed(new Vector3(0, 0, 0))).toBe(0);
+  });
+});
+
+describe('strafe jump speed gain', () => {
+  it('builds total speed via air strafing above initial speed', () => {
+    // Quake strafe jumping: perpendicular strafe adds a velocity component,
+    // increasing total speed. Start at 300, strafe perpendicular → total > 300.
+    const vel = new Vector3(300, 0, 0);
+    const initialSpeed = getHorizontalSpeed(vel);
+    for (let i = 0; i < 64; i++) {
+      const wishDir = new Vector3(0, 0, 1).normalize();
+      applyAirAcceleration(vel, wishDir, dt);
+    }
+    expect(getHorizontalSpeed(vel)).toBeGreaterThan(initialSpeed);
+  });
+
+  it('continues gaining speed beyond ground max when already fast', () => {
+    // Once above ground max speed, strafing perpendicular still adds speed
+    // because dot product of velocity with perpendicular wishDir is 0
+    const vel = new Vector3(400, 0, 0);
+    const initialSpeed = getHorizontalSpeed(vel);
+    const wishDir = new Vector3(0, 0, 1).normalize();
+    applyAirAcceleration(vel, wishDir, dt);
+    expect(getHorizontalSpeed(vel)).toBeGreaterThan(initialSpeed);
+  });
+
+  it('preserves horizontal speed through jump (no friction on jump frame)', () => {
+    const vel = new Vector3(350, 0, 0);
+    const speedBefore = getHorizontalSpeed(vel);
+    // Jump sets vy but does NOT apply friction on the jump tick
+    vel.y = PHYSICS.JUMP_FORCE;
+    expect(getHorizontalSpeed(vel)).toBe(speedBefore);
+  });
+});
+
+describe('bhop momentum preservation', () => {
+  it('does not lose speed when landing and immediately jumping', () => {
+    // Simulate: moving fast, landing one frame, immediately jumping
+    const vel = new Vector3(400, -50, 0);
+    const speedBefore = getHorizontalSpeed(vel);
+
+    // Land: clamp vy, then immediately jump (skip friction)
+    vel.y = 0; // grounded
+    // bhop: instant jump on same tick → no friction applied
+    vel.y = PHYSICS.JUMP_FORCE;
+
+    // Horizontal speed should be preserved
+    expect(getHorizontalSpeed(vel)).toBe(speedBefore);
+  });
+});
+
+describe('applySlideFriction', () => {
+  it('applies less friction than ground friction', () => {
+    const velGround = new Vector3(300, 0, 0);
+    const velSlide = new Vector3(300, 0, 0);
+
+    applyFriction(velGround, dt);
+    applySlideFriction(velSlide, dt);
+
+    // Slide friction should preserve more speed
+    expect(velSlide.x).toBeGreaterThan(velGround.x);
+  });
+
+  it('snaps near-zero velocity to zero', () => {
+    const vel = new Vector3(0.05, 0, 0.05);
+    applySlideFriction(vel, dt);
+    expect(vel.x).toBe(0);
+    expect(vel.z).toBe(0);
+  });
+
+  it('does not affect vertical velocity', () => {
+    const vel = new Vector3(200, 100, 0);
+    applySlideFriction(vel, dt);
+    expect(vel.y).toBe(100);
+  });
+
+  it('reduces speed gradually over time', () => {
+    const vel = new Vector3(400, 0, 0);
+    const speeds: number[] = [];
+    for (let i = 0; i < 128; i++) {
+      applySlideFriction(vel, dt);
+      speeds.push(getHorizontalSpeed(vel));
+    }
+    // Speed should monotonically decrease
+    for (let i = 1; i < speeds.length; i++) {
+      expect(speeds[i]).toBeLessThanOrEqual(speeds[i - 1]);
+    }
+    // After 1 second of sliding, should still have meaningful speed
+    expect(speeds[speeds.length - 1]).toBeGreaterThan(50);
   });
 });

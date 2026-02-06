@@ -1,6 +1,20 @@
+import { useEffect } from 'react';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
+import { StartZone } from './zones/StartZone';
+import { Checkpoint } from './zones/Checkpoint';
+import { FinishZone } from './zones/FinishZone';
+import { KillZone } from './zones/KillZone';
+import { useGameStore } from '../../stores/gameStore';
+
+const TOTAL_CHECKPOINTS = 2;
+const SPAWN_POINT: [number, number, number] = [0, 3, 0];
+const SPAWN_YAW = 0;
 
 export function TestMap() {
+  useEffect(() => {
+    useGameStore.getState().initRun(TOTAL_CHECKPOINTS, SPAWN_POINT, SPAWN_YAW);
+  }, []);
+
   return (
     <group>
       {/* Large flat ground */}
@@ -15,6 +29,23 @@ export function TestMap() {
       {/* Grid lines on floor for spatial reference */}
       <gridHelper args={[200, 40, '#555', '#444']} position={[0, 0.01, 0]} />
 
+      {/* === Gameplay Zones === */}
+      {/* Start zone — near spawn */}
+      <StartZone position={[0, 2, -5]} size={[6, 4, 3]} />
+
+      {/* Checkpoint 1 — after ramp section */}
+      <Checkpoint position={[15, 2, -10]} size={[6, 4, 3]} index={0} />
+
+      {/* Checkpoint 2 — after platforms */}
+      <Checkpoint position={[30, 2, 0]} size={[6, 4, 3]} index={1} />
+
+      {/* Finish zone — end of course */}
+      <FinishZone position={[40, 2, -15]} size={[6, 4, 3]} />
+
+      {/* Kill zone — below the map */}
+      <KillZone position={[0, -55, 0]} size={[300, 10, 300]} />
+
+      {/* === Map Geometry === */}
       {/* Ramp — gentle slope */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider

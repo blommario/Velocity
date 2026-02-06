@@ -5,6 +5,7 @@ import { PHYSICS } from './constants';
 import type { InputState } from './types';
 import {
   applyFriction,
+  applySlideFriction,
   applyGroundAcceleration,
   applyAirAcceleration,
   getWishDir,
@@ -24,7 +25,7 @@ const _newPos = new Vector3();
 
 let lastHudUpdate = 0;
 
-interface PhysicsTickRefs {
+export interface PhysicsTickRefs {
   rigidBody: MutableRefObject<RapierRigidBody | null>;
   collider: MutableRefObject<RapierCollider | null>;
   controller: MutableRefObject<ReturnType<
@@ -35,10 +36,12 @@ interface PhysicsTickRefs {
   pitch: MutableRefObject<number>;
   grounded: MutableRefObject<boolean>;
   jumpBufferTime: MutableRefObject<number>;
+  isCrouching: MutableRefObject<boolean>;
+  isSliding: MutableRefObject<boolean>;
   input: MutableRefObject<InputState>;
 }
 
-/** Execute a single 128Hz physics tick: mouse look → movement → KCC → camera → HUD */
+/** Execute a single 128Hz physics tick: respawn → mouse look → movement → KCC → camera → HUD */
 export function physicsTick(
   refs: PhysicsTickRefs,
   camera: Camera,
@@ -53,6 +56,29 @@ export function physicsTick(
   const velocity = refs.velocity.current;
   const { sensitivity, autoBhop } = useSettingsStore.getState();
   const dt = PHYSICS.TICK_DELTA;
+
+  // --- Respawn check ---
+  const store = useGameStore.getState();
+  if (store.checkKillZone()) {
+    store.requestRespawn();
+  }
+  const respawn = store.consumeRespawn();
+  if (respawn) {
+    rb.setNextKinematicTranslation({ x: respawn.pos[0], y: respawn.pos[1], z: respawn.pos[2] });
+    _newPos.set(respawn.pos[0], respawn.pos[1], respawn.pos[2]);
+    velocity.set(0, 0, 0);
+    refs.yaw.current = respawn.yaw;
+    refs.pitch.current = 0;
+    refs.grounded.current = false;
+    refs.isCrouching.current = false;
+    refs.isSliding.current = false;
+    collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+    camera.position.set(respawn.pos[0], respawn.pos[1] + PHYSICS.PLAYER_EYE_OFFSET, respawn.pos[2]);
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = respawn.yaw;
+    camera.rotation.x = 0;
+    return;
+  }
 
   // --- Mouse look ---
   const { dx, dy } = consumeMouseDelta();
@@ -77,13 +103,46 @@ export function physicsTick(
 
   const wantsJump = autoBhop ? input.jump : refs.jumpBufferTime.current > 0;
 
+  // --- Crouch sliding ---
+  const wantsCrouch = input.crouch;
+  const hSpeed = getHorizontalSpeed(velocity);
+
+  if (refs.grounded.current && wantsCrouch) {
+    if (!refs.isCrouching.current && hSpeed >= PHYSICS.CROUCH_SLIDE_MIN_SPEED) {
+      refs.isSliding.current = true;
+      const boost = PHYSICS.CROUCH_SLIDE_BOOST;
+      if (hSpeed > 0) {
+        velocity.x += (velocity.x / hSpeed) * boost;
+        velocity.z += (velocity.z / hSpeed) * boost;
+      }
+    }
+    refs.isCrouching.current = true;
+    if (refs.isSliding.current && hSpeed < PHYSICS.CROUCH_SLIDE_MIN_SPEED * 0.5) {
+      refs.isSliding.current = false;
+    }
+  } else {
+    refs.isCrouching.current = wantsCrouch && !refs.grounded.current;
+    refs.isSliding.current = false;
+  }
+
+  const targetHalfHeight = refs.isCrouching.current
+    ? PHYSICS.PLAYER_HEIGHT_CROUCH / 2 - PHYSICS.PLAYER_RADIUS
+    : PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS;
+  collider.setHalfHeight(targetHalfHeight);
+
   // --- Movement ---
   if (refs.grounded.current) {
     if (wantsJump) {
       velocity.y = PHYSICS.JUMP_FORCE;
       refs.grounded.current = false;
       refs.jumpBufferTime.current = 0;
+      refs.isSliding.current = false;
+      refs.isCrouching.current = false;
+      collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+      store.recordJump();
       if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
+    } else if (refs.isSliding.current) {
+      applySlideFriction(velocity, dt);
     } else {
       applyFriction(velocity, dt);
       if (hasInput) applyGroundAcceleration(velocity, wishDir, dt);
@@ -120,7 +179,8 @@ export function physicsTick(
   }
 
   // --- Camera ---
-  camera.position.set(_newPos.x, _newPos.y + PHYSICS.PLAYER_EYE_OFFSET, _newPos.z);
+  const eyeOffset = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
+  camera.position.set(_newPos.x, _newPos.y + eyeOffset, _newPos.z);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = refs.yaw.current;
   camera.rotation.x = refs.pitch.current;
@@ -130,7 +190,6 @@ export function physicsTick(
   if (now - lastHudUpdate > HUD_UPDATE_INTERVAL) {
     lastHudUpdate = now;
     const speed = getHorizontalSpeed(velocity);
-    const store = useGameStore.getState();
     store.updateHud(speed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
     if (store.timerRunning) store.tickTimer();
   }

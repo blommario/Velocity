@@ -110,6 +110,29 @@ export function getWishDir(
 }
 
 /**
+ * Apply reduced friction for crouch sliding.
+ * Same Quake friction model but with CROUCH_FRICTION instead of GROUND_FRICTION.
+ */
+export function applySlideFriction(velocity: Vector3, dt: number): void {
+  const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+  if (speed < FRICTION_DEAD_ZONE) {
+    velocity.x = 0;
+    velocity.z = 0;
+    return;
+  }
+
+  const control = speed < PHYSICS.STOP_SPEED ? PHYSICS.STOP_SPEED : speed;
+  const drop = control * PHYSICS.CROUCH_FRICTION * dt;
+
+  let newSpeed = speed - drop;
+  if (newSpeed < 0) newSpeed = 0;
+  const scale = newSpeed / speed;
+
+  velocity.x *= scale;
+  velocity.z *= scale;
+}
+
+/**
  * Get horizontal speed from velocity.
  */
 export function getHorizontalSpeed(velocity: Vector3): number {

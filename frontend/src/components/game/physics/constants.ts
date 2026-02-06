@@ -22,6 +22,12 @@ export const PHYSICS = {
   PLAYER_HEIGHT: 1.8,      // standing height in meters
   PLAYER_HEIGHT_CROUCH: 1.0,
   PLAYER_EYE_OFFSET: 0.75, // from capsule center to eye level
+  PLAYER_EYE_OFFSET_CROUCH: 0.2, // eye offset when crouching
+
+  // Crouch sliding
+  CROUCH_FRICTION: 1.5,        // much lower friction while sliding
+  CROUCH_SLIDE_MIN_SPEED: 200, // min horizontal speed to enter slide
+  CROUCH_SLIDE_BOOST: 40,      // extra burst speed on slide entry
 
   // Collision
   STAIR_STEP_HEIGHT: 0.45,

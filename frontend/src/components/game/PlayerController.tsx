@@ -23,6 +23,8 @@ export function PlayerController() {
   const pitchRef = useRef(0);
   const groundedRef = useRef(false);
   const jumpBufferTimeRef = useRef(0);
+  const isCrouchingRef = useRef(false);
+  const isSlidingRef = useRef(false);
 
   const controllerRef = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
 
@@ -53,6 +55,8 @@ export function PlayerController() {
         pitch: pitchRef,
         grounded: groundedRef,
         jumpBufferTime: jumpBufferTimeRef,
+        isCrouching: isCrouchingRef,
+        isSliding: isSlidingRef,
         input: inputRef,
       },
       camera,

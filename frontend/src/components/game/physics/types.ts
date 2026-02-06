@@ -14,6 +14,8 @@ export interface InputState {
 export interface MovementState {
   velocity: Vector3;
   isGrounded: boolean;
+  isCrouching: boolean;
+  isSliding: boolean;
   yaw: number;
   pitch: number;
   jumpBufferTime: number;
