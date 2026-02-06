@@ -30,6 +30,13 @@ export interface RunStats {
   averageSpeed: number;
 }
 
+export interface SplitPopupData {
+  checkpointIndex: number;
+  time: number;
+  delta: number | null; // null = no PB to compare
+  timestamp: number;    // performance.now() when shown
+}
+
 const KILL_ZONE_Y = -50;
 const INITIAL_STATS: RunStats = {
   maxSpeed: 0,
@@ -40,6 +47,7 @@ const INITIAL_STATS: RunStats = {
 
 interface GameState {
   screen: Screen;
+  currentMapId: string | null;
   speed: number;
   position: [number, number, number];
   isGrounded: boolean;
@@ -68,12 +76,19 @@ interface GameState {
   speedSamples: number;
   speedSum: number;
 
+  // Split popup
+  activeSplitPopup: SplitPopupData | null;
+  pbSplitTimes: SplitTime[]; // personal best splits for comparison
+
+  // Screen shake
+  shakeIntensity: number;
+
   // Actions
   setScreen: (screen: Screen) => void;
   updateHud: (speed: number, position: [number, number, number], isGrounded: boolean) => void;
 
   // Run lifecycle
-  initRun: (totalCheckpoints: number, spawnPoint: [number, number, number], spawnYaw: number) => void;
+  initRun: (totalCheckpoints: number, spawnPoint: [number, number, number], spawnYaw: number, mapId?: string) => void;
   startRun: () => void;
   hitCheckpoint: (index: number) => void;
   finishRun: () => void;
@@ -87,10 +102,15 @@ interface GameState {
 
   // Stats
   recordJump: () => void;
+
+  // Screen shake
+  triggerShake: (intensity: number) => void;
+  clearShake: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
-  screen: SCREENS.PLAYING,
+  screen: SCREENS.MAIN_MENU,
+  currentMapId: null,
   speed: 0,
   position: [0, 0, 0],
   isGrounded: false,
@@ -114,6 +134,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   previousPosition: [0, 0, 0],
   speedSamples: 0,
   speedSum: 0,
+
+  activeSplitPopup: null,
+  pbSplitTimes: [],
+
+  shakeIntensity: 0,
 
   setScreen: (screen) => set({ screen }),
 
@@ -144,8 +169,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  initRun: (totalCheckpoints, spawnPoint, spawnYaw) =>
+  initRun: (totalCheckpoints, spawnPoint, spawnYaw, mapId) =>
     set({
+      currentMapId: mapId ?? null,
       runState: RUN_STATES.READY,
       timerRunning: false,
       startTime: 0,
@@ -183,21 +209,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (index !== state.currentCheckpoint) return;
 
     const time = performance.now() - state.startTime;
+    const pbSplit = state.pbSplitTimes.find((s) => s.checkpointIndex === index);
+    const delta = pbSplit ? time - pbSplit.time : null;
+
     set({
       currentCheckpoint: state.currentCheckpoint + 1,
       splitTimes: [...state.splitTimes, { checkpointIndex: index, time }],
       lastCheckpointPos: state.position,
       lastCheckpointYaw: 0,
+      activeSplitPopup: { checkpointIndex: index, time, delta, timestamp: performance.now() },
     });
   },
 
   finishRun: () => {
     const state = get();
     if (state.runState !== RUN_STATES.RUNNING) return;
+    const finalTime = performance.now() - state.startTime;
+
+    // Save PB splits if this is a new personal best (or first run)
+    const pbFinish = state.pbSplitTimes.length > 0
+      ? state.pbSplitTimes[state.pbSplitTimes.length - 1]?.time ?? Infinity
+      : Infinity;
+    const newSplits = [...state.splitTimes, { checkpointIndex: state.totalCheckpoints, time: finalTime }];
+    const isPb = finalTime < pbFinish;
+
     set({
       runState: RUN_STATES.FINISHED,
       timerRunning: false,
-      elapsedMs: performance.now() - state.startTime,
+      elapsedMs: finalTime,
+      activeSplitPopup: null,
+      pbSplitTimes: isPb ? newSplits : state.pbSplitTimes,
     });
   },
 
@@ -216,6 +257,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       stats: { ...INITIAL_STATS },
       speedSamples: 0,
       speedSum: 0,
+      activeSplitPopup: null,
     });
   },
 
@@ -246,4 +288,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       stats: { ...state.stats, totalJumps: state.stats.totalJumps + 1 },
     });
   },
+
+  triggerShake: (intensity) => set({ shakeIntensity: Math.min(intensity, 1) }),
+  clearShake: () => set({ shakeIntensity: 0 }),
 }));

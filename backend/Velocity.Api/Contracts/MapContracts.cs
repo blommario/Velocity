@@ -20,3 +20,9 @@ public record CreateMapRequest(
     string? Description,
     MapDifficulty Difficulty,
     string MapDataJson);
+
+public record UpdateMapRequest(
+    string Name,
+    string? Description,
+    MapDifficulty Difficulty,
+    string MapDataJson);

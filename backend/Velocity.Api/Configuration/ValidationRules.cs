@@ -8,6 +8,19 @@ public static class ValidationRules
     public const string GuestNamePrefix = "Guest";
     public const int GuestNameSuffixLength = 8;
     public const string UnknownAuthorName = "Unknown";
+
+    // Maps
+    public const int MapNameMaxLength = 100;
+    public const int MapDescriptionMaxLength = 1000;
+
+    // Runs
+    public const float MinRunTime = 0.1f;
+    public const float MaxRunTime = 3600f; // 1 hour
+
+    // Leaderboard
+    public const int LeaderboardMaxEntries = 100;
+    public const int DefaultPageSize = 20;
+    public const int MaxPageSize = 100;
 }
 
 public static class ValidationMessages
@@ -19,4 +32,10 @@ public static class ValidationMessages
     public const string InvalidCredentials = "Invalid username or password.";
     public const string MapNameRequired = "Map name is required.";
     public const string MapDataRequired = "Map data is required.";
+    public const string MapNotFound = "Map not found.";
+    public const string MapNotAuthor = "You are not the author of this map.";
+    public const string RunInvalidTime = "Run time must be between 0.1 and 3600 seconds.";
+    public const string RunInvalidMapId = "Invalid map ID.";
+    public const string RunNotFound = "Run not found.";
+    public const string PlayerNotFound = "Player not found.";
 }

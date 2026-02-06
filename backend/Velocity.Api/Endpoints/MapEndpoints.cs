@@ -27,6 +27,18 @@ public static class MapEndpoints
             => handler.Create(request, user, ct))
             .RequireAuthorization();
 
+        group.MapPut("/{id:guid}", (Guid id, UpdateMapRequest request, ClaimsPrincipal user, MapHandlers handler, CancellationToken ct)
+            => handler.Update(id, request, user, ct))
+            .RequireAuthorization();
+
+        group.MapDelete("/{id:guid}", (Guid id, ClaimsPrincipal user, MapHandlers handler, CancellationToken ct)
+            => handler.Delete(id, user, ct))
+            .RequireAuthorization();
+
+        group.MapPost("/{id:guid}/like", (Guid id, MapHandlers handler, CancellationToken ct)
+            => handler.Like(id, ct))
+            .RequireAuthorization();
+
         return group;
     }
 }

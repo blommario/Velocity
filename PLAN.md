@@ -64,12 +64,13 @@
 - ✅ SpeedMeter — färgkodad (vit→gul→orange→röd) + numeriskt värde
 - ✅ Timer — mm:ss.mmm precision
 - ✅ Crosshair — minimal dot
-- 🔲 Checkpoint-räknare — "CP 3/7" uppe till höger
-- 🔲 Split-tider — popup vid checkpoint (+/- vs PB, grön/röd)
-- 🔲 Track progress bar — tunn bar längst ner
-- 🔲 FOV-skalning — 90° bas → 110° vid 500 u/s → 120° vid 800+ u/s
-- 🔲 Speed lines — subtila radiella linjer vid höga hastigheter
-- 🔲 Screen shake — minimal vid explosioner (toggle i settings)
+- ✅ Checkpoint-räknare — "CP 3/7" uppe till höger
+- ✅ Split-tider — popup vid checkpoint (+/- vs PB, grön/röd)
+- ✅ Track progress bar — tunn bar längst ner
+- ✅ FOV-skalning — 90° bas → 110° vid 400 u/s → 120° vid 800+ u/s (smooth lerp)
+- ✅ Speed lines — subtila radiella linjer vid höga hastigheter (canvas overlay)
+- ✅ Screen shake — infrastruktur klar (triggerShake/clearShake i gameStore, ScreenShake komponent)
+- 🔲 Crosshair — customization (färg, stil, size) i settings
 
 ---
 
@@ -86,12 +87,12 @@
 - ✅ Rate limiting (10 req/min på auth)
 - ✅ CORS, response compression, health check, OpenAPI
 - ✅ Backend-tester (3 xUnit-tester: TokenService)
-- 🔲 `RunRepository`-implementation
-- 🔲 `RunHandler` + `RunEndpoints` — `POST /api/runs`, `GET /api/runs/{id}`
-- 🔲 `LeaderboardHandler` + `LeaderboardEndpoints` — `GET /api/maps/{id}/leaderboard`
-- 🔲 Maps CRUD: `PUT /api/maps/{id}`, `DELETE /api/maps/{id}`
-- 🔲 Maps like: `POST /api/maps/{id}/like`
-- 🔲 Spelprofiler: `GET /api/players/{id}/profile`
+- ✅ `RunRepository`-implementation + `ILeaderboardRepository` + `LeaderboardRepository`
+- ✅ `RunHandler` + `RunEndpoints` — `POST /api/runs`, `GET /api/runs/{id}`, `GET /api/runs/map/{mapId}`
+- ✅ `LeaderboardHandler` + `LeaderboardEndpoints` — `GET /api/maps/{mapId}/leaderboard`
+- ✅ Maps CRUD: `PUT /api/maps/{id}`, `DELETE /api/maps/{id}` (author-only)
+- ✅ Maps like: `POST /api/maps/{id}/like`
+- ✅ Spelprofiler: `GET /api/players/{id}/profile`
 
 ---
 
@@ -100,12 +101,12 @@
 
 **Förutsättning:** Fas 3 (gameplay loop) + Fas 5 (backend endpoints)
 
-- 🔲 Auth-flow i frontend — guest-login vid start, token i Zustand/localStorage
-- 🔲 `authStore` — token, player info, login/register/guest actions
-- 🔲 Skicka run till backend vid slutförd bana (tid, stats, checkpoint-tider)
-- 🔲 Hämta leaderboard per bana och visa i UI
-- 🔲 Hämta bandata (MapDataJson) från backend och rendera i R3F
-- 🔲 Main Menu — banlista hämtad från API med filter/sökning
+- ✅ Auth-flow i frontend — guest-login vid start, token i Zustand/localStorage
+- ✅ `authStore` — token, player info, login/register/guest actions + session restore
+- ✅ Skicka run till backend vid slutförd bana (tid, stats, auto-submit i EndRunModal)
+- ✅ Hämta leaderboard per bana och visa i UI (EndRunModal visar top 10)
+- 🔲 Hämta bandata (MapDataJson) från backend och rendera i R3F (map loader ej klar — kräver Fas 8)
+- ✅ Main Menu — banlista hämtad från API med filter/sökning + AuthScreen
 
 ---
 
@@ -121,6 +122,10 @@
 - 🔲 Grenade jump — timing + knockback
 - 🔲 Ammo-system — begränsad ammo per bana, ammo pickups
 - 🔲 Health-system — self-damage + regeneration
+- 🔲 Sniper rifle — hitscan, hög precision, ingen knockback (för finjustering och tekniska sektioner)
+- 🔲 Rifle — hitscan, låg precision, liten knockback (för crowd control och rörelse-sektioner)
+- 🔲 Machine gun — hitscan, hög eldhastighet, liten knockback (för crowd control och rörelse-sektioner)
+- 🔲 Knife — melee, ingen knockback, används för stealth-sektioner eller som sista ut
 
 ### 7b — Rörelse-mekaniker
 - 🔲 Wall running — väggdetektion + strafe key, 1.5s max, 90% speed preservation
@@ -222,6 +227,10 @@
 - 🔲 Matchmaking — ELO baserat på average percentile, quick match (random official), ranked (veckans rotation)
 - 🔲 Vänlista + aktivitetsflöde (SSE: vän slog ditt rekord, ny bana publicerad)
 - 🔲 Spelarprofiler — stats, favoritbanor, senaste runs
+- 🔲 pvp-läge — direkt duell med real-time positionsdata, ingen ghost-rendering, collision enabled, power-ups (boosts, mines)
+- 🔲 teams — 2v2 eller 4v4, lagbaserade mål (först till X poäng), lag-chat
+- 🔲 olika game modes — time attack, elimination (sista spelaren kvar), capture the flag (kontrollpunkter)
+- 🔲 Rankingsystem — global leaderboard + per-map, med pagination och filter (friends, region)
 
 ---
 

@@ -57,6 +57,65 @@ public sealed class MapHandlers(IMapRepository maps)
         return Results.Created($"/api/maps/{map.Id}", ToResponse(map));
     }
 
+    public async ValueTask<IResult> Update(Guid id, UpdateMapRequest request, ClaimsPrincipal user, CancellationToken ct)
+    {
+        var claimValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (claimValue is null || !Guid.TryParse(claimValue, out var playerId))
+            return Results.Problem(statusCode: 401, detail: ValidationMessages.InvalidCredentials);
+
+        var map = await maps.GetByIdAsync(id, ct);
+        if (map is null)
+            return Results.NotFound(ValidationMessages.MapNotFound);
+
+        if (map.AuthorId != playerId)
+            return Results.Problem(statusCode: 403, detail: ValidationMessages.MapNotAuthor);
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return Results.BadRequest(ValidationMessages.MapNameRequired);
+
+        if (string.IsNullOrWhiteSpace(request.MapDataJson))
+            return Results.BadRequest(ValidationMessages.MapDataRequired);
+
+        map.Name = request.Name;
+        map.Description = request.Description ?? string.Empty;
+        map.Difficulty = request.Difficulty;
+        map.MapDataJson = request.MapDataJson;
+        map.UpdatedAt = DateTime.UtcNow;
+
+        await maps.UpdateAsync(map, ct);
+        return Results.Ok(ToResponse(map));
+    }
+
+    public async ValueTask<IResult> Delete(Guid id, ClaimsPrincipal user, CancellationToken ct)
+    {
+        var claimValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (claimValue is null || !Guid.TryParse(claimValue, out var playerId))
+            return Results.Problem(statusCode: 401, detail: ValidationMessages.InvalidCredentials);
+
+        var map = await maps.GetByIdAsync(id, ct);
+        if (map is null)
+            return Results.NotFound(ValidationMessages.MapNotFound);
+
+        if (map.AuthorId != playerId)
+            return Results.Problem(statusCode: 403, detail: ValidationMessages.MapNotAuthor);
+
+        await maps.DeleteAsync(id, ct);
+        return Results.NoContent();
+    }
+
+    public async ValueTask<IResult> Like(Guid id, CancellationToken ct)
+    {
+        var map = await maps.GetByIdAsync(id, ct);
+        if (map is null)
+            return Results.NotFound(ValidationMessages.MapNotFound);
+
+        map.LikeCount++;
+        map.UpdatedAt = DateTime.UtcNow;
+        await maps.UpdateAsync(map, ct);
+
+        return Results.Ok(new { map.LikeCount });
+    }
+
     private static MapResponse ToResponse(GameMap m) => new(
         m.Id, m.Name, m.Description,
         m.Author?.Username ?? ValidationRules.UnknownAuthorName,

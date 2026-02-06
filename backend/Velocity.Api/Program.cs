@@ -85,10 +85,14 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
 builder.Services.AddScoped<IMapRepository, MapRepository>();
 builder.Services.AddScoped<IRunRepository, RunRepository>();
+builder.Services.AddScoped<ILeaderboardRepository, LeaderboardRepository>();
 
 // ── Handlers (CQRS) ──
 builder.Services.AddScoped<AuthHandlers>();
 builder.Services.AddScoped<MapHandlers>();
+builder.Services.AddScoped<RunHandlers>();
+builder.Services.AddScoped<LeaderboardHandlers>();
+builder.Services.AddScoped<PlayerHandlers>();
 
 // ── Problem details for consistent error responses ──
 builder.Services.AddProblemDetails();
@@ -132,5 +136,8 @@ app.MapAuthEndpoints()
     .RequireRateLimiting(RateLimitPolicies.Auth);
 
 app.MapMapEndpoints();
+app.MapRunEndpoints();
+app.MapLeaderboardEndpoints();
+app.MapPlayerEndpoints();
 
 app.Run();

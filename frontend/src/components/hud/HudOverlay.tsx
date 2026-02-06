@@ -2,6 +2,9 @@ import { SpeedMeter } from './SpeedMeter';
 import { Timer } from './Timer';
 import { Crosshair } from './Crosshair';
 import { CheckpointCounter } from './CheckpointCounter';
+import { SplitPopup } from './SplitPopup';
+import { TrackProgressBar } from './TrackProgressBar';
+import { SpeedLines } from './SpeedLines';
 import { EndRunModal } from './EndRunModal';
 import { useGameStore, RUN_STATES } from '../../stores/gameStore';
 
@@ -16,6 +19,9 @@ export function HudOverlay() {
       <Timer />
       <SpeedMeter />
       <CheckpointCounter />
+      <SplitPopup />
+      <SpeedLines />
+      <TrackProgressBar />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}
 
