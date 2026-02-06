@@ -94,3 +94,76 @@ export interface PlayerProfileResponse {
   mapsCreated: number;
   leaderboardEntries: number;
 }
+
+export interface PlayerRecentRunResponse {
+  runId: string;
+  mapId: string;
+  mapName: string;
+  time: number;
+  maxSpeed: number;
+  completedAt: string;
+  isPersonalBest: boolean;
+}
+
+export interface PlayerProfileDetailResponse {
+  profile: PlayerProfileResponse;
+  recentRuns: PlayerRecentRunResponse[];
+}
+
+// ── Race Rooms ──
+export interface ParticipantResponse {
+  playerId: string;
+  playerName: string;
+  isReady: boolean;
+  finishTime: number | null;
+}
+
+export interface RoomResponse {
+  id: string;
+  mapId: string;
+  mapName: string;
+  hostPlayerId: string;
+  hostName: string;
+  status: string;
+  maxPlayers: number;
+  currentPlayers: number;
+  createdAt: string;
+  participants: ParticipantResponse[];
+}
+
+export interface CreateRoomRequest {
+  mapId: string;
+}
+
+export type RoomStatus = 'waiting' | 'countdown' | 'racing' | 'finished';
+
+// ── Race SSE Events ──
+export interface RaceCountdownEvent {
+  countdown: number;
+}
+
+export interface RacePositionEvent {
+  playerId: string;
+  playerName: string;
+  position: [number, number, number];
+  yaw: number;
+  pitch: number;
+}
+
+export interface RacePlayerFinishedEvent {
+  playerId: string;
+  playerName: string;
+  finishTime: number;
+}
+
+export interface RaceRoomUpdateEvent {
+  room: RoomResponse;
+}
+
+export interface RaceEventMap {
+  countdown: RaceCountdownEvent;
+  position: RacePositionEvent;
+  playerFinished: RacePlayerFinishedEvent;
+  roomUpdate: RaceRoomUpdateEvent;
+  message: RaceRoomUpdateEvent;
+}

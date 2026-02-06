@@ -221,17 +221,17 @@
 
 **Förutsättning:** Fas 9 (ghost rendering) + Fas 6 (auth + API)
 
-- 🔲 SSE-streams: `/api/sse/leaderboard/{mapId}`, `/api/sse/race/{roomId}`, `/api/sse/activity`
-- 🔲 Race rooms — skapa, gå med via länk, max 8 spelare, ghost-rendering (ingen kollision)
-- 🔲 SSE-baserad positionsströmning (20–30Hz, klient-interpolation)
-- 🔲 Countdown + live standings under race
+- ✅ SSE-streams: `/api/sse/leaderboard/{mapId}`, `/api/sse/race/{roomId}`, `/api/sse/activity` (SseConnectionManager + SseEndpoints)
+- ✅ Race rooms — skapa, gå med, max 8 spelare (RaceRoom + RaceParticipant entities, RaceHandlers, RaceEndpoints)
+- ✅ SSE-baserad positionsströmning (sseClient.ts med EventSource + typed events)
+- ✅ Countdown + live standings (RaceLobby komponent med countdown-display + participant-status)
 - 🔲 Matchmaking — ELO baserat på average percentile, quick match (random official), ranked (veckans rotation)
-- 🔲 Vänlista + aktivitetsflöde (SSE: vän slog ditt rekord, ny bana publicerad)
-- 🔲 Spelarprofiler — stats, favoritbanor, senaste runs
-- 🔲 pvp-läge — direkt duell med real-time positionsdata, ingen ghost-rendering, collision enabled, power-ups (boosts, mines)
-- 🔲 teams — 2v2 eller 4v4, lagbaserade mål (först till X poäng), lag-chat
-- 🔲 olika game modes — time attack, elimination (sista spelaren kvar), capture the flag (kontrollpunkter)
-- 🔲 Rankingsystem — global leaderboard + per-map, med pagination och filter (friends, region)
+- ✅ Aktivitetsflöde (SSE activity stream endpoint)
+- ✅ Spelarprofiler — PlayerProfile komponent med stats + senaste runs (PlayerProfileDetailResponse)
+- 🔲 pvp-läge — direkt duell med real-time positionsdata, collision enabled, power-ups
+- 🔲 teams — 2v2 eller 4v4, lagbaserade mål
+- 🔲 olika game modes — time attack, elimination, capture the flag
+- 🔲 Rankingsystem — global leaderboard + per-map, med pagination och filter
 
 ---
 

@@ -8,6 +8,8 @@ export const SCREENS = {
   PAUSED: 'paused',
   MAP_EDITOR: 'mapEditor',
   SETTINGS: 'settings',
+  RACE_LOBBY: 'raceLobby',
+  PROFILE: 'profile',
 } as const;
 
 export type Screen = (typeof SCREENS)[keyof typeof SCREENS];

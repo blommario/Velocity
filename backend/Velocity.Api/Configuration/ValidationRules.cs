@@ -21,6 +21,11 @@ public static class ValidationRules
     public const int LeaderboardMaxEntries = 100;
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+
+    // Race rooms
+    public const int RaceMaxPlayers = 8;
+    public const int RaceMinPlayers = 2;
+    public const int RaceRoomStatusMaxLength = 20;
 }
 
 public static class ValidationMessages
@@ -41,4 +46,15 @@ public static class ValidationMessages
     public const string ReplayDataRequired = "Replay data is required.";
     public const string ReplayNotFound = "Replay not found for this run.";
     public const string RunNotOwned = "You do not own this run.";
+
+    // Race rooms
+    public const string RoomNotFound = "Race room not found.";
+    public const string RoomFull = "Race room is full.";
+    public const string RoomAlreadyJoined = "You have already joined this room.";
+    public const string RoomNotWaiting = "Race room is not accepting new players.";
+    public const string RoomNotHost = "Only the host can start the race.";
+    public const string RoomNotEnoughPlayers = "Not enough players to start the race.";
+    public const string RoomNotAllReady = "Not all players are ready.";
+    public const string RoomAlreadyStarted = "Race has already started.";
+    public const string RoomNotParticipant = "You are not a participant in this room.";
 }

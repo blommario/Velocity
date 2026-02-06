@@ -82,10 +82,12 @@ builder.Services.AddOpenApi();
 
 // ── Services ──
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<SseConnectionManager>();
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
 builder.Services.AddScoped<IMapRepository, MapRepository>();
 builder.Services.AddScoped<IRunRepository, RunRepository>();
 builder.Services.AddScoped<ILeaderboardRepository, LeaderboardRepository>();
+builder.Services.AddScoped<IRaceRoomRepository, RaceRoomRepository>();
 
 // ── Handlers (CQRS) ──
 builder.Services.AddScoped<AuthHandlers>();
@@ -94,6 +96,7 @@ builder.Services.AddScoped<RunHandlers>();
 builder.Services.AddScoped<LeaderboardHandlers>();
 builder.Services.AddScoped<PlayerHandlers>();
 builder.Services.AddScoped<ReplayHandlers>();
+builder.Services.AddScoped<RaceHandlers>();
 
 // ── Problem details for consistent error responses ──
 builder.Services.AddProblemDetails();
@@ -141,5 +144,7 @@ app.MapRunEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapPlayerEndpoints();
 app.MapReplayEndpoints();
+app.MapRaceEndpoints();
+app.MapSseEndpoints();
 
 app.Run();

@@ -12,4 +12,6 @@ public class Player
     public ICollection<GameMap> CreatedMaps { get; set; } = [];
     public ICollection<Run> Runs { get; set; } = [];
     public ICollection<LeaderboardEntry> LeaderboardEntries { get; set; } = [];
+    public ICollection<RaceRoom> HostedRooms { get; set; } = [];
+    public ICollection<RaceParticipant> RaceParticipations { get; set; } = [];
 }

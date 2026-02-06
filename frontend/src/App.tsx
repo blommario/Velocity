@@ -4,6 +4,8 @@ import { MainMenu } from './components/menu/MainMenu';
 import { AuthScreen } from './components/menu/AuthScreen';
 import { MapEditor } from './components/editor/MapEditor';
 import { SettingsScreen } from './components/menu/SettingsScreen';
+import { RaceLobby } from './components/menu/RaceLobby';
+import { PlayerProfile } from './components/menu/PlayerProfile';
 import { useGameStore, SCREENS } from './stores/gameStore';
 import { useAuthStore } from './stores/authStore';
 
@@ -30,6 +32,10 @@ function App() {
       return <MapEditor />;
     case SCREENS.SETTINGS:
       return <SettingsScreen />;
+    case SCREENS.RACE_LOBBY:
+      return <RaceLobby />;
+    case SCREENS.PROFILE:
+      return <PlayerProfile />;
     case SCREENS.PLAYING:
       return <GameCanvas />;
     default:
