@@ -12,6 +12,7 @@ public sealed class LeaderboardHandlers(ILeaderboardRepository leaderboard)
 
         var ranked = entries.Select((e, i) => new LeaderboardEntryResponse(
             i + 1,
+            e.RunId ?? Guid.Empty,
             e.PlayerId,
             e.Player?.Username ?? ValidationRules.UnknownAuthorName,
             e.Time,

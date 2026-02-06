@@ -93,6 +93,7 @@ builder.Services.AddScoped<MapHandlers>();
 builder.Services.AddScoped<RunHandlers>();
 builder.Services.AddScoped<LeaderboardHandlers>();
 builder.Services.AddScoped<PlayerHandlers>();
+builder.Services.AddScoped<ReplayHandlers>();
 
 // ── Problem details for consistent error responses ──
 builder.Services.AddProblemDetails();
@@ -139,5 +140,6 @@ app.MapMapEndpoints();
 app.MapRunEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapPlayerEndpoints();
+app.MapReplayEndpoints();
 
 app.Run();

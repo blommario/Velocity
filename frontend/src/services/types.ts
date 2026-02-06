@@ -59,6 +59,7 @@ export interface RunResponse {
 // ── Leaderboard ──
 export interface LeaderboardEntryResponse {
   rank: number;
+  runId: string;
   playerId: string;
   playerName: string;
   time: number;
@@ -71,6 +72,16 @@ export interface LeaderboardEntryResponse {
 export interface LeaderboardResponse {
   mapId: string;
   entries: LeaderboardEntryResponse[];
+}
+
+// ── Replays ──
+export interface SubmitReplayRequest {
+  replayDataJson: string;
+}
+
+export interface ReplayResponse {
+  runId: string;
+  replayDataJson: string;
 }
 
 // ── Player ──

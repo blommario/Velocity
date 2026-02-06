@@ -7,6 +7,7 @@ import { TestMap } from './TestMap';
 import { MapLoader } from './map/MapLoader';
 import { ScreenShake } from './ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
+import { GhostRenderer } from './GhostRenderer';
 import { HudOverlay } from '../hud/HudOverlay';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
@@ -67,6 +68,7 @@ export function GameCanvas() {
         >
           <PlayerController />
           <ProjectileRenderer />
+          <GhostRenderer />
           {mapData ? (
             <MapLoader data={mapData} mapId={mapId ?? undefined} />
           ) : (

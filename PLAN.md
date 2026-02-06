@@ -161,11 +161,11 @@
 
 **Förutsättning:** Fas 6 (run submission) + Fas 8 (spelbara banor)
 
-- 🔲 Replay-inspelning — position + rotation + inputs vid 128Hz, delta-komprimering
-- 🔲 Replay-lagring på backend (`POST /api/runs/{id}/replay`)
-- 🔲 Ghost-rendering — semi-transparent spelarmodell som följer replay-data
-- 🔲 Race mot ghost — PB, WR, vänner
-- 🔲 Download/streaming av replay-data
+- ✅ Replay-inspelning — position + rotation vid ~30Hz (downsampled från 128Hz), delta-komprimering med keyframes var 32:e frame
+- ✅ Replay-lagring på backend (`POST /api/runs/{runId}/replay`, `GET /api/runs/{runId}/replay`)
+- ✅ Ghost-rendering — semi-transparent blå kapsel som följer replay-data med binärsökning + interpolation
+- ✅ Race mot ghost — PB auto-sparas som ghost vid finishRun, WR ghost laddas via leaderboard "Race WR"-knapp
+- ✅ Download/streaming av replay-data — replayService (submitReplay, getReplay), EndRunModal auto-submits replay efter run
 
 ---
 

@@ -25,4 +25,10 @@ public sealed class RunRepository(VelocityDbContext db) : IRunRepository
         await db.SaveChangesAsync(ct);
         return run;
     }
+
+    public async ValueTask UpdateAsync(Run run, CancellationToken ct = default)
+    {
+        db.Runs.Update(run);
+        await db.SaveChangesAsync(ct);
+    }
 }

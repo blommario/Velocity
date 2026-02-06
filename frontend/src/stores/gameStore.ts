@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { MapData } from '../components/game/map/types';
+import { useReplayStore } from './replayStore';
 
 export const SCREENS = {
   MAIN_MENU: 'mainMenu',
@@ -209,6 +210,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   startRun: () => {
     const state = get();
     if (state.runState !== RUN_STATES.READY) return;
+    useReplayStore.getState().startRecording();
     set({
       runState: RUN_STATES.RUNNING,
       timerRunning: true,
@@ -243,12 +245,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.runState !== RUN_STATES.RUNNING) return;
     const finalTime = performance.now() - state.startTime;
 
+    // Stop replay recording and save if PB
+    const replay = useReplayStore.getState().stopRecording();
+
     // Save PB splits if this is a new personal best (or first run)
     const pbFinish = state.pbSplitTimes.length > 0
       ? state.pbSplitTimes[state.pbSplitTimes.length - 1]?.time ?? Infinity
       : Infinity;
     const newSplits = [...state.splitTimes, { checkpointIndex: state.totalCheckpoints, time: finalTime }];
     const isPb = finalTime < pbFinish;
+
+    // Auto-save PB replay as ghost
+    if (isPb && replay) {
+      useReplayStore.getState().loadGhost(replay);
+    }
 
     set({
       runState: RUN_STATES.FINISHED,

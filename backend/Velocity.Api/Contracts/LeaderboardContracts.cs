@@ -2,6 +2,7 @@ namespace Velocity.Api.Contracts;
 
 public record LeaderboardEntryResponse(
     int Rank,
+    Guid RunId,
     Guid PlayerId,
     string PlayerName,
     float Time,

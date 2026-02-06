@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore, RUN_STATES, SCREENS, type SplitTime } from '../../stores/gameStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useReplayStore, serializeReplay, deserializeReplay } from '../../stores/replayStore';
 import { submitRun } from '../../services/runService';
+import { submitReplay, getReplay } from '../../services/replayService';
 import { getLeaderboard } from '../../services/leaderboardService';
 import type { LeaderboardEntryResponse } from '../../services/types';
 
@@ -20,6 +22,7 @@ export function EndRunModal() {
   const [submitted, setSubmitted] = useState(false);
   const [isPb, setIsPb] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntryResponse[]>([]);
+  const [loadingGhost, setLoadingGhost] = useState(false);
   const submitRef = useRef(false);
 
   // Auto-submit run + fetch leaderboard when finished
@@ -37,6 +40,8 @@ export function EndRunModal() {
     const timeSeconds = elapsedMs / 1000;
 
     if (token && currentMapId) {
+      const replay = useReplayStore.getState().currentReplay;
+
       submitRun({
         mapId: currentMapId,
         time: timeSeconds,
@@ -48,6 +53,11 @@ export function EndRunModal() {
         .then((res) => {
           setSubmitted(true);
           setIsPb(res.isPersonalBest);
+
+          // Submit replay data if available
+          if (replay) {
+            submitReplay(res.id, serializeReplay(replay)).catch(() => {});
+          }
         })
         .catch(() => setSubmitted(true));
 
@@ -90,6 +100,26 @@ export function EndRunModal() {
           >
             Retry
           </button>
+          {leaderboard.length > 0 && leaderboard[0].runId && (
+            <button
+              disabled={loadingGhost}
+              onClick={() => {
+                const wrRunId = leaderboard[0].runId;
+                setLoadingGhost(true);
+                getReplay(wrRunId)
+                  .then((res) => {
+                    const replay = deserializeReplay(res.replayDataJson);
+                    useReplayStore.getState().loadGhost(replay);
+                    resetRun();
+                    document.querySelector('canvas')?.requestPointerLock();
+                  })
+                  .catch(() => setLoadingGhost(false));
+              }}
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-wait text-white font-bold py-3 px-4 rounded transition-colors cursor-pointer"
+            >
+              {loadingGhost ? 'Loading...' : 'Race WR'}
+            </button>
+          )}
           <button
             onClick={() => setScreen(SCREENS.MAIN_MENU)}
             className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded transition-colors cursor-pointer"

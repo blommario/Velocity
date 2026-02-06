@@ -13,6 +13,7 @@ public class Run
     public DateTime CompletedAt { get; set; }
     public bool HasReplay { get; set; }
     public byte[]? ReplayData { get; set; }
+    public string? ReplayDataJson { get; set; }
 
     public GameMap Map { get; set; } = null!;
     public Player Player { get; set; } = null!;

@@ -38,4 +38,7 @@ public static class ValidationMessages
     public const string RunInvalidMapId = "Invalid map ID.";
     public const string RunNotFound = "Run not found.";
     public const string PlayerNotFound = "Player not found.";
+    public const string ReplayDataRequired = "Replay data is required.";
+    public const string ReplayNotFound = "Replay not found for this run.";
+    public const string RunNotOwned = "You do not own this run.";
 }

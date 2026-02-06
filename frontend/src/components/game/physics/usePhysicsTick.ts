@@ -21,9 +21,10 @@ import {
   updateWallRun,
   wallJump,
 } from './useAdvancedMovement';
-import { useGameStore } from '../../../stores/gameStore';
+import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
+import { useReplayStore } from '../../../stores/replayStore';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
@@ -460,6 +461,15 @@ export function physicsTick(
   camera.rotation.order = 'YXZ';
   camera.rotation.y = refs.yaw.current;
   camera.rotation.x = refs.pitch.current;
+
+  // --- Replay recording ---
+  if (store.runState === RUN_STATES.RUNNING) {
+    useReplayStore.getState().recordFrame(
+      [_newPos.x, _newPos.y, _newPos.z],
+      refs.yaw.current,
+      refs.pitch.current,
+    );
+  }
 
   // --- HUD (throttled ~30Hz) ---
   if (now - lastHudUpdate > HUD_UPDATE_INTERVAL) {
