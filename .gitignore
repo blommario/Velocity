@@ -1,0 +1,61 @@
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE / Editor ──
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.swo
+*~
+
+# ── .NET build outputs ──
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/publish/
+
+# ── .NET test outputs ──
+**/TestResults/
+**/coverage/
+
+# ── SQLite databases (created at runtime) ──
+*.db
+*.db-shm
+*.db-wal
+
+# ── Secrets / Certificates ──
+*.pfx
+*.pem
+*.key
+*.p12
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+
+# ── Node / Frontend ──
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+*.tsbuildinfo
+
+# ── Logs ──
+*.log
+npm-debug.log*
+
+# ── Claude / AI ──
+/.claude/
+
+# ── Misc ──
+*.bak
+*.tmp
+/NUL

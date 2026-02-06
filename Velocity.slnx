@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/Velocity.Api/Velocity.Api.csproj" />
+    <Project Path="backend/Velocity.Core/Velocity.Core.csproj" />
+    <Project Path="backend/Velocity.Data/Velocity.Data.csproj" />
+    <Project Path="backend/Velocity.Tests/Velocity.Tests.csproj" />
+  </Folder>
+  <Folder Name="/frontend/">
+    <File Path="frontend/package.json" />
+    <File Path="frontend/tsconfig.json" />
+    <File Path="frontend/vite.config.ts" />
+    <File Path="frontend/index.html" />
+  </Folder>
+</Solution>
