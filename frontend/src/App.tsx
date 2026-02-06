@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { GameCanvas } from './components/game/GameCanvas';
 import { MainMenu } from './components/menu/MainMenu';
 import { AuthScreen } from './components/menu/AuthScreen';
+import { MapEditor } from './components/editor/MapEditor';
 import { useGameStore, SCREENS } from './stores/gameStore';
 import { useAuthStore } from './stores/authStore';
 
@@ -24,6 +25,8 @@ function App() {
   switch (screen) {
     case SCREENS.MAIN_MENU:
       return <MainMenu />;
+    case SCREENS.MAP_EDITOR:
+      return <MapEditor />;
     case SCREENS.PLAYING:
       return <GameCanvas />;
     default:

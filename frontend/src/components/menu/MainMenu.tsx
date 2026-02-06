@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGameStore } from '../../stores/gameStore';
+import { useGameStore, SCREENS } from '../../stores/gameStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getMaps } from '../../services/mapService';
 import type { MapResponse, MapDifficulty } from '../../services/types';
@@ -84,13 +84,19 @@ export function MainMenu() {
         </div>
       </header>
 
-      {/* Quick Play */}
-      <div className="px-8 py-4">
+      {/* Quick Play + Editor */}
+      <div className="px-8 py-4 flex gap-3">
         <button
           onClick={playTestMap}
           className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg text-sm transition-colors"
         >
           Quick Play (Sandbox)
+        </button>
+        <button
+          onClick={() => useGameStore.getState().setScreen(SCREENS.MAP_EDITOR)}
+          className="bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg text-sm transition-colors"
+        >
+          Map Editor
         </button>
       </div>
 

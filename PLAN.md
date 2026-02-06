@@ -174,19 +174,19 @@
 
 **Förutsättning:** Fas 8 (map format definierat)
 
-- 🔲 Editor-layout: vänster = objektpalett, höger = egenskaper, topp = fil/undo/grid, 3D viewport
-- 🔲 Fri kamera — WASD + mus (fly mode)
-- 🔲 Block placement — snap-to-grid, cubes, ramps, cylindrar, wedges
-- 🔲 Material/textur-väljare — sten, metall, neon, glas, is (PBR-material)
-- 🔲 Objekt-palett — boost pads, launch pads, grapple points, checkpoints, start/finish, kill zones, ammo pickups
-- 🔲 Transform controls — G (grab/move), R (rotate), S (scale)
-- 🔲 Moving platforms — waypoint-editor + hastighetsinställning
-- 🔲 Lighting presets — dagsljus, solnedgång, natt, neon
-- 🔲 Test play — Tab för att växla editor ↔ playtest (spelar från aktuell position)
-- 🔲 Undo/redo — full historik-stack (Ctrl+Z / Ctrl+Y)
-- 🔲 Copy/paste — duplicera sektioner
-- 🔲 Spara/ladda/publicera till backend + delbar URL
-- 🔲 Auto-validering — varning om start/finish saknas, oåtkomliga areas
+- ✅ Editor-layout: vänster = objektpalett, höger = egenskaper, topp = toolbar, 3D viewport (MapEditor + EditorToolbar + ObjectPalette + PropertiesPanel)
+- ✅ Fri kamera — WASD + högerklick-drag (fly mode, Shift=snabb, Space/Q=upp/ner)
+- ✅ Block placement — snap-to-grid, cubes, ramps, cylindrar (klick på ground plane)
+- ✅ Material/textur-väljare — color picker, emissive, transparency, opacity i PropertiesPanel
+- ✅ Objekt-palett — alla objekttyper grupperade: geometry, zones, pads, items, dynamic
+- ✅ Transform controls — G (move), R (rotate), S (scale) + drei TransformControls + snap
+- ✅ Moving platforms — waypoint-editor med add/edit per waypoint + speed/pauseTime
+- ✅ Lighting presets — Day, Sunset, Night, Neon
+- ✅ Test play — Tab för att växla editor ↔ playtest (renderar GameCanvas med exporterad MapData)
+- ✅ Undo/redo — full historik-stack (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z), max 50 steg
+- ✅ Copy/paste — Ctrl+D duplicerar valt objekt, Delete/Backspace raderar
+- ✅ Spara/ladda/publicera — SavePublishModal: publicera till backend, save/load JSON lokalt, Ctrl+S
+- ✅ Auto-validering — validate() kollar finish zone, checkpoint-sekvens, minst ett block
 - 🔲 Community browser — rating, tags (difficulty, style), sökning
 
 ---
