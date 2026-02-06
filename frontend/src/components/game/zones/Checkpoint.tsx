@@ -1,5 +1,6 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
+import { audioManager, SOUNDS } from '../../../systems/AudioManager';
 
 const CHECKPOINT_COLOR = '#ffaa00';
 const CHECKPOINT_OPACITY = 0.2;
@@ -15,6 +16,7 @@ export function Checkpoint({ position, size, index }: CheckpointProps) {
     const state = useGameStore.getState();
     if (state.runState === RUN_STATES.RUNNING) {
       state.hitCheckpoint(index);
+      audioManager.play(SOUNDS.CHECKPOINT);
     }
   };
 

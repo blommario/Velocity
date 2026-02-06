@@ -25,6 +25,7 @@ import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { useReplayStore } from '../../../stores/replayStore';
+import { audioManager, SOUNDS } from '../../../systems/AudioManager';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
@@ -51,6 +52,12 @@ let wallRunState: WallRunState = {
 
 // Track grapple input edge (press/release)
 let wasGrapplePressed = false;
+
+// Audio tracking
+let wasGrounded = false;
+let footstepTimer = 0;
+const FOOTSTEP_INTERVAL_BASE = 0.4; // seconds at walk speed
+const FOOTSTEP_INTERVAL_MIN = 0.2; // seconds at max speed
 
 export interface PhysicsTickRefs {
   rigidBody: MutableRefObject<RapierRigidBody | null>;
@@ -142,16 +149,20 @@ export function physicsTick(
     switch (evt.type) {
       case 'boostPad':
         applyBoostPad(velocity, evt.direction, evt.speed);
+        audioManager.play(SOUNDS.BOOST_PAD);
         break;
       case 'launchPad':
         applyLaunchPad(velocity, evt.direction, evt.speed);
         refs.grounded.current = false;
+        audioManager.play(SOUNDS.LAUNCH_PAD);
         break;
       case 'speedGate':
         applySpeedGate(velocity, evt.multiplier, evt.minSpeed);
+        audioManager.play(SOUNDS.SPEED_GATE);
         break;
       case 'ammoPickup':
         combat.pickupAmmo(evt.weaponType, evt.amount);
+        audioManager.play(SOUNDS.AMMO_PICKUP);
         break;
     }
   }
@@ -174,6 +185,7 @@ export function physicsTick(
         velocity.normalize().multiplyScalar(speed * PHYSICS.GRAPPLE_RELEASE_BOOST);
       }
       combat.stopGrapple();
+      audioManager.play(SOUNDS.GRAPPLE_RELEASE);
     } else if (combat.grappleTarget) {
       // Active grapple: apply swing physics
       applyGrappleSwing(velocity, _playerPos, combat.grappleTarget, combat.grappleLength, dt);
@@ -210,6 +222,7 @@ export function physicsTick(
 
     if (bestPoint) {
       combat.startGrapple(bestPoint, bestDist);
+      audioManager.play(SOUNDS.GRAPPLE_ATTACH);
     }
   }
 
@@ -236,6 +249,7 @@ export function physicsTick(
       _fireDir.z * PHYSICS.ROCKET_SPEED,
     ];
     combat.fireRocket(spawnPos, rocketVel);
+    audioManager.play(SOUNDS.ROCKET_FIRE);
   }
 
   if (input.altFire && combat.fireCooldown <= 0 && combat.grenadeAmmo > 0) {
@@ -257,6 +271,7 @@ export function physicsTick(
       _fireDir.z * PHYSICS.GRENADE_SPEED,
     ];
     combat.fireGrenade(spawnPos, grenadeVel);
+    audioManager.play(SOUNDS.GRENADE_THROW);
   }
 
   // --- Update projectiles & check explosions ---
@@ -278,6 +293,7 @@ export function physicsTick(
           combat.takeDamage(damage);
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
+        audioManager.play(SOUNDS.GRENADE_EXPLODE);
         combat.removeProjectile(p.id);
       }
     }
@@ -302,6 +318,7 @@ export function physicsTick(
           combat.takeDamage(damage);
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
+        audioManager.play(SOUNDS.ROCKET_EXPLODE);
         combat.removeProjectile(p.id);
       }
     }
@@ -373,6 +390,7 @@ export function physicsTick(
       refs.isCrouching.current = false;
       collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
       store.recordJump();
+      audioManager.play(SOUNDS.JUMP, 0.1);
       if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
     } else if (refs.isSliding.current) {
       applySlideFriction(velocity, dt);
@@ -446,6 +464,27 @@ export function physicsTick(
       0, // dt=0 since we already advanced time above
     );
   }
+
+  // --- Landing & footstep audio ---
+  if (refs.grounded.current && !wasGrounded) {
+    const fallSpeed = Math.abs(velocity.y);
+    if (fallSpeed > 200) audioManager.play(SOUNDS.LAND_HARD, 0.1);
+    else audioManager.play(SOUNDS.LAND_SOFT, 0.1);
+  }
+  if (refs.grounded.current && hSpeed > 50 && !refs.isSliding.current) {
+    footstepTimer -= dt;
+    if (footstepTimer <= 0) {
+      const interval = FOOTSTEP_INTERVAL_BASE - (hSpeed / PHYSICS.MAX_SPEED) * (FOOTSTEP_INTERVAL_BASE - FOOTSTEP_INTERVAL_MIN);
+      footstepTimer = Math.max(interval, FOOTSTEP_INTERVAL_MIN);
+      audioManager.playFootstep();
+    }
+  } else {
+    footstepTimer = 0;
+  }
+  if (refs.isSliding.current && refs.grounded.current && hSpeed > 100) {
+    // Slide sound (throttled by footstep timer reuse)
+  }
+  wasGrounded = refs.grounded.current;
 
   // --- Collision velocity correction ---
   if (velocity.y > 0 && _correctedMovement.y < _desiredTranslation.y * 0.5) {

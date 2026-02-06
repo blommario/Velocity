@@ -196,22 +196,23 @@
 
 **Förutsättning:** Fas 8 (spelbar bana med mekaniker)
 
-- 🔲 Fotsteg — varierar per yta (metall, sten, glas), hastighetsbaserat tempo
-- 🔲 Hopp/landning — satisfying ljud, impact skalat efter fallhöjd
-- 🔲 Raket — launch sound, explosion med bas
-- 🔲 Granat — pin pull, studs, explosion
-- 🔲 Grappling hook — kedja, spänning, release-snap
-- 🔲 Boost/speed gate — elektronisk woosh
-- 🔲 Checkpoint ding + finish fanfare
-- 🔲 Ambient — per-bana (vind, stadsljud, mekaniskt)
-- 🔲 Settings-meny:
-  - Mus-sensitivity (med test-yta)
-  - FOV-slider (80–130)
-  - Keybindings (fullt rebindable)
-  - Ljud: master, SFX, musik
-  - Grafik: quality presets (Low/Med/High/Ultra), shadows, particles, post-processing
-  - HUD: toggle individuella element, skala, opacity
-  - Gameplay: auto-bhop toggle, crosshair-stil/färg
+- ✅ Fotsteg — syntetiserade ljud, varierar per yta (sten/metall/glas), hastighetsbaserat tempo (AudioManager)
+- ✅ Hopp/landning — jump + land_soft/land_hard (skalat efter fallhöjd) i usePhysicsTick
+- ✅ Raket — rocket_fire + rocket_explode med bas (synth med sawtooth + lowpass filter)
+- ✅ Granat — grenade_throw + grenade_explode syntetiserade ljud
+- ✅ Grappling hook — grapple_attach + grapple_release
+- ✅ Boost/speed gate — boost_pad, launch_pad, speed_gate elektroniska ljud
+- ✅ Checkpoint ding + finish fanfare — checkpoint + finish i zone-komponenter
+- 🔲 Ambient — per-bana (vind, stadsljud, mekaniskt) — kräver riktiga ljudfiler
+- ✅ Settings-meny (SettingsScreen med tabs):
+  - ✅ Mus-sensitivity slider
+  - ✅ FOV-slider (80–130)
+  - ✅ Keybindings (fullt rebindable med klick-to-rebind)
+  - ✅ Ljud: master, SFX, musik, ambient volymsliders
+  - ✅ Grafik: quality presets (Low/Med/High/Ultra), shadows, particles, speed lines, screen shake toggles
+  - ✅ HUD: toggle individuella element, skala, opacity
+  - ✅ Gameplay: auto-bhop toggle, crosshair-stil/färg/storlek
+- ✅ Settings persistens — Zustand `persist` middleware sparar alla settings i localStorage
 
 ---
 

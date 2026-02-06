@@ -1,5 +1,6 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
+import { audioManager, SOUNDS } from '../../../systems/AudioManager';
 
 const FINISH_ZONE_COLOR = '#ff3366';
 const FINISH_ZONE_OPACITY = 0.3;
@@ -14,6 +15,7 @@ export function FinishZone({ position, size }: FinishZoneProps) {
     const state = useGameStore.getState();
     if (state.runState === RUN_STATES.RUNNING) {
       state.finishRun();
+      audioManager.play(SOUNDS.FINISH);
     }
   };
 

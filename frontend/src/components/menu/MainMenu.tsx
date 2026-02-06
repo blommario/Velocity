@@ -98,6 +98,12 @@ export function MainMenu() {
         >
           Map Editor
         </button>
+        <button
+          onClick={() => useGameStore.getState().setScreen(SCREENS.SETTINGS)}
+          className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg text-sm transition-colors"
+        >
+          Settings
+        </button>
       </div>
 
       {/* Tabs */}
