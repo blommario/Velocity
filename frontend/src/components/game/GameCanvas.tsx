@@ -5,6 +5,7 @@ import { MathUtils, PerspectiveCamera } from 'three';
 import { PlayerController } from './PlayerController';
 import { TestMap } from './TestMap';
 import { ScreenShake } from './ScreenShake';
+import { ProjectileRenderer } from './ProjectileRenderer';
 import { HudOverlay } from '../hud/HudOverlay';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
@@ -62,6 +63,7 @@ export function GameCanvas() {
           interpolate
         >
           <PlayerController />
+          <ProjectileRenderer />
           <TestMap />
         </Physics>
       </Canvas>

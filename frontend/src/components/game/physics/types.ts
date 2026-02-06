@@ -7,6 +7,9 @@ export interface InputState {
   right: boolean;
   jump: boolean;
   crouch: boolean;
+  fire: boolean;
+  altFire: boolean;   // grenade
+  grapple: boolean;
   mouseDeltaX: number;
   mouseDeltaY: number;
 }
@@ -20,3 +23,5 @@ export interface MovementState {
   pitch: number;
   jumpBufferTime: number;
 }
+
+export type WeaponType = 'rocket' | 'grenade';

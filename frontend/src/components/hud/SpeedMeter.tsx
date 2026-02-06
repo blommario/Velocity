@@ -23,7 +23,7 @@ export function SpeedMeter() {
   const color = getSpeedColor(speed);
 
   return (
-    <div className="absolute bottom-8 left-8 w-64">
+    <div className="absolute bottom-24 left-8 w-64">
       <div className="h-2 bg-gray-800/80 rounded overflow-hidden">
         <div
           className="h-full rounded transition-[width] duration-75"

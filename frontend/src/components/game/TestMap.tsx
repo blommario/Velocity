@@ -4,7 +4,13 @@ import { StartZone } from './zones/StartZone';
 import { Checkpoint } from './zones/Checkpoint';
 import { FinishZone } from './zones/FinishZone';
 import { KillZone } from './zones/KillZone';
+import { BoostPad } from './zones/BoostPad';
+import { LaunchPad } from './zones/LaunchPad';
+import { SpeedGate } from './zones/SpeedGate';
+import { AmmoPickup } from './zones/AmmoPickup';
+import { GrapplePoint } from './zones/GrapplePoint';
 import { useGameStore } from '../../stores/gameStore';
+import { useCombatStore } from '../../stores/combatStore';
 
 const TOTAL_CHECKPOINTS = 2;
 const SPAWN_POINT: [number, number, number] = [0, 3, 0];
@@ -13,6 +19,7 @@ const SPAWN_YAW = 0;
 export function TestMap() {
   useEffect(() => {
     useGameStore.getState().initRun(TOTAL_CHECKPOINTS, SPAWN_POINT, SPAWN_YAW);
+    useCombatStore.getState().resetCombat(5, 3);
   }, []);
 
   return (
@@ -44,6 +51,24 @@ export function TestMap() {
 
       {/* Kill zone — below the map */}
       <KillZone position={[0, -55, 0]} size={[300, 10, 300]} />
+
+      {/* === Advanced Movement Zones === */}
+      {/* Boost pad — forward boost near corridor */}
+      <BoostPad position={[-22.5, 0.1, -20]} direction={[0, 0, -1]} speed={500} />
+
+      {/* Launch pad — launches player up and forward */}
+      <LaunchPad position={[10, 0.15, 10]} direction={[0, 0.6, -0.8]} speed={700} />
+
+      {/* Speed gate — between ramps */}
+      <SpeedGate position={[20, 3, -5]} />
+
+      {/* Ammo pickups */}
+      <AmmoPickup position={[5, 0.5, -8]} type="rocket" amount={3} />
+      <AmmoPickup position={[25, 0.5, -8]} type="grenade" amount={2} />
+
+      {/* Grapple point — high up near platforms */}
+      <GrapplePoint position={[-10, 12, -20]} />
+      <GrapplePoint position={[30, 15, -10]} />
 
       {/* === Map Geometry === */}
       {/* Ramp — gentle slope */}
@@ -86,6 +111,15 @@ export function TestMap() {
       <Platform position={[-10, 2.5, -18]} size={[4, 0.3, 4]} color="#5a6a4a" />
       <Platform position={[-10, 4, -26]} size={[4, 0.3, 4]} color="#4a5a6a" />
       <Platform position={[-10, 6, -34]} size={[3, 0.3, 3]} color="#6a5a4a" />
+
+      {/* Wall running wall — long smooth wall */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.25, 5, 15]} position={[5, 5, -20]} />
+        <mesh position={[5, 5, -20]} castShadow receiveShadow>
+          <boxGeometry args={[0.5, 10, 30]} />
+          <meshStandardMaterial color="#5a5a8a" />
+        </mesh>
+      </RigidBody>
 
       {/* Corridor for strafe practice */}
       <RigidBody type="fixed" colliders={false}>

@@ -5,6 +5,7 @@ import { CheckpointCounter } from './CheckpointCounter';
 import { SplitPopup } from './SplitPopup';
 import { TrackProgressBar } from './TrackProgressBar';
 import { SpeedLines } from './SpeedLines';
+import { CombatHud } from './CombatHud';
 import { EndRunModal } from './EndRunModal';
 import { useGameStore, RUN_STATES } from '../../stores/gameStore';
 
@@ -21,6 +22,7 @@ export function HudOverlay() {
       <CheckpointCounter />
       <SplitPopup />
       <SpeedLines />
+      <CombatHud />
       <TrackProgressBar />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}

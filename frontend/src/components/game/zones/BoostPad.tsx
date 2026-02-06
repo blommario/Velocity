@@ -1,0 +1,54 @@
+import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { PHYSICS } from '../physics/constants';
+import { useCombatStore } from '../../../stores/combatStore';
+
+interface BoostPadProps {
+  position: [number, number, number];
+  size?: [number, number, number];
+  direction: [number, number, number]; // normalized direction of boost
+  speed?: number;
+  color?: string;
+}
+
+export function BoostPad({
+  position,
+  size = [3, 0.2, 3],
+  direction,
+  speed = PHYSICS.BOOST_PAD_DEFAULT_SPEED,
+  color = '#00ff88',
+}: BoostPadProps) {
+  const handleEnter = () => {
+    useCombatStore.getState().pushZoneEvent({ type: 'boostPad', direction, speed });
+  };
+
+  return (
+    <RigidBody type="fixed" colliders={false} position={position} sensor>
+      <CuboidCollider
+        args={[size[0] / 2, size[1] / 2, size[2] / 2]}
+        sensor
+        onIntersectionEnter={handleEnter}
+      />
+      <mesh>
+        <boxGeometry args={size} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.8}
+          transparent
+          opacity={0.6}
+        />
+      </mesh>
+      {/* Arrow indicator */}
+      <mesh position={[0, 0.15, 0]} rotation={[-Math.PI / 2, 0, Math.atan2(direction[0], direction[2])]}>
+        <planeGeometry args={[1, 2]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={1.5}
+          transparent
+          opacity={0.4}
+        />
+      </mesh>
+    </RigidBody>
+  );
+}

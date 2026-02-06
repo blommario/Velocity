@@ -116,28 +116,28 @@
 **Förutsättning:** Fas 3 (gameplay loop — för att testa mekanikerna på riktiga banor)
 
 ### 7a — Vapen & Explosioner
-- 🔲 Raketgevär — projektil (900 u/s), explosion vid impact
-- 🔲 Rocket jump — knockback baserat på avstånd, 50% self-damage
-- 🔲 Granater — arc-fysik, studs, 2.5s timer
-- 🔲 Grenade jump — timing + knockback
-- 🔲 Ammo-system — begränsad ammo per bana, ammo pickups
-- 🔲 Health-system — self-damage + regeneration
-- 🔲 Sniper rifle — hitscan, hög precision, ingen knockback (för finjustering och tekniska sektioner)
-- 🔲 Rifle — hitscan, låg precision, liten knockback (för crowd control och rörelse-sektioner)
-- 🔲 Machine gun — hitscan, hög eldhastighet, liten knockback (för crowd control och rörelse-sektioner)
-- 🔲 Knife — melee, ingen knockback, används för stealth-sektioner eller som sista ut
+- ✅ Raketgevär — projektil (900 u/s), explosion vid impact (combatStore + useAdvancedMovement)
+- ✅ Rocket jump — knockback baserat på avstånd, 50% self-damage (applyExplosionKnockback)
+- ✅ Granater — arc-fysik, gravity, 2.5s fuse timer (combatStore updateProjectiles)
+- ✅ Grenade jump — timing + knockback (delar explosion-logik med raket)
+- ✅ Ammo-system — begränsad ammo per bana, AmmoPickup komponent + pickupAmmo action
+- ✅ Health-system — self-damage + regeneration (takeDamage, regenTick, 3s delay + 15 hp/s)
+- 🔲 Sniper rifle — hitscan, hög precision, ingen knockback
+- 🔲 Rifle — hitscan, låg precision, liten knockback
+- 🔲 Machine gun — hitscan, hög eldhastighet, liten knockback
+- 🔲 Knife — melee, ingen knockback
 
 ### 7b — Rörelse-mekaniker
-- 🔲 Wall running — väggdetektion + strafe key, 1.5s max, 90% speed preservation
-- 🔲 Surfing — vinklade ytor (30–60°), noll friktion, gravity-driven
-- 🔲 Boost pads — instant velocity-addition i fast riktning
-- 🔲 Launch pads — vinklade boost pads (luftsläng)
-- 🔲 Speed gates — 1.5x speed multiplier vid >400 u/s
+- ✅ Wall running — väggdetektion + strafe key, 1.5s max, 90% speed preservation, wall jump
+- ✅ Surfing — vinklade ytor (30–60°), noll friktion, gravity-driven (isSurfSurface + applySurfPhysics)
+- ✅ Boost pads — instant velocity-addition i fast riktning (BoostPad komponent + applyBoostPad)
+- ✅ Launch pads — vinklade boost pads, ersätter velocity (LaunchPad + applyLaunchPad)
+- ✅ Speed gates — 1.5x speed multiplier vid >400 u/s (SpeedGate + applySpeedGate)
 
 ### 7c — Grappling Hook
-- 🔲 Hook-projektil som fäster vid grapple-punkter
-- 🔲 Pendel-fysik (swing)
-- 🔲 Momentum transfer vid release
+- ✅ Hook fäster vid GrapplePoint-komponenter (E-tangent)
+- ✅ Pendel-fysik (applyGrappleSwing — pull force + constrained to rope length)
+- ✅ Momentum transfer vid release (GRAPPLE_RELEASE_BOOST multiplicator)
 
 ---
 
