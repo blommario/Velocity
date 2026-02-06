@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useGameStore, SCREENS } from '../../stores/gameStore';
+import { useGameStore } from '../../stores/gameStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getMaps } from '../../services/mapService';
 import type { MapResponse, MapDifficulty } from '../../services/types';
+import { OFFICIAL_MAPS, OFFICIAL_MAP_BY_ID, type OfficialMap } from '../game/map/official';
+import type { MapData } from '../game/map/types';
 
 const DIFFICULTY_COLORS: Record<MapDifficulty, string> = {
   Easy: 'text-green-400',
@@ -14,31 +16,56 @@ const DIFFICULTY_COLORS: Record<MapDifficulty, string> = {
 const DIFFICULTY_OPTIONS: (MapDifficulty | 'All')[] = ['All', 'Easy', 'Medium', 'Hard', 'Expert'];
 
 export function MainMenu() {
-  const setScreen = useGameStore((s) => s.setScreen);
+  const loadMap = useGameStore((s) => s.loadMap);
+  const playTestMap = useGameStore((s) => s.playTestMap);
   const username = useAuthStore((s) => s.username);
   const logout = useAuthStore((s) => s.logout);
 
-  const [maps, setMaps] = useState<MapResponse[]>([]);
+  const [communityMaps, setCommunityMaps] = useState<MapResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<MapDifficulty | 'All'>('All');
-  const [officialOnly, setOfficialOnly] = useState(false);
+  const [tab, setTab] = useState<'official' | 'community'>('official');
 
   useEffect(() => {
+    if (tab !== 'community') return;
     setLoading(true);
     getMaps({
       difficulty: filter === 'All' ? undefined : filter,
-      isOfficial: officialOnly || undefined,
     })
-      .then(setMaps)
-      .catch(() => setMaps([]))
+      .then(setCommunityMaps)
+      .catch(() => setCommunityMaps([]))
       .finally(() => setLoading(false));
-  }, [filter, officialOnly]);
+  }, [filter, tab]);
 
-  const handlePlay = (map: MapResponse) => {
-    // Store map data in gameStore and switch to playing
-    useGameStore.getState().setScreen(SCREENS.PLAYING);
-    // The GameCanvas will read the current map from the store
-    // For now, fall back to TestMap if no map loading system yet
+  const filteredOfficialMaps = filter === 'All'
+    ? OFFICIAL_MAPS
+    : OFFICIAL_MAPS.filter((m) => m.difficulty === filter);
+
+  const handlePlayOfficial = (map: OfficialMap) => {
+    loadMap(map.id, map.data);
+  };
+
+  const handlePlayCommunity = (map: MapResponse) => {
+    // Try to match an official map by ID (for seeded data)
+    const official = OFFICIAL_MAP_BY_ID[map.id];
+    if (official) {
+      loadMap(map.id, official.data);
+      return;
+    }
+
+    // Try to parse mapDataJson from backend
+    try {
+      const data = JSON.parse(map.mapDataJson) as MapData;
+      if (data.spawnPoint && data.blocks && data.finish) {
+        loadMap(map.id, data);
+        return;
+      }
+    } catch {
+      // Invalid JSON — fall through to test map
+    }
+
+    // Fallback: play test map
+    playTestMap();
   };
 
   return (
@@ -58,18 +85,36 @@ export function MainMenu() {
       </header>
 
       {/* Quick Play */}
-      <div className="px-8 py-6">
+      <div className="px-8 py-4">
         <button
-          onClick={() => setScreen(SCREENS.PLAYING)}
-          className="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
+          onClick={playTestMap}
+          className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg text-sm transition-colors"
         >
-          Quick Play (Test Map)
+          Quick Play (Sandbox)
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="px-8 flex gap-4 items-center">
-        <div className="flex gap-2">
+      {/* Tabs */}
+      <div className="px-8 flex gap-4 items-center border-b border-gray-800 pb-3">
+        <button
+          onClick={() => setTab('official')}
+          className={`text-sm font-bold transition-colors ${
+            tab === 'official' ? 'text-white border-b-2 border-green-500 pb-1' : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          Official Maps
+        </button>
+        <button
+          onClick={() => setTab('community')}
+          className={`text-sm font-bold transition-colors ${
+            tab === 'community' ? 'text-white border-b-2 border-green-500 pb-1' : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          Community
+        </button>
+
+        {/* Filters */}
+        <div className="flex gap-2 ml-auto">
           {DIFFICULTY_OPTIONS.map((d) => (
             <button
               key={d}
@@ -84,27 +129,28 @@ export function MainMenu() {
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-400 ml-4">
-          <input
-            type="checkbox"
-            checked={officialOnly}
-            onChange={(e) => setOfficialOnly(e.target.checked)}
-            className="rounded"
-          />
-          Official only
-        </label>
       </div>
 
       {/* Map List */}
       <div className="flex-1 overflow-y-auto px-8 py-4">
-        {loading ? (
+        {tab === 'official' ? (
+          filteredOfficialMaps.length === 0 ? (
+            <div className="text-gray-500 text-center py-12">No maps match filter</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOfficialMaps.map((map) => (
+                <OfficialMapCard key={map.id} map={map} onPlay={() => handlePlayOfficial(map)} />
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <div className="text-gray-500 text-center py-12">Loading maps...</div>
-        ) : maps.length === 0 ? (
-          <div className="text-gray-500 text-center py-12">No maps found</div>
+        ) : communityMaps.length === 0 ? (
+          <div className="text-gray-500 text-center py-12">No community maps found</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {maps.map((map) => (
-              <MapCard key={map.id} map={map} onPlay={() => handlePlay(map)} />
+            {communityMaps.map((map) => (
+              <CommunityMapCard key={map.id} map={map} onPlay={() => handlePlayCommunity(map)} />
             ))}
           </div>
         )}
@@ -113,7 +159,30 @@ export function MainMenu() {
   );
 }
 
-function MapCard({ map, onPlay }: { map: MapResponse; onPlay: () => void }) {
+function OfficialMapCard({ map, onPlay }: { map: OfficialMap; onPlay: () => void }) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors">
+      <div className="flex justify-between items-start mb-2">
+        <h3 className="font-bold text-lg">{map.name}</h3>
+        <span className={`text-xs font-bold ${DIFFICULTY_COLORS[map.difficulty]}`}>
+          {map.difficulty}
+        </span>
+      </div>
+      <p className="text-sm text-gray-400 mb-3 line-clamp-2">{map.description}</p>
+      <div className="text-xs text-gray-500 mb-3 font-mono">
+        Par: {formatTime(map.parTime * 1000)}
+      </div>
+      <button
+        onClick={onPlay}
+        className="w-full bg-green-600/80 hover:bg-green-500 text-white font-bold py-2 rounded transition-colors text-sm"
+      >
+        Play
+      </button>
+    </div>
+  );
+}
+
+function CommunityMapCard({ map, onPlay }: { map: MapResponse; onPlay: () => void }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors">
       <div className="flex justify-between items-start mb-2">

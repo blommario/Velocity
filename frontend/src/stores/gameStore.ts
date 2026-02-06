@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { MapData } from '../components/game/map/types';
 
 export const SCREENS = {
   MAIN_MENU: 'mainMenu',
@@ -48,6 +49,7 @@ const INITIAL_STATS: RunStats = {
 interface GameState {
   screen: Screen;
   currentMapId: string | null;
+  currentMapData: MapData | null;
   speed: number;
   position: [number, number, number];
   isGrounded: boolean;
@@ -85,6 +87,8 @@ interface GameState {
 
   // Actions
   setScreen: (screen: Screen) => void;
+  loadMap: (mapId: string, mapData: MapData) => void;
+  playTestMap: () => void;
   updateHud: (speed: number, position: [number, number, number], isGrounded: boolean) => void;
 
   // Run lifecycle
@@ -111,6 +115,7 @@ interface GameState {
 export const useGameStore = create<GameState>((set, get) => ({
   screen: SCREENS.MAIN_MENU,
   currentMapId: null,
+  currentMapData: null,
   speed: 0,
   position: [0, 0, 0],
   isGrounded: false,
@@ -141,6 +146,18 @@ export const useGameStore = create<GameState>((set, get) => ({
   shakeIntensity: 0,
 
   setScreen: (screen) => set({ screen }),
+
+  loadMap: (mapId, mapData) => set({
+    currentMapId: mapId,
+    currentMapData: mapData,
+    screen: SCREENS.PLAYING,
+  }),
+
+  playTestMap: () => set({
+    currentMapId: null,
+    currentMapData: null,
+    screen: SCREENS.PLAYING,
+  }),
 
   updateHud: (speed, position, isGrounded) => {
     const state = get();

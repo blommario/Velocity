@@ -4,6 +4,7 @@ import { Physics } from '@react-three/rapier';
 import { MathUtils, PerspectiveCamera } from 'three';
 import { PlayerController } from './PlayerController';
 import { TestMap } from './TestMap';
+import { MapLoader } from './map/MapLoader';
 import { ScreenShake } from './ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { HudOverlay } from '../hud/HudOverlay';
@@ -45,6 +46,8 @@ function DynamicFov() {
 
 export function GameCanvas() {
   const fov = useSettingsStore((s) => s.fov);
+  const mapData = useGameStore((s) => s.currentMapData);
+  const mapId = useGameStore((s) => s.currentMapId);
 
   return (
     <div className="w-screen h-screen relative select-none">
@@ -64,7 +67,11 @@ export function GameCanvas() {
         >
           <PlayerController />
           <ProjectileRenderer />
-          <TestMap />
+          {mapData ? (
+            <MapLoader data={mapData} mapId={mapId ?? undefined} />
+          ) : (
+            <TestMap />
+          )}
         </Physics>
       </Canvas>
       <HudOverlay />

@@ -105,7 +105,7 @@
 - ✅ `authStore` — token, player info, login/register/guest actions + session restore
 - ✅ Skicka run till backend vid slutförd bana (tid, stats, auto-submit i EndRunModal)
 - ✅ Hämta leaderboard per bana och visa i UI (EndRunModal visar top 10)
-- 🔲 Hämta bandata (MapDataJson) från backend och rendera i R3F (map loader ej klar — kräver Fas 8)
+- ✅ Hämta bandata (MapDataJson) från backend och rendera i R3F (MapLoader + GameCanvas integration)
 - ✅ Main Menu — banlista hämtad från API med filter/sökning + AuthScreen
 
 ---
@@ -146,13 +146,13 @@
 
 **Förutsättning:** Fas 7 (alla mekaniker) + Fas 6 (map loading från API)
 
-- 🔲 MapData JSON-format — spawn, blocks, checkpoints, finish, objekt, settings (se CLAUDE.md)
-- 🔲 Map loader — parsa JSON → R3F-komponenter (block renderers, game objects)
-- 🔲 **"First Steps"** (Easy) — Tutorial: korridorer, kurvor, små gap. Ghost guide. Par: 45s / WR: ~25s
-- 🔲 **"Cliffside"** (Medium) — Klippor, klippstigar, stenbroar. Surf ramps, rocket jump shortcuts. Hemlig grotta (kräver rocket jump). Par: 90s / WR: ~45s
-- 🔲 **"Neon District"** (Medium) — Cyberpunk-stad, neonljus, glasyta. Wall running, speed gates, boost pads. Takvägs-genväg via grenade jump. Par: 75s / WR: ~35s
-- 🔲 **"The Gauntlet"** (Hard) — Industriell/mekanisk, rörliga plattformar, roterande hinder. Kräver alla mekaniker. Flera rutter med risk/reward. Par: 120s / WR: ~55s
-- 🔲 **"Skybreak"** (Expert) — Flytande öar i himlen, tunna broar, grapple points. Tung grappling hook + surf + extreme rocket jumps. Fall = respawn. Par: 180s / WR: ~80s
+- ✅ MapData JSON-format — TypeScript interfaces i `map/types.ts` (Vec3, MapBlock, alla game objects, settings, lighting)
+- ✅ Map loader — `MapLoader.tsx` parsar MapData → R3F (BlockRenderer, MovingPlatformRenderer, alla zoner)
+- ✅ **"First Steps"** (Easy) — Tutorial: korridorer, kurvor, gap jumps, bhop corridor. Par: 45s
+- ✅ **"Cliffside"** (Medium) — Klippor, klippstigar, stenbroar. Surf ramps, rocket jump shortcuts. Hemlig grotta. Par: 90s
+- ✅ **"Neon District"** (Medium) — Cyberpunk-stad, neonljus, glasyta. Wall running, speed gates, boost pads. Par: 75s
+- ✅ **"The Gauntlet"** (Hard) — Industriell/mekanisk, rörliga plattformar, vertical shaft. Alla mekaniker. Par: 120s
+- ✅ **"Skybreak"** (Expert) — Flytande öar, tunna broar, grapple points. Surf + rocket jumps. Par: 180s
 
 ---
 
