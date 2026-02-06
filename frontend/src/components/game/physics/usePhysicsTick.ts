@@ -70,6 +70,9 @@ export interface PhysicsTickRefs {
   pitch: MutableRefObject<number>;
   grounded: MutableRefObject<boolean>;
   jumpBufferTime: MutableRefObject<number>;
+  coyoteTime: MutableRefObject<number>;
+  jumpHoldTime: MutableRefObject<number>;
+  isJumping: MutableRefObject<boolean>;
   isCrouching: MutableRefObject<boolean>;
   isSliding: MutableRefObject<boolean>;
   input: MutableRefObject<InputState>;
@@ -106,6 +109,9 @@ export function physicsTick(
     refs.grounded.current = false;
     refs.isCrouching.current = false;
     refs.isSliding.current = false;
+    refs.isJumping.current = false;
+    refs.coyoteTime.current = 0;
+    refs.jumpHoldTime.current = 0;
     wallRunState.isWallRunning = false;
     wallRunState.wallRunCooldown = false;
     collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
@@ -138,7 +144,30 @@ export function physicsTick(
     refs.jumpBufferTime.current -= dt * 1000;
   }
 
+  // --- Coyote time ---
+  // Counts down after leaving ground (not from jumping — only from walking off ledges)
+  if (refs.grounded.current) {
+    refs.coyoteTime.current = PHYSICS.COYOTE_TIME_MS;
+  } else if (refs.coyoteTime.current > 0 && !refs.isJumping.current) {
+    refs.coyoteTime.current -= dt * 1000;
+  }
+
+  const canJump = refs.grounded.current || refs.coyoteTime.current > 0;
   const wantsJump = autoBhop ? input.jump : refs.jumpBufferTime.current > 0;
+
+  // --- Variable jump height ---
+  // Track how long jump is held; apply extra gravity when released early
+  if (refs.isJumping.current) {
+    refs.jumpHoldTime.current += dt * 1000;
+    if (!input.jump && velocity.y > 0 && refs.jumpHoldTime.current < PHYSICS.JUMP_RELEASE_WINDOW_MS) {
+      // Player released jump early — cut upward velocity for a short hop
+      velocity.y = Math.max(velocity.y * 0.5, PHYSICS.JUMP_FORCE_MIN * 0.5);
+      refs.isJumping.current = false;
+    }
+    if (refs.grounded.current || velocity.y <= 0) {
+      refs.isJumping.current = false;
+    }
+  }
 
   // --- Combat store reads ---
   const combat = useCombatStore.getState();
@@ -381,41 +410,78 @@ export function physicsTick(
     // While grappling, skip normal movement (grapple swing already applied above)
   } else if (isWallRunning) {
     // Wall running: no normal gravity/movement applied (handled by updateWallRun)
+  } else if (canJump && wantsJump) {
+    // Jump (works from ground OR during coyote time)
+    velocity.y = PHYSICS.JUMP_FORCE;
+    refs.grounded.current = false;
+    refs.coyoteTime.current = 0;
+    refs.jumpBufferTime.current = 0;
+    refs.isJumping.current = true;
+    refs.jumpHoldTime.current = 0;
+    refs.isSliding.current = false;
+    refs.isCrouching.current = false;
+    collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+    store.recordJump();
+    audioManager.play(SOUNDS.JUMP, 0.1);
+    if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
   } else if (refs.grounded.current) {
-    if (wantsJump) {
-      velocity.y = PHYSICS.JUMP_FORCE;
-      refs.grounded.current = false;
-      refs.jumpBufferTime.current = 0;
-      refs.isSliding.current = false;
-      refs.isCrouching.current = false;
-      collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
-      store.recordJump();
-      audioManager.play(SOUNDS.JUMP, 0.1);
-      if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
-    } else if (refs.isSliding.current) {
+    if (refs.isSliding.current) {
       applySlideFriction(velocity, dt);
     } else {
-      applyFriction(velocity, dt);
+      applyFriction(velocity, dt, hasInput, wishDir);
       if (hasInput) applyGroundAcceleration(velocity, wishDir, dt);
     }
   } else {
+    // Airborne
     if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
-    velocity.y -= PHYSICS.GRAVITY * dt;
+    // Apply heavier gravity when jump is released early (snappier descent)
+    const gravity = (!input.jump && velocity.y > 0 && refs.isJumping.current)
+      ? PHYSICS.GRAVITY_JUMP_RELEASE
+      : PHYSICS.GRAVITY;
+    velocity.y -= gravity * dt;
   }
 
-  // --- Character controller ---
-  _desiredTranslation.copy(velocity).multiplyScalar(dt);
-  controller.computeColliderMovement(collider, _desiredTranslation);
+  // --- Velocity cap (safety limit) ---
+  const totalSpeed = velocity.length();
+  if (totalSpeed > PHYSICS.MAX_SPEED) {
+    velocity.multiplyScalar(PHYSICS.MAX_SPEED / totalSpeed);
+  }
 
-  const movement = controller.computedMovement();
-  _correctedMovement.set(movement.x, movement.y, movement.z);
+  // --- Character controller with substepping ---
+  // Split large displacements into multiple smaller steps to prevent tunneling.
+  // Each substep moves at most MAX_DISPLACEMENT_PER_STEP units.
+  const displacement = totalSpeed * dt;
+  const substeps = Math.max(1, Math.ceil(displacement / PHYSICS.MAX_DISPLACEMENT_PER_STEP));
+  const subDt = dt / substeps;
 
-  _newPos.set(
-    pos.x + _correctedMovement.x,
-    pos.y + _correctedMovement.y,
-    pos.z + _correctedMovement.z,
-  );
-  rb.setNextKinematicTranslation(_newPos);
+  _newPos.set(pos.x, pos.y, pos.z);
+
+  for (let step = 0; step < substeps; step++) {
+    _desiredTranslation.copy(velocity).multiplyScalar(subDt);
+    controller.computeColliderMovement(collider, _desiredTranslation);
+
+    const movement = controller.computedMovement();
+    _correctedMovement.set(movement.x, movement.y, movement.z);
+
+    // --- Horizontal velocity correction ---
+    // If the controller blocked movement along an axis, zero out that velocity component
+    // to prevent constant pressure against walls.
+    const desiredX = _desiredTranslation.x;
+    const desiredZ = _desiredTranslation.z;
+    if (Math.abs(desiredX) > 0.001 && Math.abs(_correctedMovement.x / desiredX) < 0.1) {
+      velocity.x = 0;
+    }
+    if (Math.abs(desiredZ) > 0.001 && Math.abs(_correctedMovement.z / desiredZ) < 0.1) {
+      velocity.z = 0;
+    }
+
+    _newPos.x += _correctedMovement.x;
+    _newPos.y += _correctedMovement.y;
+    _newPos.z += _correctedMovement.z;
+
+    // Update rigid body position for each substep so the next step has correct origin
+    rb.setNextKinematicTranslation(_newPos);
+  }
 
   // --- Ground detection ---
   refs.grounded.current = controller.computedGrounded();
@@ -486,10 +552,12 @@ export function physicsTick(
   }
   wasGrounded = refs.grounded.current;
 
-  // --- Collision velocity correction ---
+  // --- Vertical velocity correction ---
+  // Ceiling hit: upward velocity blocked
   if (velocity.y > 0 && _correctedMovement.y < _desiredTranslation.y * 0.5) {
     velocity.y = 0;
   }
+  // Grounded: zero out downward velocity
   if (refs.grounded.current && velocity.y < 0) {
     velocity.y = 0;
   }

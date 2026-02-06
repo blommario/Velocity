@@ -23,6 +23,9 @@ export function PlayerController() {
   const pitchRef = useRef(0);
   const groundedRef = useRef(false);
   const jumpBufferTimeRef = useRef(0);
+  const coyoteTimeRef = useRef(0);
+  const jumpHoldTimeRef = useRef(0);
+  const isJumpingRef = useRef(false);
   const isCrouchingRef = useRef(false);
   const isSlidingRef = useRef(false);
 
@@ -32,7 +35,7 @@ export function PlayerController() {
 
   // Create the kinematic character controller
   useEffect(() => {
-    const controller = world.createCharacterController(0.01);
+    const controller = world.createCharacterController(PHYSICS.SKIN_WIDTH);
     controller.enableAutostep(PHYSICS.STAIR_STEP_HEIGHT, PHYSICS.PLAYER_RADIUS * 0.5, true);
     controller.setMaxSlopeClimbAngle(PHYSICS.MAX_SLOPE_ANGLE * DEG2RAD);
     controller.enableSnapToGround(PHYSICS.PLAYER_RADIUS);
@@ -55,6 +58,9 @@ export function PlayerController() {
         pitch: pitchRef,
         grounded: groundedRef,
         jumpBufferTime: jumpBufferTimeRef,
+        coyoteTime: coyoteTimeRef,
+        jumpHoldTime: jumpHoldTimeRef,
+        isJumping: isJumpingRef,
         isCrouching: isCrouchingRef,
         isSliding: isSlidingRef,
         input: inputRef,

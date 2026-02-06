@@ -3,19 +3,26 @@ export const PHYSICS = {
   TICK_DELTA: 1 / 128,
 
   // Movement
-  GROUND_ACCEL: 10,
+  GROUND_ACCEL: 14,               // snappier start (was 10)
+  GROUND_DECEL: 10,               // distinct deceleration (counter-strafing)
   GROUND_MAX_SPEED: 320,
-  AIR_ACCEL: 10,
+  AIR_ACCEL: 12,                  // slightly more responsive air control (was 10)
   AIR_SPEED_CAP: 30,
-  GROUND_FRICTION: 6.0,
-  STOP_SPEED: 100,
+  GROUND_FRICTION: 8.0,           // heavier stop feel (was 6.0)
+  STOP_SPEED: 80,                 // snaps to zero sooner (was 100)
+  MAX_SPEED: 2500,              // absolute velocity cap (safety limit)
+  MAX_DISPLACEMENT_PER_STEP: 2, // max units per substep to prevent tunneling
 
   // Jumping
   JUMP_FORCE: 270,
-  JUMP_BUFFER_MS: 50,
+  JUMP_FORCE_MIN: 135,            // tap-jump minimum (half of full)
+  JUMP_BUFFER_MS: 80,             // pre-land buffer (was 50)
+  JUMP_RELEASE_WINDOW_MS: 100,    // ms after jump where releasing cuts velocity
+  COYOTE_TIME_MS: 100,            // grace period to jump after leaving ground
 
   // Gravity
   GRAVITY: 800,
+  GRAVITY_JUMP_RELEASE: 1400,     // extra gravity when jump released early (snappy descent)
 
   // Player capsule
   PLAYER_RADIUS: 0.4,
@@ -32,6 +39,7 @@ export const PHYSICS = {
   // Collision
   STAIR_STEP_HEIGHT: 0.45,
   MAX_SLOPE_ANGLE: 45,
+  SKIN_WIDTH: 0.05,             // character controller offset (tunneling protection)
 
   // Mouse
   DEFAULT_SENSITIVITY: 0.002,
@@ -39,8 +47,8 @@ export const PHYSICS = {
   // ── Rocket launcher ──
   ROCKET_SPEED: 900,
   ROCKET_RADIUS: 0.15,
-  ROCKET_EXPLOSION_RADIUS: 150,
-  ROCKET_KNOCKBACK_FORCE: 1200,
+  ROCKET_EXPLOSION_RADIUS: 12,  // was 150 — scaled to match game units
+  ROCKET_KNOCKBACK_FORCE: 800,  // was 1200 — tuned for gameplay balance
   ROCKET_SELF_DAMAGE_MULT: 0.5,
   ROCKET_DAMAGE: 100,
   ROCKET_FIRE_COOLDOWN: 0.8, // seconds
@@ -50,8 +58,8 @@ export const PHYSICS = {
   GRENADE_RADIUS: 0.12,
   GRENADE_FUSE_TIME: 2.5,
   GRENADE_BOUNCE_DAMPING: 0.6,
-  GRENADE_EXPLOSION_RADIUS: 120,
-  GRENADE_KNOCKBACK_FORCE: 1000,
+  GRENADE_EXPLOSION_RADIUS: 10, // was 120 — scaled to match game units
+  GRENADE_KNOCKBACK_FORCE: 650, // was 1000 — tuned for gameplay balance
   GRENADE_DAMAGE: 80,
   GRENADE_FIRE_COOLDOWN: 0.6,
 

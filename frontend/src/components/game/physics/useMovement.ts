@@ -7,10 +7,16 @@ const FRICTION_DEAD_ZONE = 0.1;
 
 /**
  * Apply ground friction to velocity (horizontal only).
- * Quake friction model: if speed < stopSpeed, snap to 0.
- * Otherwise: speed -= speed * friction * dt
+ * Enhanced Quake friction model with direction-aware deceleration:
+ * - Counter-strafing (input opposing velocity) uses higher GROUND_DECEL for snappy stops
+ * - No input or same-direction input uses standard GROUND_FRICTION
  */
-export function applyFriction(velocity: Vector3, dt: number): void {
+export function applyFriction(
+  velocity: Vector3,
+  dt: number,
+  hasInput?: boolean,
+  wishDir?: Vector3,
+): void {
   const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
   if (speed < FRICTION_DEAD_ZONE) {
     velocity.x = 0;
@@ -18,9 +24,18 @@ export function applyFriction(velocity: Vector3, dt: number): void {
     return;
   }
 
-  let drop = 0;
+  // Detect counter-strafe: input direction opposes current velocity
+  let friction = PHYSICS.GROUND_FRICTION;
+  if (hasInput && wishDir && wishDir.lengthSq() > 0) {
+    const dot = (velocity.x * wishDir.x + velocity.z * wishDir.z) / speed;
+    if (dot < -0.5) {
+      // Counter-strafing — use heavier decel for snappy direction changes
+      friction = PHYSICS.GROUND_FRICTION + PHYSICS.GROUND_DECEL;
+    }
+  }
+
   const control = speed < PHYSICS.STOP_SPEED ? PHYSICS.STOP_SPEED : speed;
-  drop = control * PHYSICS.GROUND_FRICTION * dt;
+  const drop = control * friction * dt;
 
   let newSpeed = speed - drop;
   if (newSpeed < 0) newSpeed = 0;
