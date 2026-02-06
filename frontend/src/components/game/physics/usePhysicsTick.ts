@@ -13,8 +13,9 @@ import {
 import { useGameStore } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 
-const HALF_PI = Math.PI / 2 - 0.01;
-const HUD_UPDATE_INTERVAL = 1000 / 30;
+const MAX_PITCH = Math.PI / 2 - 0.01;
+const HUD_UPDATE_HZ = 30;
+const HUD_UPDATE_INTERVAL = 1000 / HUD_UPDATE_HZ;
 
 // Reusable vectors to avoid per-tick allocations
 const _desiredTranslation = new Vector3();
@@ -57,7 +58,7 @@ export function physicsTick(
   const { dx, dy } = consumeMouseDelta();
   refs.yaw.current -= dx * sensitivity;
   refs.pitch.current -= dy * sensitivity;
-  refs.pitch.current = Math.max(-HALF_PI, Math.min(HALF_PI, refs.pitch.current));
+  refs.pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, refs.pitch.current));
 
   // --- Wish direction ---
   const wishDir = getWishDir(
@@ -130,9 +131,7 @@ export function physicsTick(
     lastHudUpdate = now;
     const speed = getHorizontalSpeed(velocity);
     const store = useGameStore.getState();
-    store.setSpeed(speed);
-    store.setPosition([_newPos.x, _newPos.y, _newPos.z]);
-    store.setGrounded(refs.grounded.current);
+    store.updateHud(speed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
     if (store.timerRunning) store.tickTimer();
   }
 }

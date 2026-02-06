@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Velocity.Api.Configuration;
 using Velocity.Api.Endpoints;
 using Velocity.Api.Handlers;
 using Velocity.Api.Services;
@@ -12,6 +13,12 @@ using Velocity.Data;
 using Velocity.Data.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── JWT Settings (Options pattern) ──
+var jwtSection = builder.Configuration.GetSection(JwtSettings.SectionName);
+builder.Services.Configure<JwtSettings>(jwtSection);
+var jwtSettings = jwtSection.Get<JwtSettings>()
+    ?? throw new InvalidOperationException("JWT configuration is missing.");
 
 // ── Database ──
 builder.Services.AddDbContext<VelocityDbContext>(options =>
@@ -27,10 +34,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+                Encoding.UTF8.GetBytes(jwtSettings.Key)),
         };
     });
 builder.Services.AddAuthorization();
@@ -58,10 +65,10 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter("auth", limiter =>
+    options.AddFixedWindowLimiter(RateLimitPolicies.Auth, limiter =>
     {
-        limiter.PermitLimit = 10;
-        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.PermitLimit = RateLimitPolicies.AuthPermitLimit;
+        limiter.Window = RateLimitPolicies.AuthWindow;
         limiter.QueueLimit = 0;
     });
 });
@@ -122,7 +129,7 @@ app.MapHealthChecks("/health");
 
 // ── API endpoints ──
 app.MapAuthEndpoints()
-    .RequireRateLimiting("auth");
+    .RequireRateLimiting(RateLimitPolicies.Auth);
 
 app.MapMapEndpoints();
 

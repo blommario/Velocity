@@ -1,16 +1,20 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Velocity.Api.Configuration;
 
 namespace Velocity.Api.Services;
 
-public class TokenService(IConfiguration config)
+public sealed class TokenService(IOptions<JwtSettings> options)
 {
+    private readonly JwtSettings _settings = options.Value;
+
     public string GenerateToken(Guid playerId, string username)
     {
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
+            Encoding.UTF8.GetBytes(_settings.Key));
 
         var claims = new[]
         {
@@ -19,11 +23,10 @@ public class TokenService(IConfiguration config)
         };
 
         var token = new JwtSecurityToken(
-            issuer: config["Jwt:Issuer"],
-            audience: config["Jwt:Audience"],
+            issuer: _settings.Issuer,
+            audience: _settings.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(
-                double.Parse(config["Jwt:ExpirationInMinutes"] ?? "1440")),
+            expires: DateTime.UtcNow.AddMinutes(_settings.ExpirationInMinutes),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
 
         return new JwtSecurityTokenHandler().WriteToken(token);

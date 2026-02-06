@@ -1,14 +1,26 @@
 import { useGameStore } from '../../stores/gameStore';
 
+const SPEED_METER = {
+  MAX_DISPLAY: 1000,
+  THRESHOLDS: [
+    { min: 600, color: '#ff2020' },
+    { min: 400, color: '#ff8c00' },
+    { min: 200, color: '#ffd700' },
+    { min: 0, color: '#ffffff' },
+  ],
+} as const;
+
+function getSpeedColor(speed: number): string {
+  for (const { min, color } of SPEED_METER.THRESHOLDS) {
+    if (speed >= min) return color;
+  }
+  return SPEED_METER.THRESHOLDS.at(-1)!.color;
+}
+
 export function SpeedMeter() {
   const speed = useGameStore((s) => s.speed);
-  const fraction = Math.min(speed / 1000, 1);
-
-  const color =
-    speed < 200 ? '#ffffff' :
-    speed < 400 ? '#ffd700' :
-    speed < 600 ? '#ff8c00' :
-    '#ff2020';
+  const fraction = Math.min(speed / SPEED_METER.MAX_DISPLAY, 1);
+  const color = getSpeedColor(speed);
 
   return (
     <div className="absolute bottom-8 left-8 w-64">

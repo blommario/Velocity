@@ -19,7 +19,7 @@ export function GameCanvas() {
         }}
       >
         <Physics
-          timeStep={1 / PHYSICS.TICK_RATE}
+          timeStep={PHYSICS.TICK_DELTA}
           gravity={[0, 0, 0]}
           interpolate
         >

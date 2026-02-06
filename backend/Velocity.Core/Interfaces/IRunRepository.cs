@@ -4,7 +4,7 @@ namespace Velocity.Core.Interfaces;
 
 public interface IRunRepository
 {
-    Task<Run?> GetByIdAsync(Guid id);
-    Task<IReadOnlyList<Run>> GetByMapAsync(Guid mapId, Guid playerId);
-    Task<Run> CreateAsync(Run run);
+    ValueTask<Run?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    ValueTask<IReadOnlyList<Run>> GetByMapAsync(Guid mapId, Guid playerId, CancellationToken ct = default);
+    ValueTask<Run> CreateAsync(Run run, CancellationToken ct = default);
 }

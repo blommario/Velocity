@@ -24,6 +24,7 @@ interface GameState {
   setSpeed: (speed: number) => void;
   setPosition: (pos: [number, number, number]) => void;
   setGrounded: (grounded: boolean) => void;
+  updateHud: (speed: number, position: [number, number, number], isGrounded: boolean) => void;
   startTimer: () => void;
   stopTimer: () => void;
   resetTimer: () => void;
@@ -44,6 +45,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSpeed: (speed) => set({ speed }),
   setPosition: (position) => set({ position }),
   setGrounded: (isGrounded) => set({ isGrounded }),
+  updateHud: (speed, position, isGrounded) => set({ speed, position, isGrounded }),
 
   startTimer: () => set({ timerRunning: true, startTime: performance.now(), elapsedMs: 0 }),
   stopTimer: () => {

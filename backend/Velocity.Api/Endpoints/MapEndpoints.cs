@@ -13,17 +13,18 @@ public static class MapEndpoints
             .WithTags("Maps");
 
         group.MapGet("/", (MapHandlers handler,
+                CancellationToken ct,
                 int page = 1,
                 int pageSize = 20,
                 bool? isOfficial = null,
                 MapDifficulty? difficulty = null)
-            => handler.GetAll(page, pageSize, isOfficial, difficulty));
+            => handler.GetAll(page, pageSize, isOfficial, difficulty, ct));
 
-        group.MapGet("/{id:guid}", (Guid id, MapHandlers handler)
-            => handler.GetById(id));
+        group.MapGet("/{id:guid}", (Guid id, MapHandlers handler, CancellationToken ct)
+            => handler.GetById(id, ct));
 
-        group.MapPost("/", (CreateMapRequest request, ClaimsPrincipal user, MapHandlers handler)
-            => handler.Create(request, user))
+        group.MapPost("/", (CreateMapRequest request, ClaimsPrincipal user, MapHandlers handler, CancellationToken ct)
+            => handler.Create(request, user, ct))
             .RequireAuthorization();
 
         return group;

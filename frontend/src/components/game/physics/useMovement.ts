@@ -2,7 +2,8 @@ import { Vector3 } from 'three';
 import { PHYSICS } from './constants';
 
 const _wishDir = new Vector3();
-const _tempVel = new Vector3();
+
+const FRICTION_DEAD_ZONE = 0.1;
 
 /**
  * Apply ground friction to velocity (horizontal only).
@@ -11,7 +12,7 @@ const _tempVel = new Vector3();
  */
 export function applyFriction(velocity: Vector3, dt: number): void {
   const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-  if (speed < 0.1) {
+  if (speed < FRICTION_DEAD_ZONE) {
     velocity.x = 0;
     velocity.z = 0;
     return;

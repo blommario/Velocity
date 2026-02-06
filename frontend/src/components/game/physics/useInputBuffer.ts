@@ -1,6 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { InputState } from './types';
 
+/** Default key bindings — maps physical key codes to input actions. */
+const DEFAULT_KEY_BINDINGS: Record<string, keyof Pick<InputState, 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch'>> = {
+  KeyW: 'forward',
+  KeyS: 'backward',
+  KeyA: 'left',
+  KeyD: 'right',
+  Space: 'jump',
+  ShiftLeft: 'crouch',
+  ControlLeft: 'crouch',
+} as const;
+
 const createEmptyInput = (): InputState => ({
   forward: false,
   backward: false,
@@ -18,28 +29,17 @@ export function useInputBuffer() {
   useEffect(() => {
     const input = inputRef.current;
 
+    // Ref-mutation pattern: input state is mutated directly to avoid
+    // React re-renders on every keypress. The physics tick reads this
+    // ref at 128Hz without triggering component updates.
     const onKeyDown = (e: KeyboardEvent) => {
-      switch (e.code) {
-        case 'KeyW': input.forward = true; break;
-        case 'KeyS': input.backward = true; break;
-        case 'KeyA': input.left = true; break;
-        case 'KeyD': input.right = true; break;
-        case 'Space': input.jump = true; break;
-        case 'ShiftLeft':
-        case 'ControlLeft': input.crouch = true; break;
-      }
+      const action = DEFAULT_KEY_BINDINGS[e.code];
+      if (action) input[action] = true;
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      switch (e.code) {
-        case 'KeyW': input.forward = false; break;
-        case 'KeyS': input.backward = false; break;
-        case 'KeyA': input.left = false; break;
-        case 'KeyD': input.right = false; break;
-        case 'Space': input.jump = false; break;
-        case 'ShiftLeft':
-        case 'ControlLeft': input.crouch = false; break;
-      }
+      const action = DEFAULT_KEY_BINDINGS[e.code];
+      if (action) input[action] = false;
     };
 
     const onMouseMove = (e: MouseEvent) => {

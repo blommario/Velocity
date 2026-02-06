@@ -4,9 +4,9 @@ namespace Velocity.Core.Interfaces;
 
 public interface IMapRepository
 {
-    Task<GameMap?> GetByIdAsync(Guid id);
-    Task<IReadOnlyList<GameMap>> GetAllAsync(int page, int pageSize, bool? isOfficial, MapDifficulty? difficulty);
-    Task<GameMap> CreateAsync(GameMap map);
-    Task UpdateAsync(GameMap map);
-    Task DeleteAsync(Guid id);
+    ValueTask<GameMap?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    ValueTask<IReadOnlyList<GameMap>> GetAllAsync(int page, int pageSize, bool? isOfficial, MapDifficulty? difficulty, CancellationToken ct = default);
+    ValueTask<GameMap> CreateAsync(GameMap map, CancellationToken ct = default);
+    ValueTask UpdateAsync(GameMap map, CancellationToken ct = default);
+    ValueTask DeleteAsync(Guid id, CancellationToken ct = default);
 }

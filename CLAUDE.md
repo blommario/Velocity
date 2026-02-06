@@ -8,6 +8,7 @@ A 3D first-person speedrunning game (browser-based) inspired by Quake/Source eng
 Velocity.slnx              ← Solution file (backend + frontend refs)
 backend/
   Velocity.Api/             ← ASP.NET Core Minimal API (.NET 10)
+    Configuration/          ← Options classes & centralized constants (JwtSettings, ValidationRules, RateLimitPolicies)
     Endpoints/              ← Thin endpoint mapping (AuthEndpoints, MapEndpoints)
     Handlers/               ← CQRS business logic (AuthHandlers, MapHandlers)
     Services/               ← TokenService.cs
@@ -41,9 +42,10 @@ Plan.md                     ← Implementation plan (12 faser med beroenden)
   - Frontend: **camelCase**
   - All API/SSE data MUST be mapped to camelCase at the frontend boundary (`services/api.ts`).
 
-### No Magic Strings
-- Strings used for configuration, routes, statuses, or IDs must NOT be hardcoded in logic.
-- Use `enum` or `const` objects (e.g., `const ROUTES = { HOME: '/' } as const`).
+### No Magic Strings / Numbers
+- Strings and numbers used for configuration, routes, statuses, IDs, validation limits, or thresholds must NOT be hardcoded in logic.
+- **Backend:** Centralize in `Configuration/` classes (`ValidationRules`, `ValidationMessages`, `RateLimitPolicies`). Use `const` fields for compile-time values and `static readonly` for runtime values.
+- **Frontend:** Use `as const` objects co-located with or near the consuming code (e.g., `SPEED_METER`, `DEFAULT_KEY_BINDINGS`, `MAP_DIFFICULTIES`).
 - This also applies to CSS classes when used in conditional logic.
 
 ### Backend Architecture (C# 14 / .NET 10)
@@ -54,21 +56,47 @@ Plan.md                     ← Implementation plan (12 faser med beroenden)
 - **Single Responsibility:** En Handler ska bara göra en sak. Om logiken blir för komplex, bryt ut den i en specifik domäntjänst i `Services/`.
 - **File-Scoped Namespaces:** Använd alltid file-scoped namespaces (`namespace X;`) för att minska indentering.
 - **C# 14 Features:** Använd `field` keyword för auto-properties och `params` Collections (t.ex. `params List<T>`) där det förenklar koden.
-- **Performance:** Använd `ValueTask` för high-frequency async operations. Använd `ReadOnlySpan<T>` för physics-relaterad string/data-parsning.
+- **Options Pattern:** All konfiguration (JWT, rate limits etc.) MÅSTE använda `IOptions<T>` — aldrig råa `IConfiguration["key"]`-anrop. Options-klasser ligger i `Configuration/` med `SectionName`-konstant.
+- **Centralized Constants:** Valideringsgränser (`ValidationRules`), felmeddelanden (`ValidationMessages`), rate limit-policyer (`RateLimitPolicies`) — alla centraliserade i `Configuration/`. Aldrig hårdkodade i handlers.
+- **Sealed Classes:** Klasser som inte designas för arv (handlers, repositories, services) MÅSTE vara `sealed`.
+- **ValueTask på repositories:** Alla repository-interfacemetoder MÅSTE returnera `ValueTask<T>` (inte `Task<T>`) för att minska allokeringar.
+- **AsNoTracking:** Alla read-only EF Core-queries MÅSTE använda `.AsNoTracking()` för bättre prestanda.
+- **Guid.TryParse Guard:** Använd aldrig `Guid.Parse()` med null-forgiving `!`. Använd `Guid.TryParse()` + Result Pattern (`Results.Problem(statusCode: 401)`).
+- **Pagination Validation:** Alla paginerade endpoints MÅSTE validera `page` och `pageSize` med fallback-värden (t.ex. `page < 1 → 1`, `pageSize > 100 → 20`).
+- **Max Length Validation:** Validera maxlängd i handlers för att matcha DB-constraints (t.ex. `UsernameMaxLength = 50`).
+- **LINQ Query Rules:**
+  - **SingleOrDefaultAsync** för queries som förväntar EN entitet eller null (t.ex. lookup via Id, Username). Garanterar exception vid duplikat.
+  - **FirstOrDefaultAsync** ENBART i kombination med **OrderBy** — aldrig utan explicit sortering.
+  - **FindAsync** ENBART för primärnyckel-lookup utan Include/AsNoTracking (DbContext cache-hit).
+- **CancellationToken:** Alla async-metoder (repositories, handlers) MÅSTE acceptera och vidarebefordra `CancellationToken ct`. Alla EF Core-anrop (`SaveChangesAsync`, `SingleOrDefaultAsync`, `ToListAsync`, `FindAsync` etc.) MÅSTE skicka `ct`.
+- **Performance:** Använd `ReadOnlySpan<T>` för physics-relaterad string/data-parsning där det är tillämpligt.
 
 ### Frontend Architecture (React 19 / Zustand)
 - **Component Limits:** Max 150 lines per component. Larger logic must be moved to Custom Hooks (e.g., `useMovement.ts`).
 - **Zustand Performance:** Components MUST use selectors (e.g., `const score = useGameStore(s => s.score)`) to prevent unnecessary re-renders.
 - **Dispatch Pattern:** All state mutations must be encapsulated in actions within the store. No direct state mutation in components.
+- **Batched Zustand Updates:** Relaterade state-ändringar MÅSTE göras i ett enda `set()`-anrop via en dedikerad action (t.ex. `updateHud({ speed, position, grounded })`), inte flera separata `set()`-anrop.
+- **Lookup Tables for Bindings:** Tangentbindningar och liknande mappningar MÅSTE vara `Record<string, T>`-objekt — aldrig duplicerade switch/if-kedjor. Exempel: `DEFAULT_KEY_BINDINGS: Record<string, keyof InputState>`.
+- **Extracted Constants:** UI-thresholds, färgvärden, och display-gränser MÅSTE definieras som `as const`-objekt nära komponenten (t.ex. `SPEED_METER.THRESHOLDS`, `HUD_UPDATE_HZ`).
 
 ### Communication & Data
 - **SSE:** All SSE data must be JSON-serialized. Field names must be mapped from PascalCase to camelCase upon receipt.
 - **API Calls:** Use the plain fetch wrapper in `services/api.ts`. All responses must be strictly typed against the expected JSON structure.
 
+### Design for Testability
+- **Systemet MÅSTE designas för testbarhet.** Alla tjänster, handlers och repositories ska kunna testas isolerat.
+- **Dependency Injection:** Alla beroenden injiceras via constructor — aldrig `new` inuti klasser (utom domain entities). `IOptions<T>` för konfiguration, interfaces för repositories.
+- **Interface-first Repositories:** Varje repository har ett `I[Name]Repository`-interface i `Velocity.Core`. Handlers beror på interface, inte konkret implementation → enkelt att mocka.
+- **Pure Functions:** Extrahera logik till rena funktioner utan sidoeffekter där möjligt (t.ex. `getSpeedColor(speed)`, `applyFriction(velocity, friction, dt)`). Dessa är triviala att enhetstesta.
+- **No Static State:** Undvik statiska mutable tillstånd. Använd Zustand stores (frontend) eller DI-scoped services (backend) istället.
+- **Testable Configuration:** Alla konfigurationsvärden via `IOptions<T>` → enkelt att skapa test-konfiguration med `Options.Create(new JwtSettings { ... })`.
+
 ### Testing & Quality
-- **Pragmatic Testing:** Focus on complex logic (movement math, DTO mapping, auth) rather than UI boilerplate.
-- **Edge Cases:** Prioritize "breaking" the logic over 100% coverage.
+- **Pragmatic Testing:** Focus on complex logic (movement math, token generation, auth handlers, validation) rather than UI boilerplate.
+- **Edge Cases:** Prioritize "breaking" the logic over 100% coverage. Test gränsvärden (min/max längd, ogiltiga GUID, tomma strängar).
 - **Tools:** Vitest (Frontend), xUnit (Backend).
+- **Test Structure:** Arrange-Act-Assert pattern. Tydliga testnamn som beskriver scenario: `MethodName_Scenario_ExpectedResult`.
+- **No Integration Leaks:** Enhetstester ska INTE bero på databas, nätverk, eller filsystem. Mocka repositories via interfaces.
 
 ## Physics Constants (128Hz Tick Rate)
 - Ground: max speed 320 u/s, friction 6.0, accel 10

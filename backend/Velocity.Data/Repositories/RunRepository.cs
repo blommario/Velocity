@@ -4,21 +4,25 @@ using Velocity.Core.Interfaces;
 
 namespace Velocity.Data.Repositories;
 
-public class RunRepository(VelocityDbContext db) : IRunRepository
+public sealed class RunRepository(VelocityDbContext db) : IRunRepository
 {
-    public async Task<Run?> GetByIdAsync(Guid id)
-        => await db.Runs.Include(r => r.Player).FirstOrDefaultAsync(r => r.Id == id);
-
-    public async Task<IReadOnlyList<Run>> GetByMapAsync(Guid mapId, Guid playerId)
+    public async ValueTask<Run?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await db.Runs
+            .AsNoTracking()
+            .Include(r => r.Player)
+            .SingleOrDefaultAsync(r => r.Id == id, ct);
+
+    public async ValueTask<IReadOnlyList<Run>> GetByMapAsync(Guid mapId, Guid playerId, CancellationToken ct = default)
+        => await db.Runs
+            .AsNoTracking()
             .Where(r => r.MapId == mapId && r.PlayerId == playerId)
             .OrderBy(r => r.Time)
-            .ToListAsync();
+            .ToListAsync(ct);
 
-    public async Task<Run> CreateAsync(Run run)
+    public async ValueTask<Run> CreateAsync(Run run, CancellationToken ct = default)
     {
         db.Runs.Add(run);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
         return run;
     }
 }

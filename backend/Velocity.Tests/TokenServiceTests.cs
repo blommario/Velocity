@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Velocity.Api.Configuration;
 using Velocity.Api.Services;
 
 namespace Velocity.Tests;
@@ -11,17 +12,15 @@ public class TokenServiceTests
 
     public TokenServiceTests()
     {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Jwt:Key"] = "TestKeyThatIsAtLeast32CharactersLong!!",
-                ["Jwt:Issuer"] = "TestIssuer",
-                ["Jwt:Audience"] = "TestAudience",
-                ["Jwt:ExpirationInMinutes"] = "60",
-            })
-            .Build();
+        var settings = new JwtSettings
+        {
+            Key = "TestKeyThatIsAtLeast32CharactersLong!!",
+            Issuer = "TestIssuer",
+            Audience = "TestAudience",
+            ExpirationInMinutes = 60,
+        };
 
-        _sut = new TokenService(config);
+        _sut = new TokenService(Options.Create(settings));
     }
 
     [Fact]

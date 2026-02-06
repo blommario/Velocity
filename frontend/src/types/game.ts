@@ -1,3 +1,12 @@
+export const MAP_DIFFICULTIES = {
+  EASY: 'Easy',
+  MEDIUM: 'Medium',
+  HARD: 'Hard',
+  EXPERT: 'Expert',
+} as const;
+
+export type MapDifficulty = (typeof MAP_DIFFICULTIES)[keyof typeof MAP_DIFFICULTIES];
+
 export interface MapResponse {
   id: string;
   name: string;
@@ -11,5 +20,3 @@ export interface MapResponse {
   mapDataJson: string;
   createdAt: string;
 }
-
-export type MapDifficulty = 'Easy' | 'Medium' | 'Hard' | 'Expert';
