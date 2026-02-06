@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Velocity.Core\Velocity.Core.csproj" />
+    <ProjectReference Include="..\Velocity.Data\Velocity.Data.csproj" />
     <ProjectReference Include="..\Velocity.Api\Velocity.Api.csproj" />
   </ItemGroup>
 

@@ -1,14 +1,18 @@
-const BASE = '/api';
+const API_BASE = '/api' as const;
+
+export const STORAGE_KEYS = {
+  AUTH_TOKEN: 'velocity_token',
+} as const;
 
 function getHeaders(): HeadersInit {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('velocity_token');
+  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: { ...getHeaders(), ...init?.headers },
   });

@@ -38,7 +38,7 @@ public class AuthHandlers(IPlayerRepository players, TokenService tokenService)
     {
         var player = await players.GetByUsernameAsync(request.Username);
         if (player is null || !BCrypt.Net.BCrypt.Verify(request.Password, player.PasswordHash))
-            return Results.Json(new { error = "Invalid username or password." }, statusCode: 401);
+            return Results.Problem(statusCode: 401, detail: "Invalid username or password.");
 
         player.LastLoginAt = DateTime.UtcNow;
         await players.UpdateAsync(player);

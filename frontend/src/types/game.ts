@@ -1,4 +1,4 @@
-export interface MapDto {
+export interface MapResponse {
   id: string;
   name: string;
   description: string;

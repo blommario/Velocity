@@ -77,6 +77,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
 builder.Services.AddScoped<IMapRepository, MapRepository>();
+builder.Services.AddScoped<IRunRepository, RunRepository>();
 
 // ── Handlers (CQRS) ──
 builder.Services.AddScoped<AuthHandlers>();
