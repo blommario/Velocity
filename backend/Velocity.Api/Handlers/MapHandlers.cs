@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Velocity.Api.DTOs;
+using Velocity.Api.Contracts;
 using Velocity.Core.Entities;
 using Velocity.Core.Interfaces;
 
@@ -14,13 +14,13 @@ public class MapHandlers(IMapRepository maps)
         MapDifficulty? difficulty = null)
     {
         var results = await maps.GetAllAsync(page, pageSize, isOfficial, difficulty);
-        return Results.Ok(results.Select(ToDto));
+        return Results.Ok(results.Select(ToResponse));
     }
 
     public async ValueTask<IResult> GetById(Guid id)
     {
         var map = await maps.GetByIdAsync(id);
-        return map is null ? Results.NotFound() : Results.Ok(ToDto(map));
+        return map is null ? Results.NotFound() : Results.Ok(ToResponse(map));
     }
 
     public async ValueTask<IResult> Create(CreateMapRequest request, ClaimsPrincipal user)
@@ -47,10 +47,10 @@ public class MapHandlers(IMapRepository maps)
         };
 
         await maps.CreateAsync(map);
-        return Results.Created($"/api/maps/{map.Id}", ToDto(map));
+        return Results.Created($"/api/maps/{map.Id}", ToResponse(map));
     }
 
-    private static MapDto ToDto(GameMap m) => new(
+    private static MapResponse ToResponse(GameMap m) => new(
         m.Id, m.Name, m.Description,
         m.Author?.Username ?? "Unknown",
         m.Difficulty, m.IsOfficial,

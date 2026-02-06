@@ -1,4 +1,4 @@
-namespace Velocity.Api.DTOs;
+namespace Velocity.Api.Contracts;
 
 public record RegisterRequest(string Username, string Password);
 

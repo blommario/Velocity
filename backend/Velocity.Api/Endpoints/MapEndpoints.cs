@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Velocity.Api.DTOs;
+using Velocity.Api.Contracts;
 using Velocity.Api.Handlers;
 using Velocity.Core.Entities;
 

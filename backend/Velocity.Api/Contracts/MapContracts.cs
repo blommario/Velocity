@@ -1,8 +1,8 @@
 using Velocity.Core.Entities;
 
-namespace Velocity.Api.DTOs;
+namespace Velocity.Api.Contracts;
 
-public record MapDto(
+public record MapResponse(
     Guid Id,
     string Name,
     string Description,

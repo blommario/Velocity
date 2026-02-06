@@ -1,4 +1,4 @@
-using Velocity.Api.DTOs;
+using Velocity.Api.Contracts;
 using Velocity.Api.Handlers;
 
 namespace Velocity.Api.Endpoints;

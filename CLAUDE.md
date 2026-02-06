@@ -11,7 +11,7 @@ backend/
     Endpoints/              ← Thin endpoint mapping (AuthEndpoints, MapEndpoints)
     Handlers/               ← CQRS business logic (AuthHandlers, MapHandlers)
     Services/               ← TokenService.cs
-    DTOs/                   ← Request/response records
+    Contracts/              ← Request/response records (named by role, no Dto suffix)
   Velocity.Core/            ← Domain models & interfaces
   Velocity.Data/            ← EF Core + SQLite + repositories
   Velocity.Tests/           ← xUnit backend tests
@@ -47,10 +47,14 @@ Plan.md                     ← Implementation plan (12 faser med beroenden)
 - This also applies to CSS classes when used in conditional logic.
 
 ### Backend Architecture (C# 14 / .NET 10)
-- **Minimal API Purity:** Endpoints in `Endpoints/` MUST only handle request/response mapping. All business logic and DB access MUST reside in `Handlers/` (CQRS-pattern).
-- **C# 14 Features:** Use `field` keyword for auto-properties and `params` Collections (e.g., `params List<T>`).
-- **Performance:** Use `ValueTask` for high-frequency async operations to reduce allocations. Use `ReadOnlySpan<T>` for physics-related string/data parsing.
-- **Directives:** Use File-Scoped Namespaces and Primary Constructors for all DTOs and Services.
+- **Inga Dto-suffix:** Använd aldrig ordet "Dto". Namnge efter roll: `[Action][Entity]Request` (t.ex. `CreateMapRequest`) eller `[Entity]Response` (t.ex. `MapResponse`).
+- **Records som Contracts:** Använd `public record` med Primary Constructors för alla Request/Response-objekt. Dessa ligger i `Contracts/`.
+- **Minimal API & Handlers:** Endpoints i `Endpoints/` MÅSTE vara tunna — enbart request/response-mappning. All affärslogik och DB-åtkomst MÅSTE ligga i `Handlers/` (CQRS-mönster).
+- **Result Pattern:** Returnera `IResult` från Handlers istället för att kasta exceptions vid valideringsfel eller saknade resurser. Använd `Results.BadRequest()`, `Results.NotFound()`, `Results.Conflict()` etc.
+- **Single Responsibility:** En Handler ska bara göra en sak. Om logiken blir för komplex, bryt ut den i en specifik domäntjänst i `Services/`.
+- **File-Scoped Namespaces:** Använd alltid file-scoped namespaces (`namespace X;`) för att minska indentering.
+- **C# 14 Features:** Använd `field` keyword för auto-properties och `params` Collections (t.ex. `params List<T>`) där det förenklar koden.
+- **Performance:** Använd `ValueTask` för high-frequency async operations. Använd `ReadOnlySpan<T>` för physics-relaterad string/data-parsning.
 
 ### Frontend Architecture (React 19 / Zustand)
 - **Component Limits:** Max 150 lines per component. Larger logic must be moved to Custom Hooks (e.g., `useMovement.ts`).
