@@ -100,6 +100,7 @@ function TexturedBlockGroup({ group }: { group: BlockGroup }) {
         args={[undefined, undefined, group.blocks.length]}
         castShadow
         receiveShadow
+        frustumCulled={false}
       >
         {group.shape === 'cylinder' ? (
           <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
@@ -117,6 +118,7 @@ function TexturedBlockGroup({ group }: { group: BlockGroup }) {
       args={[undefined, undefined, group.blocks.length]}
       castShadow
       receiveShadow
+      frustumCulled={false}
       material={material}
     >
       {group.shape === 'cylinder' ? (
@@ -137,6 +139,7 @@ function FlatBlockGroup({ group }: { group: BlockGroup }) {
       args={[undefined, undefined, group.blocks.length]}
       castShadow
       receiveShadow
+      frustumCulled={false}
     >
       {group.shape === 'cylinder' ? (
         <cylinderGeometry args={[0.5, 0.5, 1, 16]} />

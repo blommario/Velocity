@@ -161,11 +161,21 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setScreen: (screen) => set({ screen }),
 
-  loadMap: (mapId, mapData) => set({
-    currentMapId: mapId,
-    currentMapData: mapData,
-    screen: SCREENS.PLAYING,
-  }),
+  loadMap: (mapId, mapData) => {
+    const dir = mapData.spawnDirection;
+    const yaw = Math.atan2(-dir[0], -dir[2]);
+    set({
+      currentMapId: mapId,
+      currentMapData: mapData,
+      screen: SCREENS.PLAYING,
+      // Pre-set spawn so PlayerController creates RigidBody at correct position
+      spawnPoint: mapData.spawnPoint,
+      spawnYaw: yaw,
+      lastCheckpointPos: mapData.spawnPoint,
+      lastCheckpointYaw: yaw,
+      respawnRequested: true,
+    });
+  },
 
   playTestMap: () => set({
     currentMapId: null,

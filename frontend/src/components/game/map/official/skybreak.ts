@@ -76,7 +76,7 @@ export const SKYBREAK: MapData = {
   },
 
   killZones: [
-    { position: [0, 20, -90], size: [300, 5, 300] },
+    { position: [0, 10, -90], size: [500, 5, 500] },
   ],
 
   surfRamps: [

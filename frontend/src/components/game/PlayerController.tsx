@@ -11,6 +11,7 @@ import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
 import { PHYSICS, DEG2RAD } from './physics/constants';
 import { useInputBuffer } from './physics/useInputBuffer';
 import { physicsTick } from './physics/usePhysicsTick';
+import { useGameStore } from '../../stores/gameStore';
 import { devLog } from '../../stores/devLogStore';
 
 export function PlayerController() {
@@ -73,12 +74,14 @@ export function PlayerController() {
     );
   });
 
+  const spawnPos = useGameStore((s) => s.lastCheckpointPos) ?? [0, 3, 0];
+
   return (
     <RigidBody
       ref={rigidBodyRef}
       type="kinematicPosition"
       colliders={false}
-      position={[0, 3, 0]}
+      position={spawnPos}
       lockRotations
     >
       <CapsuleCollider

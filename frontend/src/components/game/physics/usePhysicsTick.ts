@@ -70,6 +70,10 @@ const LANDING_DIP_AMOUNT = 0.12;  // max dip in units
 const LANDING_DIP_DECAY = 8;      // exponential decay rate
 const LANDING_DIP_MIN_FALL = 150;  // min fall speed to trigger dip
 
+// Respawn grace — skip gravity for a few ticks after respawn to let colliders register
+let respawnGraceTicks = 0;
+const RESPAWN_GRACE_TICKS = 16; // ~125ms at 128Hz
+
 // Audio tracking
 let wasGrounded = false;
 let footstepTimer = 0;
@@ -137,6 +141,7 @@ export function physicsTick(
     refs.jumpHoldTime.current = 0;
     wallRunState.isWallRunning = false;
     wallRunState.wallRunCooldown = false;
+    respawnGraceTicks = RESPAWN_GRACE_TICKS;
     collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
     camera.position.set(respawn.pos[0], respawn.pos[1] + PHYSICS.PLAYER_EYE_OFFSET, respawn.pos[2]);
     camera.rotation.order = 'YXZ';
@@ -144,6 +149,21 @@ export function physicsTick(
     camera.rotation.x = 0;
     useCombatStore.getState().stopGrapple();
     devLog.info('Physics', `Respawn → [${respawn.pos.map(v => v.toFixed(1)).join(', ')}] yaw=${(respawn.yaw * 180 / Math.PI).toFixed(0)}°`);
+    return;
+  }
+
+  // Respawn grace: skip gravity to let colliders register in physics world
+  if (respawnGraceTicks > 0) {
+    respawnGraceTicks--;
+    // Allow mouse look but hold position
+    const { dx: gDx, dy: gDy } = consumeMouseDelta();
+    refs.yaw.current -= gDx * sensitivity;
+    refs.pitch.current -= gDy * sensitivity;
+    refs.pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, refs.pitch.current));
+    camera.position.set(pos.x, pos.y + PHYSICS.PLAYER_EYE_OFFSET, pos.z);
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = refs.yaw.current;
+    camera.rotation.x = refs.pitch.current;
     return;
   }
 

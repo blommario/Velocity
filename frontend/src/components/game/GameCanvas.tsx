@@ -82,14 +82,14 @@ export function GameCanvas() {
           gravity={[0, 0, 0]}
           interpolate
         >
-          <PlayerController />
-          <ProjectileRenderer />
-          <GhostRenderer />
           {mapData ? (
             <MapLoader data={mapData} mapId={mapId ?? undefined} />
           ) : (
             <TestMap />
           )}
+          <PlayerController />
+          <ProjectileRenderer />
+          <GhostRenderer />
         </Physics>
         <SpeedTrail />
         <GrappleBeam />
