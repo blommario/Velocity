@@ -1,9 +1,9 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
-  BufferGeometry, Float32BufferAttribute, PointsMaterial,
-  Points, AdditiveBlending, Color,
-} from 'three';
+  BufferGeometry, Float32BufferAttribute, PointsNodeMaterial,
+  Points, AdditiveBlending,
+} from 'three/webgpu';
 import { useGameStore } from '../../../stores/gameStore';
 
 const SHIMMER = {
@@ -28,7 +28,7 @@ export function CheckpointShimmer() {
   const initRef = useRef(false);
   const lastCheckpointRef = useRef(-1);
   const geometryRef = useRef<BufferGeometry | null>(null);
-  const materialRef = useRef<PointsMaterial | null>(null);
+  const materialRef = useRef<PointsNodeMaterial | null>(null);
 
   useFrame((_, delta) => {
     // Initialize
@@ -38,7 +38,7 @@ export function CheckpointShimmer() {
       geometry.setAttribute('position', new Float32BufferAttribute(posArray, 3));
       geometry.setDrawRange(0, 0);
 
-      const material = new PointsMaterial({
+      const material = new PointsNodeMaterial({
         color: SHIMMER.COLOR,
         size: SHIMMER.SIZE,
         transparent: true,

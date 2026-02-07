@@ -1,9 +1,9 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
-  BufferGeometry, Float32BufferAttribute, LineBasicMaterial,
+  BufferGeometry, Float32BufferAttribute, LineBasicNodeMaterial,
   Line, AdditiveBlending,
-} from 'three';
+} from 'three/webgpu';
 import { useCombatStore } from '../../../stores/combatStore';
 import { PHYSICS } from '../physics/constants';
 
@@ -19,7 +19,7 @@ const BEAM = {
 export function GrappleBeam() {
   const { scene, camera } = useThree();
   const lineRef = useRef<Line | null>(null);
-  const materialRef = useRef<LineBasicMaterial | null>(null);
+  const materialRef = useRef<LineBasicNodeMaterial | null>(null);
   const geometryRef = useRef<BufferGeometry | null>(null);
   const initRef = useRef(false);
   const timeRef = useRef(0);
@@ -33,7 +33,7 @@ export function GrappleBeam() {
       const posArray = new Float32Array((BEAM.SEGMENTS + 1) * 3);
       geometry.setAttribute('position', new Float32BufferAttribute(posArray, 3));
 
-      const material = new LineBasicMaterial({
+      const material = new LineBasicNodeMaterial({
         color: BEAM.COLOR,
         transparent: true,
         opacity: 0,

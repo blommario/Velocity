@@ -18,13 +18,13 @@ const SETTINGS_TABS = {
 
 type SettingsTab = (typeof SETTINGS_TABS)[keyof typeof SETTINGS_TABS];
 
-const TAB_LABELS: { tab: SettingsTab; label: string }[] = [
-  { tab: SETTINGS_TABS.MOUSE, label: 'Mouse' },
-  { tab: SETTINGS_TABS.VIDEO, label: 'Video' },
-  { tab: SETTINGS_TABS.AUDIO, label: 'Audio' },
-  { tab: SETTINGS_TABS.GAMEPLAY, label: 'Gameplay' },
-  { tab: SETTINGS_TABS.HUD, label: 'HUD' },
-  { tab: SETTINGS_TABS.KEYBINDS, label: 'Key Binds' },
+const TAB_LABELS: { tab: SettingsTab; label: string; icon: string }[] = [
+  { tab: SETTINGS_TABS.MOUSE, label: 'Mouse', icon: 'M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5' },
+  { tab: SETTINGS_TABS.VIDEO, label: 'Video', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+  { tab: SETTINGS_TABS.AUDIO, label: 'Audio', icon: 'M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z' },
+  { tab: SETTINGS_TABS.GAMEPLAY, label: 'Gameplay', icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z' },
+  { tab: SETTINGS_TABS.HUD, label: 'HUD', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+  { tab: SETTINGS_TABS.KEYBINDS, label: 'Key Binds', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
 ];
 
 export function SettingsScreen() {
@@ -33,36 +33,61 @@ export function SettingsScreen() {
   const resetAll = useSettingsStore((s) => s.resetAll);
 
   return (
-    <div className="w-screen h-screen bg-gray-950 text-white flex flex-col">
-      <header className="flex items-center justify-between px-8 py-4 border-b border-gray-800">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <div className="flex gap-3">
+    <div className="w-screen h-screen bg-[#06060c] text-white flex flex-col relative overflow-hidden">
+      {/* Ambient glow */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute -top-32 right-1/4 w-[400px] h-[400px] bg-violet-500/[0.03] rounded-full blur-[150px]" />
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-cyan-500/[0.02] rounded-full blur-[150px]" />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
+            backgroundSize: '60px 60px',
+          }}
+        />
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-white/[0.06] backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <h1 className="text-lg font-bold tracking-[0.15em] uppercase">Settings</h1>
+        </div>
+        <div className="flex gap-2">
           <button
             onClick={resetAll}
-            className="text-sm text-gray-500 hover:text-red-400 transition-colors cursor-pointer"
+            className="text-[10px] text-gray-600 hover:text-rose-400 transition-colors font-mono uppercase tracking-widest border border-white/[0.06] hover:border-rose-500/30 rounded-lg px-4 py-2 cursor-pointer"
           >
             Reset All
           </button>
           <button
             onClick={() => setScreen(SCREENS.MAIN_MENU)}
-            className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded text-sm transition-colors cursor-pointer"
+            className="text-[10px] text-gray-400 hover:text-white transition-colors font-mono uppercase tracking-widest border border-white/10 hover:border-white/20 hover:bg-white/5 rounded-lg px-4 py-2 cursor-pointer"
           >
             Back
           </button>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Tabs */}
-        <div className="w-48 bg-gray-900 border-r border-gray-800 py-2">
-          {TAB_LABELS.map(({ tab: t, label }) => (
+      <div className="relative z-10 flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-52 border-r border-white/[0.06] py-3 flex flex-col gap-0.5 px-2">
+          {TAB_LABELS.map(({ tab: t, label, icon }) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer ${
-                tab === t ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              className={`w-full text-left px-4 py-2.5 text-xs font-bold tracking-[0.1em] uppercase rounded-lg transition-all duration-200 flex items-center gap-3 cursor-pointer ${
+                tab === t
+                  ? 'bg-white/[0.06] text-white border border-white/[0.08]'
+                  : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.02] border border-transparent'
               }`}
             >
+              <svg className={`w-4 h-4 ${tab === t ? 'text-cyan-400' : 'text-gray-700'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d={icon} />
+              </svg>
               {label}
             </button>
           ))}
@@ -90,7 +115,7 @@ function MouseSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold mb-4">Mouse</h2>
+      <SectionTitle>Mouse</SectionTitle>
       <SliderSetting
         label="Sensitivity"
         value={sensitivity}
@@ -122,7 +147,7 @@ function VideoSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold mb-4">Video</h2>
+      <SectionTitle>Video</SectionTitle>
       <SliderSetting label="FOV" value={fov} min={80} max={130} step={1} onChange={setFov} displayValue={`${fov}`} />
       <SelectSetting
         label="Quality"
@@ -152,7 +177,7 @@ function AudioSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold mb-4">Audio</h2>
+      <SectionTitle>Audio</SectionTitle>
       <SliderSetting label="Master" value={masterVolume} min={0} max={1} step={0.05} onChange={setMasterVolume} displayValue={`${Math.round(masterVolume * 100)}%`} />
       <SliderSetting label="SFX" value={sfxVolume} min={0} max={1} step={0.05} onChange={setSfxVolume} displayValue={`${Math.round(sfxVolume * 100)}%`} />
       <SliderSetting label="Music" value={musicVolume} min={0} max={1} step={0.05} onChange={setMusicVolume} displayValue={`${Math.round(musicVolume * 100)}%`} />
@@ -175,10 +200,12 @@ function GameplaySettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold mb-4">Gameplay</h2>
+      <SectionTitle>Gameplay</SectionTitle>
       <ToggleSetting label="Auto Bunny Hop" value={autoBhop} onChange={setAutoBhop} />
 
-      <h3 className="text-sm text-gray-400 uppercase tracking-wider mt-6 mb-2">Crosshair</h3>
+      <div className="pt-4">
+        <SubSectionTitle>Crosshair</SubSectionTitle>
+      </div>
       <SelectSetting
         label="Style"
         value={crosshairStyle}
@@ -209,11 +236,13 @@ function HudSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold mb-4">HUD</h2>
+      <SectionTitle>HUD</SectionTitle>
       <SliderSetting label="Scale" value={hudScale} min={0.5} max={2.0} step={0.1} onChange={setHudScale} displayValue={`${Math.round(hudScale * 100)}%`} />
       <SliderSetting label="Opacity" value={hudOpacity} min={0.1} max={1.0} step={0.05} onChange={setHudOpacity} displayValue={`${Math.round(hudOpacity * 100)}%`} />
 
-      <h3 className="text-sm text-gray-400 uppercase tracking-wider mt-6 mb-2">Elements</h3>
+      <div className="pt-4">
+        <SubSectionTitle>Elements</SubSectionTitle>
+      </div>
       <ToggleSetting label="Speed Meter" value={showSpeedMeter} onChange={setShowSpeedMeter} />
       <ToggleSetting label="Timer" value={showTimer} onChange={setShowTimer} />
       <ToggleSetting label="Checkpoints" value={showCheckpoints} onChange={setShowCheckpoints} />
@@ -256,24 +285,24 @@ function KeyBindSettings() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold">Key Bindings</h2>
+        <SectionTitle>Key Bindings</SectionTitle>
         <button
           onClick={resetKeyBindings}
-          className="text-sm text-gray-500 hover:text-red-400 transition-colors cursor-pointer"
+          className="text-[10px] text-gray-600 hover:text-rose-400 transition-colors font-mono uppercase tracking-widest cursor-pointer"
         >
           Reset Defaults
         </button>
       </div>
 
       {Object.entries(DEFAULT_KEY_BINDINGS).map(([action]) => (
-        <div key={action} className="flex items-center justify-between py-1.5 border-b border-gray-800">
-          <span className="text-gray-300 capitalize">{formatActionName(action)}</span>
+        <div key={action} className="flex items-center justify-between py-2 border-b border-white/[0.04]">
+          <span className="text-gray-400 capitalize text-sm">{formatActionName(action)}</span>
           <button
             onClick={() => handleRebind(action)}
-            className={`px-3 py-1 rounded font-mono text-sm min-w-[100px] text-center transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg font-mono text-xs min-w-[100px] text-center transition-all cursor-pointer ${
               rebinding === action
-                ? 'bg-yellow-600 text-white animate-pulse'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse'
+                : 'bg-white/[0.04] text-gray-400 border border-white/[0.06] hover:border-white/15 hover:bg-white/[0.06]'
             }`}
           >
             {rebinding === action ? 'Press key...' : formatKeyName(keyBindings[action])}
@@ -286,13 +315,25 @@ function KeyBindSettings() {
 
 // ── Shared components ──
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-sm font-bold tracking-[0.15em] uppercase text-white/80 mb-4">{children}</h2>
+  );
+}
+
+function SubSectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-[10px] text-gray-600 uppercase tracking-[0.2em] font-mono mb-2">{children}</h3>
+  );
+}
+
 function SliderSetting({ label, value, min, max, step, onChange, displayValue }: {
   label: string; value: number; min: number; max: number; step: number;
   onChange: (v: number) => void; displayValue: string;
 }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="text-gray-300 w-28 flex-shrink-0">{label}</span>
+      <span className="text-gray-400 w-28 flex-shrink-0 text-sm">{label}</span>
       <input
         type="range"
         value={value}
@@ -300,9 +341,9 @@ function SliderSetting({ label, value, min, max, step, onChange, displayValue }:
         max={max}
         step={step}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="flex-1 accent-green-500"
+        className="flex-1 accent-cyan-500"
       />
-      <span className="text-gray-400 font-mono w-16 text-right text-sm">{displayValue}</span>
+      <span className="text-gray-500 font-mono w-16 text-right text-xs">{displayValue}</span>
     </div>
   );
 }
@@ -311,11 +352,15 @@ function ToggleSetting({ label, value, onChange }: {
   label: string; value: boolean; onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between py-1 cursor-pointer">
-      <span className="text-gray-300">{label}</span>
+    <label className="flex items-center justify-between py-1.5 cursor-pointer group">
+      <span className="text-gray-400 text-sm group-hover:text-gray-300 transition-colors">{label}</span>
       <button
         onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full transition-colors cursor-pointer ${value ? 'bg-green-500' : 'bg-gray-700'}`}
+        className={`w-10 h-5 rounded-full transition-all cursor-pointer ${
+          value
+            ? 'bg-cyan-500/80 shadow-sm shadow-cyan-500/30'
+            : 'bg-white/[0.08] border border-white/[0.06]'
+        }`}
       >
         <div className={`w-4 h-4 bg-white rounded-full transition-transform mx-0.5 ${value ? 'translate-x-5' : ''}`} />
       </button>
@@ -328,14 +373,14 @@ function SelectSetting({ label, value, options, onChange }: {
 }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="text-gray-300 w-28 flex-shrink-0">{label}</span>
+      <span className="text-gray-400 w-28 flex-shrink-0 text-sm">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-white"
+        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-cyan-500/40"
       >
         {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
+          <option key={opt} value={opt} className="bg-[#12121a]">{opt}</option>
         ))}
       </select>
     </div>
@@ -347,14 +392,14 @@ function ColorSetting({ label, value, onChange }: {
 }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="text-gray-300 w-28 flex-shrink-0">{label}</span>
+      <span className="text-gray-400 w-28 flex-shrink-0 text-sm">{label}</span>
       <input
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-10 h-6 rounded border border-gray-700 cursor-pointer bg-transparent"
+        className="w-10 h-6 rounded border border-white/[0.08] cursor-pointer bg-transparent"
       />
-      <span className="text-gray-500 font-mono text-sm">{value}</span>
+      <span className="text-gray-600 font-mono text-xs">{value}</span>
     </div>
   );
 }

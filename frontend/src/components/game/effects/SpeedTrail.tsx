@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { BufferGeometry, Float32BufferAttribute, LineBasicMaterial, Line, AdditiveBlending, Color } from 'three';
+import { BufferGeometry, Float32BufferAttribute, LineBasicNodeMaterial, Line, AdditiveBlending, Color } from 'three/webgpu';
 import { useGameStore } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 
@@ -18,7 +18,7 @@ export function SpeedTrail() {
   const lineRef = useRef<Line | null>(null);
   const positionsRef = useRef<[number, number, number][]>([]);
   const timerRef = useRef(0);
-  const materialRef = useRef<LineBasicMaterial | null>(null);
+  const materialRef = useRef<LineBasicNodeMaterial | null>(null);
   const geometryRef = useRef<BufferGeometry | null>(null);
   const initRef = useRef(false);
 
@@ -35,7 +35,7 @@ export function SpeedTrail() {
       geometry.setAttribute('position', new Float32BufferAttribute(posArray, 3));
       geometry.setDrawRange(0, 0);
 
-      const material = new LineBasicMaterial({
+      const material = new LineBasicNodeMaterial({
         color: TRAIL.BASE_COLOR,
         transparent: true,
         opacity: 0.6,
