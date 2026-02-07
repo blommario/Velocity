@@ -1,6 +1,7 @@
 import { type MutableRefObject } from 'react';
 import { Vector3, type Camera } from 'three';
 import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
+import { Ray, QueryFilterFlags } from '@dimforge/rapier3d-compat';
 import { PHYSICS } from './constants';
 import type { InputState } from './types';
 import {
@@ -26,6 +27,7 @@ import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { useReplayStore } from '../../../stores/replayStore';
 import { audioManager, SOUNDS } from '../../../systems/AudioManager';
+import { devLog } from '../../../stores/devLogStore';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
@@ -39,6 +41,10 @@ const _playerPos = new Vector3();
 const _fireDir = new Vector3();
 
 let lastHudUpdate = 0;
+let lastDevLogUpdate = 0;
+const DEV_LOG_INTERVAL = 2000; // log physics state every 2s
+let lastDevSpeedMult = 1.0;
+let lastDevGravMult = 1.0;
 
 // Persistent state for wall running (survives across ticks)
 let wallRunState: WallRunState = {
@@ -56,8 +62,8 @@ let wasGrapplePressed = false;
 // Audio tracking
 let wasGrounded = false;
 let footstepTimer = 0;
-const FOOTSTEP_INTERVAL_BASE = 0.4; // seconds at walk speed
-const FOOTSTEP_INTERVAL_MIN = 0.2; // seconds at max speed
+const FOOTSTEP_INTERVAL_BASE = 0.4;
+const FOOTSTEP_INTERVAL_MIN = 0.2;
 
 export interface PhysicsTickRefs {
   rigidBody: MutableRefObject<RapierRigidBody | null>;
@@ -83,6 +89,7 @@ export function physicsTick(
   refs: PhysicsTickRefs,
   camera: Camera,
   consumeMouseDelta: () => { dx: number; dy: number },
+  rapierWorld: import('@dimforge/rapier3d-compat').World,
 ): void {
   const rb = refs.rigidBody.current;
   const collider = refs.collider.current;
@@ -91,12 +98,15 @@ export function physicsTick(
 
   const input = refs.input.current;
   const velocity = refs.velocity.current;
-  const { sensitivity, autoBhop } = useSettingsStore.getState();
+  const { sensitivity, autoBhop, devSpeedMultiplier, devGravityMultiplier } = useSettingsStore.getState();
   const dt = PHYSICS.TICK_DELTA;
+  const speedMult = devSpeedMultiplier;
+  const gravMult = devGravityMultiplier;
 
-  // --- Respawn check ---
+  // --- Respawn check (use actual physics position, not HUD position) ---
   const store = useGameStore.getState();
-  if (store.checkKillZone()) {
+  const pos = rb.translation();
+  if (pos.y < -50) {
     store.requestRespawn();
   }
   const respawn = store.consumeRespawn();
@@ -120,6 +130,7 @@ export function physicsTick(
     camera.rotation.y = respawn.yaw;
     camera.rotation.x = 0;
     useCombatStore.getState().stopGrapple();
+    devLog.info('Physics', `Respawn → [${respawn.pos.map(v => v.toFixed(1)).join(', ')}] yaw=${(respawn.yaw * 180 / Math.PI).toFixed(0)}°`);
     return;
   }
 
@@ -145,7 +156,6 @@ export function physicsTick(
   }
 
   // --- Coyote time ---
-  // Counts down after leaving ground (not from jumping — only from walking off ledges)
   if (refs.grounded.current) {
     refs.coyoteTime.current = PHYSICS.COYOTE_TIME_MS;
   } else if (refs.coyoteTime.current > 0 && !refs.isJumping.current) {
@@ -156,11 +166,9 @@ export function physicsTick(
   const wantsJump = autoBhop ? input.jump : refs.jumpBufferTime.current > 0;
 
   // --- Variable jump height ---
-  // Track how long jump is held; apply extra gravity when released early
   if (refs.isJumping.current) {
     refs.jumpHoldTime.current += dt * 1000;
     if (!input.jump && velocity.y > 0 && refs.jumpHoldTime.current < PHYSICS.JUMP_RELEASE_WINDOW_MS) {
-      // Player released jump early — cut upward velocity for a short hop
       velocity.y = Math.max(velocity.y * 0.5, PHYSICS.JUMP_FORCE_MIN * 0.5);
       refs.isJumping.current = false;
     }
@@ -179,19 +187,23 @@ export function physicsTick(
       case 'boostPad':
         applyBoostPad(velocity, evt.direction, evt.speed);
         audioManager.play(SOUNDS.BOOST_PAD);
+        devLog.info('Zone', `Boost pad → speed=${evt.speed} dir=[${evt.direction.join(',')}]`);
         break;
       case 'launchPad':
         applyLaunchPad(velocity, evt.direction, evt.speed);
         refs.grounded.current = false;
         audioManager.play(SOUNDS.LAUNCH_PAD);
+        devLog.info('Zone', `Launch pad → speed=${evt.speed}`);
         break;
       case 'speedGate':
         applySpeedGate(velocity, evt.multiplier, evt.minSpeed);
         audioManager.play(SOUNDS.SPEED_GATE);
+        devLog.info('Zone', `Speed gate → ${evt.multiplier}x (min ${evt.minSpeed})`);
         break;
       case 'ammoPickup':
         combat.pickupAmmo(evt.weaponType, evt.amount);
         audioManager.play(SOUNDS.AMMO_PICKUP);
+        devLog.info('Zone', `Picked up ${evt.amount} ${evt.weaponType} ammo`);
         break;
     }
   }
@@ -201,31 +213,25 @@ export function physicsTick(
   const grappleJustPressed = grapplePressed && !wasGrapplePressed;
   wasGrapplePressed = grapplePressed;
 
-  const pos = rb.translation();
   _playerPos.set(pos.x, pos.y, pos.z);
 
   if (combat.isGrappling) {
     if (!grapplePressed && combat.grappleTarget) {
-      // Release: boost momentum
       const speed = velocity.length();
       velocity.multiplyScalar(PHYSICS.GRAPPLE_RELEASE_BOOST);
-      // Ensure we don't lose speed on release
       if (velocity.length() < speed) {
         velocity.normalize().multiplyScalar(speed * PHYSICS.GRAPPLE_RELEASE_BOOST);
       }
       combat.stopGrapple();
       audioManager.play(SOUNDS.GRAPPLE_RELEASE);
     } else if (combat.grappleTarget) {
-      // Active grapple: apply swing physics
       applyGrappleSwing(velocity, _playerPos, combat.grappleTarget, combat.grappleLength, dt);
     }
   } else if (grappleJustPressed) {
-    // Try to find nearest grapple point within range and in view direction
     const grapplePoints = combat.registeredGrapplePoints;
     let bestDist = PHYSICS.GRAPPLE_MAX_DISTANCE;
     let bestPoint: [number, number, number] | null = null;
 
-    // Look direction from yaw/pitch
     _fireDir.set(
       -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
       Math.sin(refs.pitch.current),
@@ -239,7 +245,6 @@ export function physicsTick(
       const dist = Math.sqrt(gpDx * gpDx + gpDy * gpDy + gpDz * gpDz);
       if (dist > PHYSICS.GRAPPLE_MAX_DISTANCE || dist < 1) continue;
 
-      // Check if roughly in view direction (dot product > 0.3 = ~70 degree cone)
       const dot = (gpDx / dist) * _fireDir.x + (gpDy / dist) * _fireDir.y + (gpDz / dist) * _fireDir.z;
       if (dot < 0.3) continue;
 
@@ -256,7 +261,6 @@ export function physicsTick(
   }
 
   // --- Weapon firing ---
-  // Left-click = rocket, Right-click/G = grenade (independent cooldowns via shared cooldown timer)
   combat.tickCooldown(dt);
 
   if (input.fire && combat.fireCooldown <= 0 && combat.rocketAmmo > 0) {
@@ -279,6 +283,7 @@ export function physicsTick(
     ];
     combat.fireRocket(spawnPos, rocketVel);
     audioManager.play(SOUNDS.ROCKET_FIRE);
+    devLog.info('Combat', `Rocket fired → dir=[${_fireDir.x.toFixed(2)}, ${_fireDir.y.toFixed(2)}, ${_fireDir.z.toFixed(2)}] ammo=${combat.rocketAmmo - 1}`);
   }
 
   if (input.altFire && combat.fireCooldown <= 0 && combat.grenadeAmmo > 0) {
@@ -296,24 +301,68 @@ export function physicsTick(
     ];
     const grenadeVel: [number, number, number] = [
       _fireDir.x * PHYSICS.GRENADE_SPEED,
-      _fireDir.y * PHYSICS.GRENADE_SPEED + 100, // slight upward arc
+      _fireDir.y * PHYSICS.GRENADE_SPEED + 100,
       _fireDir.z * PHYSICS.GRENADE_SPEED,
     ];
     combat.fireGrenade(spawnPos, grenadeVel);
     audioManager.play(SOUNDS.GRENADE_THROW);
+    devLog.info('Combat', `Grenade thrown → ammo=${combat.grenadeAmmo - 1}`);
   }
 
-  // --- Update projectiles & check explosions ---
-  combat.updateProjectiles(dt);
-
-  // Check for expired grenades (fuse expired) and apply explosions
+  // --- Projectile collision via raycasts (BEFORE position update) ---
   const now = performance.now();
-  const projectiles = useCombatStore.getState().projectiles;
+  const projectiles = combat.projectiles;
+  const removedIds: number[] = [];
+
   for (const p of projectiles) {
-    if (p.type === 'grenade') {
-      const age = (now - p.spawnTime) / 1000;
+    const age = (now - p.spawnTime) / 1000;
+
+    // Safety: remove projectiles that fell off map or timed out
+    if (p.position[1] < -60 || age > 8) {
+      removedIds.push(p.id);
+      continue;
+    }
+
+    if (p.type === 'rocket') {
+      // Raycast from current position along velocity to detect wall/floor hits
+      const speed = Math.sqrt(
+        p.velocity[0] * p.velocity[0] + p.velocity[1] * p.velocity[1] + p.velocity[2] * p.velocity[2],
+      );
+      if (speed < 0.01) { removedIds.push(p.id); continue; }
+
+      const dirX = p.velocity[0] / speed;
+      const dirY = p.velocity[1] / speed;
+      const dirZ = p.velocity[2] / speed;
+      const travelDist = speed * dt;
+
+      const ray = new Ray(
+        { x: p.position[0], y: p.position[1], z: p.position[2] },
+        { x: dirX, y: dirY, z: dirZ },
+      );
+
+      const hit = rapierWorld.castRay(ray, travelDist + 0.5, true, undefined, undefined, undefined, rb);
+
+      if (hit) {
+        const hitPos: [number, number, number] = [
+          p.position[0] + dirX * hit.timeOfImpact,
+          p.position[1] + dirY * hit.timeOfImpact,
+          p.position[2] + dirZ * hit.timeOfImpact,
+        ];
+        const damage = applyExplosionKnockback(
+          velocity, _playerPos, hitPos,
+          PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, true,
+        );
+        if (damage > 0) {
+          combat.takeDamage(damage);
+          store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
+        }
+        audioManager.play(SOUNDS.ROCKET_EXPLODE);
+        removedIds.push(p.id);
+        devLog.info('Combat', `Rocket exploded at [${hitPos.map(v => v.toFixed(1)).join(', ')}] dmg=${damage.toFixed(0)}`);
+      }
+    } else if (p.type === 'grenade') {
+      // Grenade fuse check — explode when expired
       if (age >= PHYSICS.GRENADE_FUSE_TIME) {
-        // Grenade explodes
         const damage = applyExplosionKnockback(
           velocity, _playerPos, p.position,
           PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, true,
@@ -323,35 +372,68 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
-        combat.removeProjectile(p.id);
+        removedIds.push(p.id);
+        continue;
       }
-    }
 
-    // Remove projectiles that have traveled too far (> 200 units from spawn) or below kill zone
-    if (p.position[1] < -60) {
-      combat.removeProjectile(p.id);
-    }
-  }
+      // Grenade bounce: raycast to detect surface collision
+      const speed = Math.sqrt(
+        p.velocity[0] * p.velocity[0] + p.velocity[1] * p.velocity[1] + p.velocity[2] * p.velocity[2],
+      );
+      if (speed < 0.01) continue;
 
-  // Simple rocket collision: rockets that hit the ground (y <= 0.1) or traveled > 5 seconds
-  for (const p of useCombatStore.getState().projectiles) {
-    if (p.type === 'rocket') {
-      const age = (now - p.spawnTime) / 1000;
-      if (p.position[1] <= 0.1 || age > 5) {
-        // Rocket explodes
-        const damage = applyExplosionKnockback(
-          velocity, _playerPos, p.position,
-          PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, true,
-        );
-        if (damage > 0) {
-          combat.takeDamage(damage);
-          store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
+      const dirX = p.velocity[0] / speed;
+      const dirY = p.velocity[1] / speed;
+      const dirZ = p.velocity[2] / speed;
+      const travelDist = speed * dt;
+
+      const ray = new Ray(
+        { x: p.position[0], y: p.position[1], z: p.position[2] },
+        { x: dirX, y: dirY, z: dirZ },
+      );
+
+      const hit = rapierWorld.castRayAndGetNormal(ray, travelDist + 0.5, true, undefined, undefined, undefined, rb);
+
+      if (hit) {
+        if (p.bounces >= 1) {
+          // Explode on second bounce
+          const damage = applyExplosionKnockback(
+            velocity, _playerPos, p.position,
+            PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, true,
+          );
+          if (damage > 0) {
+            combat.takeDamage(damage);
+            store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
+          }
+          audioManager.play(SOUNDS.GRENADE_EXPLODE);
+          removedIds.push(p.id);
+        } else {
+          // Reflect velocity off surface normal
+          const normal = hit.normal;
+          const dot = p.velocity[0] * normal.x + p.velocity[1] * normal.y + p.velocity[2] * normal.z;
+          const damp = PHYSICS.GRENADE_BOUNCE_DAMPING;
+          const newVel: [number, number, number] = [
+            (p.velocity[0] - 2 * dot * normal.x) * damp,
+            (p.velocity[1] - 2 * dot * normal.y) * damp,
+            (p.velocity[2] - 2 * dot * normal.z) * damp,
+          ];
+          useCombatStore.setState((s) => ({
+            projectiles: s.projectiles.map((proj) =>
+              proj.id === p.id ? { ...proj, velocity: newVel, bounces: proj.bounces + 1 } : proj,
+            ),
+          }));
         }
-        audioManager.play(SOUNDS.ROCKET_EXPLODE);
-        combat.removeProjectile(p.id);
       }
     }
   }
+
+  // Batch-remove exploded/expired projectiles, then update positions
+  if (removedIds.length > 0) {
+    useCombatStore.setState((s) => ({
+      projectiles: s.projectiles.filter((p) => !removedIds.includes(p.id)),
+    }));
+  }
+  combat.updateProjectiles(dt);
 
   // --- Health regen ---
   combat.regenTick(dt);
@@ -384,34 +466,33 @@ export function physicsTick(
   collider.setHalfHeight(targetHalfHeight);
 
   // --- Wall running ---
-  // Simple wall detection using KCC: check if horizontal movement was blocked
   const isWallRunning = !refs.grounded.current && !combat.isGrappling && updateWallRun(
     wallRunState,
     velocity,
     refs.grounded.current,
     input.left,
     input.right,
-    false, // wall detection is simplified — computed below from KCC collisions
+    false,
     false,
     wallRunState.wallNormal[0],
     wallRunState.wallNormal[2],
     dt,
   );
 
-  // Wall jump: if wall running and jump pressed
   if (isWallRunning && wantsJump) {
     wallJump(wallRunState, velocity);
     refs.jumpBufferTime.current = 0;
     store.recordJump();
   }
 
-  // --- Movement ---
+  // --- Movement (with dev speed/gravity multipliers) ---
+  const effectiveMaxSpeed = PHYSICS.GROUND_MAX_SPEED * speedMult;
+
   if (combat.isGrappling) {
-    // While grappling, skip normal movement (grapple swing already applied above)
+    // Grapple swing already applied above
   } else if (isWallRunning) {
-    // Wall running: no normal gravity/movement applied (handled by updateWallRun)
+    // Wall running handled by updateWallRun
   } else if (canJump && wantsJump) {
-    // Jump (works from ground OR during coyote time)
     velocity.y = PHYSICS.JUMP_FORCE;
     refs.grounded.current = false;
     refs.coyoteTime.current = 0;
@@ -423,33 +504,31 @@ export function physicsTick(
     collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
     store.recordJump();
     audioManager.play(SOUNDS.JUMP, 0.1);
-    if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
+    if (hasInput) applyAirAcceleration(velocity, wishDir, dt, speedMult);
   } else if (refs.grounded.current) {
     if (refs.isSliding.current) {
       applySlideFriction(velocity, dt);
     } else {
       applyFriction(velocity, dt, hasInput, wishDir);
-      if (hasInput) applyGroundAcceleration(velocity, wishDir, dt);
+      if (hasInput) applyGroundAcceleration(velocity, wishDir, dt, speedMult);
     }
   } else {
     // Airborne
-    if (hasInput) applyAirAcceleration(velocity, wishDir, dt);
-    // Apply heavier gravity when jump is released early (snappier descent)
+    if (hasInput) applyAirAcceleration(velocity, wishDir, dt, speedMult);
     const gravity = (!input.jump && velocity.y > 0 && refs.isJumping.current)
       ? PHYSICS.GRAVITY_JUMP_RELEASE
       : PHYSICS.GRAVITY;
-    velocity.y -= gravity * dt;
+    velocity.y -= gravity * gravMult * dt;
   }
 
-  // --- Velocity cap (safety limit) ---
+  // --- Velocity cap (safety limit, scaled by speedMult) ---
+  const maxSpeed = PHYSICS.MAX_SPEED * speedMult;
   const totalSpeed = velocity.length();
-  if (totalSpeed > PHYSICS.MAX_SPEED) {
-    velocity.multiplyScalar(PHYSICS.MAX_SPEED / totalSpeed);
+  if (totalSpeed > maxSpeed) {
+    velocity.multiplyScalar(maxSpeed / totalSpeed);
   }
 
   // --- Character controller with substepping ---
-  // Split large displacements into multiple smaller steps to prevent tunneling.
-  // Each substep moves at most MAX_DISPLACEMENT_PER_STEP units.
   const displacement = totalSpeed * dt;
   const substeps = Math.max(1, Math.ceil(displacement / PHYSICS.MAX_DISPLACEMENT_PER_STEP));
   const subDt = dt / substeps;
@@ -458,20 +537,20 @@ export function physicsTick(
 
   for (let step = 0; step < substeps; step++) {
     _desiredTranslation.copy(velocity).multiplyScalar(subDt);
-    controller.computeColliderMovement(collider, _desiredTranslation);
+    controller.computeColliderMovement(collider, _desiredTranslation, QueryFilterFlags.EXCLUDE_SENSORS);
 
     const movement = controller.computedMovement();
     _correctedMovement.set(movement.x, movement.y, movement.z);
 
     // --- Horizontal velocity correction ---
-    // If the controller blocked movement along an axis, zero out that velocity component
-    // to prevent constant pressure against walls.
+    // If the controller significantly blocked movement, zero that axis.
+    // Use 0.3 threshold to avoid losing speed on minor surface scrapes.
     const desiredX = _desiredTranslation.x;
     const desiredZ = _desiredTranslation.z;
-    if (Math.abs(desiredX) > 0.001 && Math.abs(_correctedMovement.x / desiredX) < 0.1) {
+    if (Math.abs(desiredX) > 0.001 && Math.abs(_correctedMovement.x / desiredX) < 0.3) {
       velocity.x = 0;
     }
-    if (Math.abs(desiredZ) > 0.001 && Math.abs(_correctedMovement.z / desiredZ) < 0.1) {
+    if (Math.abs(desiredZ) > 0.001 && Math.abs(_correctedMovement.z / desiredZ) < 0.3) {
       velocity.z = 0;
     }
 
@@ -479,7 +558,6 @@ export function physicsTick(
     _newPos.y += _correctedMovement.y;
     _newPos.z += _correctedMovement.z;
 
-    // Update rigid body position for each substep so the next step has correct origin
     rb.setNextKinematicTranslation(_newPos);
   }
 
@@ -487,7 +565,6 @@ export function physicsTick(
   refs.grounded.current = controller.computedGrounded();
 
   // --- Wall detection from KCC collisions ---
-  // After computing movement, check if we hit a wall (for wall running next tick)
   const numCollisions = controller.numComputedCollisions();
   let detectedWallLeft = false;
   let detectedWallRight = false;
@@ -499,12 +576,9 @@ export function physicsTick(
     if (!collision) continue;
     const n1 = collision.normal1;
     if (!n1) continue;
-    // Wall = mostly horizontal normal (y close to 0)
     if (Math.abs(n1.y) < 0.3) {
-      // Determine which side the wall is on
       const sinYaw = Math.sin(refs.yaw.current);
       const cosYaw = Math.cos(refs.yaw.current);
-      // Player right vector
       const rightX = cosYaw;
       const rightZ = sinYaw;
       const wallDot = n1.x * rightX + n1.z * rightZ;
@@ -520,22 +594,23 @@ export function physicsTick(
     }
   }
 
-  // Update wall run with detected walls for next tick
   if (!refs.grounded.current && !combat.isGrappling && (detectedWallLeft || detectedWallRight)) {
     updateWallRun(
       wallRunState, velocity, refs.grounded.current,
       input.left, input.right,
       detectedWallLeft, detectedWallRight,
       detectedWallNormalX, detectedWallNormalZ,
-      0, // dt=0 since we already advanced time above
+      0,
     );
   }
 
   // --- Landing & footstep audio ---
   if (refs.grounded.current && !wasGrounded) {
     const fallSpeed = Math.abs(velocity.y);
+    const landHSpeed = getHorizontalSpeed(velocity);
     if (fallSpeed > 200) audioManager.play(SOUNDS.LAND_HARD, 0.1);
     else audioManager.play(SOUNDS.LAND_SOFT, 0.1);
+    devLog.info('Physics', `Landed | fallSpeed=${fallSpeed.toFixed(0)} hSpeed=${landHSpeed.toFixed(0)}`);
   }
   if (refs.grounded.current && hSpeed > 50 && !refs.isSliding.current) {
     footstepTimer -= dt;
@@ -547,17 +622,14 @@ export function physicsTick(
   } else {
     footstepTimer = 0;
   }
-  if (refs.isSliding.current && refs.grounded.current && hSpeed > 100) {
-    // Slide sound (throttled by footstep timer reuse)
-  }
   wasGrounded = refs.grounded.current;
 
   // --- Vertical velocity correction ---
-  // Ceiling hit: upward velocity blocked
-  if (velocity.y > 0 && _correctedMovement.y < _desiredTranslation.y * 0.5) {
+  // Only zero upward velocity for ceiling hits (not during initial jump frames
+  // where snap-to-ground may fight the small vertical displacement)
+  if (velocity.y > 0 && !refs.isJumping.current && _correctedMovement.y < _desiredTranslation.y * 0.5) {
     velocity.y = 0;
   }
-  // Grounded: zero out downward velocity
   if (refs.grounded.current && velocity.y < 0) {
     velocity.y = 0;
   }
@@ -581,8 +653,44 @@ export function physicsTick(
   // --- HUD (throttled ~30Hz) ---
   if (now - lastHudUpdate > HUD_UPDATE_INTERVAL) {
     lastHudUpdate = now;
-    const speed = getHorizontalSpeed(velocity);
-    store.updateHud(speed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
+    const finalHSpeed = getHorizontalSpeed(velocity);
+    store.updateHud(finalHSpeed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
     if (store.timerRunning) store.tickTimer();
+  }
+
+  // --- Dev logging (throttled ~0.5Hz) ---
+  // Log multiplier changes immediately
+  if (speedMult !== lastDevSpeedMult) {
+    devLog.info('Physics', `Speed multiplier → ${speedMult.toFixed(2)}x (maxSpeed=${(PHYSICS.GROUND_MAX_SPEED * speedMult).toFixed(0)} u/s)`);
+    lastDevSpeedMult = speedMult;
+  }
+  if (gravMult !== lastDevGravMult) {
+    devLog.info('Physics', `Gravity multiplier → ${gravMult.toFixed(1)}x (gravity=${(PHYSICS.GRAVITY * gravMult).toFixed(0)} u/s²)`);
+    lastDevGravMult = gravMult;
+  }
+
+  // Periodic physics state dump
+  if (now - lastDevLogUpdate > DEV_LOG_INTERVAL) {
+    lastDevLogUpdate = now;
+    const hSpd = getHorizontalSpeed(velocity);
+    const vSpd = velocity.y;
+    const state = refs.grounded.current ? 'ground' : refs.isJumping.current ? 'jump' : 'air';
+    const slide = refs.isSliding.current ? ' [slide]' : '';
+    const crouch = refs.isCrouching.current ? ' [crouch]' : '';
+    const wallRun = wallRunState.isWallRunning ? ' [wallrun]' : '';
+    const grapple = combat.isGrappling ? ' [grapple]' : '';
+    devLog.info('Physics',
+      `${state}${slide}${crouch}${wallRun}${grapple} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
+    );
+
+    // Log projectile count if any
+    if (combat.projectiles.length > 0) {
+      devLog.info('Combat', `${combat.projectiles.length} active projectiles | HP=${combat.health}/${PHYSICS.HEALTH_MAX} | R:${combat.rocketAmmo} G:${combat.grenadeAmmo}`);
+    }
+
+    // Log collisions if hitting walls
+    if (numCollisions > 0) {
+      devLog.info('Collision', `${numCollisions} contacts | substeps=${substeps}`);
+    }
   }
 }

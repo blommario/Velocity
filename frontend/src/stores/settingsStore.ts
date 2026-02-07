@@ -76,10 +76,16 @@ interface SettingsState {
   hudScale: number;
   hudOpacity: number;
 
+  // Dev Tweaks (session only, not persisted)
+  devSpeedMultiplier: number;
+  devGravityMultiplier: number;
+
   // Key Bindings
   keyBindings: Record<string, string>;
 
   // Actions
+  setDevSpeedMultiplier: (v: number) => void;
+  setDevGravityMultiplier: (v: number) => void;
   setSensitivity: (s: number) => void;
   setFov: (f: number) => void;
   setQualityPreset: (p: QualityPreset) => void;
@@ -137,7 +143,11 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       ...DEFAULT_STATE,
+      devSpeedMultiplier: 1.0,
+      devGravityMultiplier: 1.0,
 
+      setDevSpeedMultiplier: (devSpeedMultiplier) => set({ devSpeedMultiplier }),
+      setDevGravityMultiplier: (devGravityMultiplier) => set({ devGravityMultiplier }),
       setSensitivity: (sensitivity) => set({ sensitivity }),
       setFov: (fov) => set({ fov }),
       setQualityPreset: (qualityPreset) => set({ qualityPreset }),

@@ -161,7 +161,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   updateProjectiles: (dt) => {
     const state = get();
-    const now = performance.now();
     const updated: Projectile[] = [];
 
     for (const p of state.projectiles) {
@@ -178,11 +177,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
           p.velocity[1] - PHYSICS.GRAVITY * dt,
           p.velocity[2],
         ];
-
-        // Check fuse timer
-        const age = (now - p.spawnTime) / 1000;
-        if (age >= PHYSICS.GRENADE_FUSE_TIME) continue; // expired — will be handled by explosion logic
-
         updated.push({ ...p, position: newPos, velocity: newVel });
       } else {
         // Rocket flies straight

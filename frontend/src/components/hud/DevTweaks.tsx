@@ -1,0 +1,66 @@
+import { useSettingsStore } from '../../stores/settingsStore';
+
+const SPEED_RANGE = { min: 0.25, max: 4, step: 0.25 } as const;
+const GRAVITY_RANGE = { min: 0.1, max: 3, step: 0.1 } as const;
+
+export function DevTweaks() {
+  const speedMult = useSettingsStore((s) => s.devSpeedMultiplier);
+  const gravMult = useSettingsStore((s) => s.devGravityMultiplier);
+
+  return (
+    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto select-none">
+      <div className="flex gap-6 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
+        {/* Speed slider */}
+        <div className="flex flex-col items-center gap-1 w-40">
+          <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+            Speed
+          </label>
+          <input
+            type="range"
+            min={SPEED_RANGE.min}
+            max={SPEED_RANGE.max}
+            step={SPEED_RANGE.step}
+            value={speedMult}
+            onChange={(e) => useSettingsStore.getState().setDevSpeedMultiplier(parseFloat(e.target.value))}
+            className="w-full h-1.5 accent-cyan-400 cursor-pointer"
+          />
+          <span className="text-xs font-mono font-bold text-cyan-400">
+            {speedMult.toFixed(2)}x
+          </span>
+        </div>
+
+        {/* Gravity slider */}
+        <div className="flex flex-col items-center gap-1 w-40">
+          <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+            Gravity
+          </label>
+          <input
+            type="range"
+            min={GRAVITY_RANGE.min}
+            max={GRAVITY_RANGE.max}
+            step={GRAVITY_RANGE.step}
+            value={gravMult}
+            onChange={(e) => useSettingsStore.getState().setDevGravityMultiplier(parseFloat(e.target.value))}
+            className="w-full h-1.5 accent-orange-400 cursor-pointer"
+          />
+          <span className="text-xs font-mono font-bold text-orange-400">
+            {gravMult.toFixed(1)}x
+          </span>
+        </div>
+
+        {/* Reset button */}
+        <div className="flex items-center">
+          <button
+            onClick={() => {
+              useSettingsStore.getState().setDevSpeedMultiplier(1.0);
+              useSettingsStore.getState().setDevGravityMultiplier(1.0);
+            }}
+            className="text-[10px] font-mono text-white/40 hover:text-white/80 border border-white/10 hover:border-white/30 rounded px-2 py-1 transition-colors"
+          >
+            RESET
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

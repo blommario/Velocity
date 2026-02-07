@@ -203,7 +203,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       spawnYaw,
       lastCheckpointPos: spawnPoint,
       lastCheckpointYaw: spawnYaw,
-      respawnRequested: false,
+      respawnRequested: true,
       stats: { ...INITIAL_STATS },
       speedSamples: 0,
       speedSum: 0,

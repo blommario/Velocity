@@ -69,6 +69,7 @@ export function PlayerController() {
       },
       camera,
       consumeMouseDelta,
+      world,
     );
   });
 

@@ -7,6 +7,7 @@ import { TrackProgressBar } from './TrackProgressBar';
 import { SpeedLines } from './SpeedLines';
 import { CombatHud } from './CombatHud';
 import { EndRunModal } from './EndRunModal';
+import { DevTweaks } from './DevTweaks';
 import { useGameStore, RUN_STATES } from '../../stores/gameStore';
 
 export function HudOverlay() {
@@ -33,6 +34,7 @@ export function HudOverlay() {
         <div>grounded: {isGrounded ? 'yes' : 'no'}</div>
       </div>
 
+      <DevTweaks />
       <EndRunModal />
     </div>
   );

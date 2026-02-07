@@ -36,7 +36,9 @@ interface MapLoaderProps {
 }
 
 export function MapLoader({ data, mapId }: MapLoaderProps) {
-  const spawnYaw = Math.atan2(data.spawnDirection[0], data.spawnDirection[2]);
+  // Three.js camera at yaw=0 looks in -Z. To convert spawnDirection to yaw:
+  // forward = (-sin(yaw), 0, -cos(yaw)), so yaw = atan2(-dir.x, -dir.z)
+  const spawnYaw = Math.atan2(-data.spawnDirection[0], -data.spawnDirection[2]);
 
   useEffect(() => {
     devLog.info('Map', `Loading map "${mapId ?? 'unknown'}" (${data.blocks.length} blocks, ${data.checkpoints.length} checkpoints)`);

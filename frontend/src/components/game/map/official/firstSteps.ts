@@ -1,87 +1,101 @@
 import type { MapData } from '../types';
 
-/** First Steps — Easy tutorial map. Corridors, curves, small gaps. Par: 45s */
+const ARENA_SIZE = 200;
+const WALL_HEIGHT = 8;
+const BARRIER_HEIGHT = 80; // invisible barrier extends far above visible walls
+const HALF = ARENA_SIZE / 2;
+
+/** First Steps — Simple playground. Large arena with cubes to run around. */
 export const FIRST_STEPS: MapData = {
   spawnPoint: [0, 1.5, 0],
   spawnDirection: [0, 0, -1],
   blocks: [
-    // Starting platform
-    { shape: 'box', position: [0, -0.5, 0], size: [10, 1, 10], color: '#4a4a4a' },
+    // ── Ground ──
+    { shape: 'box', position: [0, -0.5, 0], size: [ARENA_SIZE, 1, ARENA_SIZE], color: '#3a3a3a' },
 
-    // Straight corridor
-    { shape: 'box', position: [0, -0.5, -15], size: [6, 1, 20], color: '#555555' },
-    // Left wall
-    { shape: 'box', position: [-3.5, 2, -15], size: [1, 5, 20], color: '#3a3a4a' },
-    // Right wall
-    { shape: 'box', position: [3.5, 2, -15], size: [1, 5, 20], color: '#3a3a4a' },
+    // ── Boundary walls (visible portion) ──
+    { shape: 'box', position: [0, WALL_HEIGHT / 2, -HALF], size: [ARENA_SIZE, WALL_HEIGHT, 1], color: '#2a2a3a' },
+    { shape: 'box', position: [0, WALL_HEIGHT / 2, HALF], size: [ARENA_SIZE, WALL_HEIGHT, 1], color: '#2a2a3a' },
+    { shape: 'box', position: [-HALF, WALL_HEIGHT / 2, 0], size: [1, WALL_HEIGHT, ARENA_SIZE], color: '#2a2a3a' },
+    { shape: 'box', position: [HALF, WALL_HEIGHT / 2, 0], size: [1, WALL_HEIGHT, ARENA_SIZE], color: '#2a2a3a' },
 
-    // First turn — right
-    { shape: 'box', position: [8, -0.5, -27], size: [22, 1, 6], color: '#555555' },
-    // Outer wall of turn
-    { shape: 'box', position: [8, 2, -30.5], size: [22, 5, 1], color: '#3a3a4a' },
-    { shape: 'box', position: [8, 2, -23.5], size: [22, 5, 1], color: '#3a3a4a' },
+    // ── Invisible barriers (extend high above visible walls) ──
+    { shape: 'box', position: [0, WALL_HEIGHT + BARRIER_HEIGHT / 2, -HALF], size: [ARENA_SIZE, BARRIER_HEIGHT, 1], color: '#000000', transparent: true, opacity: 0 },
+    { shape: 'box', position: [0, WALL_HEIGHT + BARRIER_HEIGHT / 2, HALF], size: [ARENA_SIZE, BARRIER_HEIGHT, 1], color: '#000000', transparent: true, opacity: 0 },
+    { shape: 'box', position: [-HALF, WALL_HEIGHT + BARRIER_HEIGHT / 2, 0], size: [1, BARRIER_HEIGHT, ARENA_SIZE], color: '#000000', transparent: true, opacity: 0 },
+    { shape: 'box', position: [HALF, WALL_HEIGHT + BARRIER_HEIGHT / 2, 0], size: [1, BARRIER_HEIGHT, ARENA_SIZE], color: '#000000', transparent: true, opacity: 0 },
 
-    // Second corridor going +X
-    { shape: 'box', position: [20, -0.5, -40], size: [6, 1, 22], color: '#555555' },
-    { shape: 'box', position: [16.5, 2, -40], size: [1, 5, 22], color: '#3a3a4a' },
-    { shape: 'box', position: [23.5, 2, -40], size: [1, 5, 22], color: '#3a3a4a' },
+    // ── Scattered cubes near spawn (close range) ──
+    { shape: 'box', position: [8, 1.5, -10], size: [3, 3, 3], color: '#e74c3c' },
+    { shape: 'box', position: [-12, 1, -6], size: [2, 2, 2], color: '#3498db' },
+    { shape: 'box', position: [-8, 1.5, -18], size: [3, 3, 3], color: '#f39c12' },
+    { shape: 'box', position: [18, 1, -5], size: [2, 2, 2], color: '#9b59b6' },
 
-    // Gentle ramp up
-    { shape: 'box', position: [20, 1.5, -55], size: [6, 0.3, 10], rotation: [-0.15, 0, 0], color: '#5a6a4a' },
+    // ── Medium distance obstacles ──
+    { shape: 'box', position: [5, 2, -35], size: [4, 4, 4], color: '#2ecc71' },
+    { shape: 'box', position: [-20, 2, -40], size: [4, 4, 4], color: '#1abc9c' },
+    { shape: 'box', position: [25, 1.5, -30], size: [3, 3, 3], color: '#2980b9' },
+    { shape: 'box', position: [-30, 1, -20], size: [2, 2, 8], color: '#e67e22' },
+    { shape: 'box', position: [35, 2, -45], size: [4, 4, 4], color: '#e74c3c' },
 
-    // Elevated platform after ramp
-    { shape: 'box', position: [20, 2.5, -63], size: [10, 1, 8], color: '#4a5a5a' },
+    // ── Far obstacles (for speed runs) ──
+    { shape: 'box', position: [0, 2.5, -70], size: [5, 5, 5], color: '#8e44ad' },
+    { shape: 'box', position: [-40, 1.5, -60], size: [3, 3, 3], color: '#d35400' },
+    { shape: 'box', position: [50, 2, -55], size: [4, 4, 4], color: '#16a085' },
+    { shape: 'box', position: [-55, 1, -75], size: [2, 2, 2], color: '#c0392b' },
+    { shape: 'box', position: [30, 3, -80], size: [6, 6, 6], color: '#2c3e50' },
 
-    // Gap jump section — three platforms
-    { shape: 'box', position: [20, 2.5, -72], size: [5, 1, 4], color: '#5a4a5a' },
-    { shape: 'box', position: [20, 2.5, -80], size: [5, 1, 4], color: '#5a4a5a' },
-    { shape: 'box', position: [20, 2.5, -88], size: [5, 1, 4], color: '#5a4a5a' },
+    // ── Walls to strafe around ──
+    { shape: 'box', position: [-5, 1.5, -15], size: [12, 3, 0.5], color: '#555555' },
+    { shape: 'box', position: [40, 1.5, -35], size: [0.5, 3, 15], color: '#555555' },
+    { shape: 'box', position: [-35, 1.5, -50], size: [20, 3, 0.5], color: '#555555' },
 
-    // Landing after gaps
-    { shape: 'box', position: [20, 2, -96], size: [10, 1, 8], color: '#4a5a5a' },
-
-    // Bhop corridor (wider)
-    { shape: 'box', position: [20, 1.5, -115], size: [8, 1, 30], color: '#555555' },
-    { shape: 'box', position: [15.5, 3, -115], size: [1, 4, 30], color: '#3a3a4a' },
-    { shape: 'box', position: [24.5, 3, -115], size: [1, 4, 30], color: '#3a3a4a' },
-
-    // Final approach
-    { shape: 'box', position: [20, 1, -135], size: [12, 1, 10], color: '#4a4a5a' },
+    // ── Step platforms (varied heights) ──
+    { shape: 'box', position: [12, 0.5, -15], size: [6, 1, 6], color: '#4a4a5a' },
+    { shape: 'box', position: [15, 1.5, -18], size: [4, 1, 4], color: '#5a5a6a' },
+    { shape: 'box', position: [-45, 0.5, -30], size: [8, 1, 8], color: '#4a5a4a' },
+    { shape: 'box', position: [-45, 1.5, -33], size: [4, 1, 4], color: '#5a6a5a' },
   ],
 
   checkpoints: [
-    { position: [20, 4, -55], size: [6, 6, 3], index: 0 },
-    { position: [20, 4, -88], size: [6, 6, 3], index: 1 },
-    { position: [20, 3, -115], size: [8, 5, 3], index: 2 },
+    { position: [5, 3, -35], size: [6, 6, 3], index: 0 },
+    { position: [0, 4, -70], size: [8, 6, 3], index: 1 },
   ],
 
   finish: {
-    position: [20, 3, -137],
-    size: [10, 5, 3],
+    position: [30, 4, -82],
+    size: [8, 6, 3],
   },
 
   killZones: [
-    { position: [0, -20, -70], size: [200, 5, 200] },
+    { position: [0, -20, 0], size: [400, 5, 400] },
   ],
 
-  boostPads: [
-    { position: [0, 0.1, -8], direction: [0, 0, -1], speed: 350 },
+  ammoPickups: [
+    // Near spawn — immediate access
+    { position: [4, 1, -4], weaponType: 'rocket', amount: 3 },
+    { position: [-4, 1, -4], weaponType: 'grenade', amount: 2 },
+    // Mid-range
+    { position: [25, 1, -30], weaponType: 'rocket', amount: 2, respawnTime: 10 },
+    { position: [-20, 1, -40], weaponType: 'grenade', amount: 2, respawnTime: 10 },
+    // Far
+    { position: [0, 1, -65], weaponType: 'rocket', amount: 3, respawnTime: 15 },
   ],
 
   settings: {
-    maxRocketAmmo: 0,
-    maxGrenadeAmmo: 0,
-    parTime: 45,
+    maxRocketAmmo: 5,
+    maxGrenadeAmmo: 3,
+    parTime: 30,
   },
 
   lighting: {
-    ambientIntensity: 0.5,
-    directionalIntensity: 1.0,
-    directionalPosition: [30, 60, 20],
-    fogColor: '#1e2a3a',
-    fogNear: 60,
-    fogFar: 180,
+    ambientIntensity: 0.6,
+    directionalIntensity: 1.2,
+    directionalPosition: [50, 80, 30],
+    fogColor: '#1a1a2e',
+    fogNear: 120,
+    fogFar: 350,
   },
 
-  backgroundColor: '#1e2a3a',
+  backgroundColor: '#1a1a2e',
 };

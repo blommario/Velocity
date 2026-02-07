@@ -53,8 +53,9 @@ export function applyGroundAcceleration(
   velocity: Vector3,
   wishDir: Vector3,
   dt: number,
+  speedMult = 1,
 ): void {
-  const wishSpeed = PHYSICS.GROUND_MAX_SPEED;
+  const wishSpeed = PHYSICS.GROUND_MAX_SPEED * speedMult;
   const currentSpeed = velocity.x * wishDir.x + velocity.z * wishDir.z;
   const addSpeed = wishSpeed - currentSpeed;
   if (addSpeed <= 0) return;
@@ -78,8 +79,9 @@ export function applyAirAcceleration(
   velocity: Vector3,
   wishDir: Vector3,
   dt: number,
+  speedMult = 1,
 ): void {
-  const wishSpeed = Math.min(PHYSICS.GROUND_MAX_SPEED, PHYSICS.AIR_SPEED_CAP);
+  const wishSpeed = Math.min(PHYSICS.GROUND_MAX_SPEED * speedMult, PHYSICS.AIR_SPEED_CAP * speedMult);
   const currentSpeed = velocity.x * wishDir.x + velocity.z * wishDir.z;
   const addSpeed = wishSpeed - currentSpeed;
   if (addSpeed <= 0) return;
@@ -114,11 +116,12 @@ export function getWishDir(
   if (fx === 0 && fz === 0) return _wishDir;
 
   // Rotate by yaw to get world-space direction
+  // Three.js Y rotation: forward = (-sin(yaw), 0, -cos(yaw)), right = (cos(yaw), 0, -sin(yaw))
   const sinYaw = Math.sin(yaw);
   const cosYaw = Math.cos(yaw);
 
-  _wishDir.x = fx * cosYaw - fz * sinYaw;
-  _wishDir.z = fx * sinYaw + fz * cosYaw;
+  _wishDir.x = fx * cosYaw + fz * sinYaw;
+  _wishDir.z = -fx * sinYaw + fz * cosYaw;
   _wishDir.normalize();
 
   return _wishDir;

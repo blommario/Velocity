@@ -2,25 +2,25 @@ export const PHYSICS = {
   TICK_RATE: 128,
   TICK_DELTA: 1 / 128,
 
-  // Movement
-  GROUND_ACCEL: 14,               // snappier start (was 10)
-  GROUND_DECEL: 10,               // distinct deceleration (counter-strafing)
+  // Movement (classic Quake values — proven feel)
+  GROUND_ACCEL: 10,
+  GROUND_DECEL: 8,
   GROUND_MAX_SPEED: 320,
-  AIR_ACCEL: 12,                  // slightly more responsive air control (was 10)
+  AIR_ACCEL: 10,
   AIR_SPEED_CAP: 30,
-  GROUND_FRICTION: 8.0,           // heavier stop feel (was 6.0)
-  STOP_SPEED: 80,                 // snaps to zero sooner (was 100)
-  MAX_SPEED: 2500,              // absolute velocity cap (safety limit)
-  MAX_DISPLACEMENT_PER_STEP: 2, // max units per substep to prevent tunneling
+  GROUND_FRICTION: 6.0,
+  STOP_SPEED: 100,
+  MAX_SPEED: 2500,
+  MAX_DISPLACEMENT_PER_STEP: 2,
 
-  // Jumping
-  JUMP_FORCE: 270,
-  JUMP_FORCE_MIN: 135,            // tap-jump minimum (half of full)
-  JUMP_BUFFER_MS: 80,             // pre-land buffer (was 50)
+  // Jumping — peak height = v²/(2g) → 75²/1600 ≈ 3.5 units
+  JUMP_FORCE: 75,
+  JUMP_FORCE_MIN: 40,             // tap-jump minimum
+  JUMP_BUFFER_MS: 80,             // pre-land buffer
   JUMP_RELEASE_WINDOW_MS: 100,    // ms after jump where releasing cuts velocity
   COYOTE_TIME_MS: 100,            // grace period to jump after leaving ground
 
-  // Gravity
+  // Gravity — 800 u/s² gives snappy Quake-like falls at meter scale
   GRAVITY: 800,
   GRAVITY_JUMP_RELEASE: 1400,     // extra gravity when jump released early (snappy descent)
 
