@@ -1,19 +1,24 @@
 import { useSettingsStore } from '../../stores/settingsStore';
+import { PHYSICS } from '../game/physics/constants';
 
-const SPEED_RANGE = { min: 0.25, max: 4, step: 0.25 } as const;
+const BASE_SPEED = PHYSICS.GROUND_MAX_SPEED; // 320 u/s
+
+const SPEED_RANGE = { min: 0.05, max: 5, step: 0.05 } as const; // 16–1600 u/s
 const GRAVITY_RANGE = { min: 0.1, max: 3, step: 0.1 } as const;
 
 export function DevTweaks() {
   const speedMult = useSettingsStore((s) => s.devSpeedMultiplier);
   const gravMult = useSettingsStore((s) => s.devGravityMultiplier);
 
+  const speedUs = Math.round(BASE_SPEED * speedMult);
+
   return (
     <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto select-none">
       <div className="flex gap-6 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg px-4 py-3">
         {/* Speed slider */}
-        <div className="flex flex-col items-center gap-1 w-40">
+        <div className="flex flex-col items-center gap-1 w-44">
           <label className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
-            Speed
+            Max Speed
           </label>
           <input
             type="range"
@@ -25,7 +30,7 @@ export function DevTweaks() {
             className="w-full h-1.5 accent-cyan-400 cursor-pointer"
           />
           <span className="text-xs font-mono font-bold text-cyan-400">
-            {speedMult.toFixed(2)}x
+            {speedUs} u/s
           </span>
         </div>
 

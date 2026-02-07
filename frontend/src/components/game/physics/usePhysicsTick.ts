@@ -543,14 +543,15 @@ export function physicsTick(
     _correctedMovement.set(movement.x, movement.y, movement.z);
 
     // --- Horizontal velocity correction ---
-    // If the controller significantly blocked movement, zero that axis.
-    // Use 0.3 threshold to avoid losing speed on minor surface scrapes.
+    // Zero velocity on an axis only when a real wall collision blocks significant movement.
+    // The minimum threshold (SKIN_WIDTH) prevents small air-strafe velocities from being
+    // killed by floating-point noise in computeColliderMovement.
     const desiredX = _desiredTranslation.x;
     const desiredZ = _desiredTranslation.z;
-    if (Math.abs(desiredX) > 0.001 && Math.abs(_correctedMovement.x / desiredX) < 0.3) {
+    if (Math.abs(desiredX) > PHYSICS.SKIN_WIDTH && Math.abs(_correctedMovement.x / desiredX) < 0.3) {
       velocity.x = 0;
     }
-    if (Math.abs(desiredZ) > 0.001 && Math.abs(_correctedMovement.z / desiredZ) < 0.3) {
+    if (Math.abs(desiredZ) > PHYSICS.SKIN_WIDTH && Math.abs(_correctedMovement.z / desiredZ) < 0.3) {
       velocity.z = 0;
     }
 
