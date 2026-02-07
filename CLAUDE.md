@@ -389,52 +389,6 @@ interface MapData {
 
 ## Known Issues & Debugging Notes
 
-### 🟢 Green Tint Bug — WebGPURenderer + R3F Color Management (Phase 15)
-
-**Status:** UNRESOLVED — hela scenen renderas med stark grön tint.
-
-**Symptom:** All 3D-rendering har en stark grönaktig färgkast. En `#ff0000` (ren röd) bakgrund visas som grön. Problemet syns ENBART med `WebGPURenderer` — om man tar bort custom `gl` prop och faller tillbaka till R3F:s standard `WebGLRenderer` är färgerna korrekta.
-
-**Rotkorsanalys (genomförd):**
-Systematisk binärsökning eliminerade ALLA applikationskomponenter som orsak:
-- ❌ PostProcessingEffects (bloom/vignette/ACES)
-- ❌ AtmosphericFog (TSL fogNode)
-- ❌ ProceduralSkybox (TSL NodeMaterial)
-- ❌ SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer
-- ❌ GPU-partiklar (BoostPad, LaunchPad, SpeedGate)
-- ❌ DynamicPointLights, hemisphereLight, directionalLight shadows
-- ❌ `extend(THREE)` i setup-webgpu.ts
-- ❌ gridHelper
-
-**Problemet är i WebGPURenderer-klassen själv**, inte i någon applikationskod.
-
-**Nyckelexperiment:**
-| Test | Resultat |
-|------|---------|
-| Minimal scen (1 box + ambient light) med WebGPURenderer | 🟢 Grön tint |
-| Samma scen utan custom `gl` prop (WebGLRenderer fallback) | ✅ Korrekta färger |
-| `forceWebGL: true` på WebGPURenderer | 🟢 Grön tint kvarstår |
-| `legacy` Canvas-prop (ColorManagement.enabled=false) | ⚠️ Förbättrad men inte perfekt |
-| `linear` + `flat` Canvas-props | ✅ Ingen grön tint, men mörkt (ingen tonemapping/sRGB) |
-| `linear` + `flat` + PostProcessing med `renderOutput(ACES, sRGB)` | 🟢 Grön tint TILLBAKA |
-
-**Slutsats:** Problemet sitter i WebGPURenderers nod-baserade renderingspipeline och hur den hanterar color space-konvertering (sRGB). Det uppstår i BÅDE WebGPU-backend och WebGL-backend av `WebGPURenderer` — det är alltså det nod-baserade materialsystemet, inte GPU-backend.
-
-**Verifierad renderer-state med `linear` + `flat`:**
-- `outputColorSpace: "srgb-linear"` ✅
-- `toneMapping: 0` (NoToneMapping) ✅
-- `canvasFormat: "bgra8unorm"` ✅
-
-**Kvarstående teori:** `PostProcessing.render()` anropar `renderer.render(scene, camera)` internt via `PassNode.updateBefore()`. Under den scen-rendern applicerar nod-systemets interna `_getFrameBufferTarget()` en sRGB-konvertering som orsakar grön tint. Alternativt kan det vara `renderOutput()` som gör en dubbelkonvertering.
-
-**Fixförslag att testa (i prioritetsordning):**
-1. Kör UTAN PostProcessingEffects men MED `linear` + `flat` — verifiera att bas-rendering är OK
-2. Lägg till PostProcessingEffects men med `pipeline.outputNode = scenePassColor` (ingen bloom/vignette/renderOutput) — testa om `pass()` ensam orsakar grön
-3. Lägg till `renderOutput(scenePassColor, ACESFilmicToneMapping, SRGBColorSpace)` utan bloom — testa om `renderOutput` orsakar grön
-4. Skriv PostProcessingEffects med `renderer.setRenderTarget()` + manuell quad istället för `PostProcessing`-klassen
-5. Uppgradera Three.js till senaste r183+ som har "RenderPipeline" istället för "PostProcessing"
-6. Undersök om `ColorManagement.workingColorSpace` skiljer sig mellan `three` och `three/webgpu` imports (dual-package-hazard)
-
 ### 🟡 R3F `<color>` Element Inkompatibelt med WebGPURenderer
 
 **Status:** FIXAT med workaround.

@@ -66,12 +66,9 @@ export function GameCanvas() {
           });
           await renderer.init();
           devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name})`);
-          (window as unknown as Record<string, unknown>).__renderer = renderer;
           return renderer;
         }}
         camera={{ fov, near: 0.1, far: 1000 }}
-        linear
-        flat
         shadows
         onPointerDown={(e) => {
           (e.target as HTMLCanvasElement).requestPointerLock();
