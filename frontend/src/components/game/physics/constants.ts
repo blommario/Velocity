@@ -99,6 +99,50 @@ export const PHYSICS = {
   GRAPPLE_PULL_FORCE: 1500,
   GRAPPLE_SWING_GRAVITY: 600,
   GRAPPLE_RELEASE_BOOST: 1.15,
+
+  // ── Sniper rifle (hitscan) ──
+  SNIPER_DAMAGE: 200,
+  SNIPER_RANGE: 500,
+  SNIPER_KNOCKBACK: 80,         // small self-knockback backward
+  SNIPER_FIRE_COOLDOWN: 2.0,
+  SNIPER_ZOOM_FOV: 30,
+  SNIPER_MAX_AMMO: 10,
+
+  // ── Assault rifle (hitscan) ──
+  ASSAULT_DAMAGE: 12,
+  ASSAULT_RANGE: 300,
+  ASSAULT_SPREAD: 0.03,         // radians — cone spread
+  ASSAULT_FIRE_COOLDOWN: 0.08,  // ~12.5 rounds/sec
+  ASSAULT_KNOCKBACK: 15,
+  ASSAULT_MAX_AMMO: 120,
+  ASSAULT_MAG_SIZE: 30,
+
+  // ── Shotgun (hitscan, multi-pellet) ──
+  SHOTGUN_PELLETS: 8,
+  SHOTGUN_DAMAGE_PER_PELLET: 15,
+  SHOTGUN_RANGE: 80,
+  SHOTGUN_SPREAD: 0.1,          // radians — wide cone
+  SHOTGUN_KNOCKBACK: 400,       // strong — enables shotgun jumping
+  SHOTGUN_SELF_KNOCKBACK: 350,
+  SHOTGUN_FIRE_COOLDOWN: 0.9,
+  SHOTGUN_MAX_AMMO: 24,
+
+  // ── Knife (melee) ──
+  KNIFE_DAMAGE: 50,
+  KNIFE_RANGE: 3.5,
+  KNIFE_LUNGE_SPEED: 600,       // forward dash speed
+  KNIFE_LUNGE_DURATION: 0.12,   // seconds
+  KNIFE_FIRE_COOLDOWN: 0.4,
+
+  // ── Plasma gun (continuous beam) ──
+  PLASMA_DAMAGE_PER_SEC: 80,
+  PLASMA_RANGE: 60,
+  PLASMA_PUSHBACK: 200,         // push force on self (mini-boost)
+  PLASMA_AMMO_PER_SEC: 10,
+  PLASMA_MAX_AMMO: 100,
+
+  // ── Weapon switching ──
+  WEAPON_SWAP_TIME: 0.3,        // seconds to switch weapons
 } as const;
 
 export const DEG2RAD = Math.PI / 180;

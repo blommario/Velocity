@@ -56,8 +56,9 @@ let wallRunState: WallRunState = {
   wallRunCooldown: false,
 };
 
-// Track grapple input edge (press/release)
+// Track input edges (press/release)
 let wasGrapplePressed = false;
+let wasAltFire = false;
 
 // Camera effects
 let cameraTilt = 0;            // Z-axis roll for wall run tilt (radians)
@@ -219,7 +220,17 @@ export function physicsTick(
     }
   }
 
-  // --- Grappling hook ---
+  // --- Weapon switching (number keys + scroll wheel) ---
+  if (input.weaponSlot > 0) {
+    combat.switchWeaponBySlot(input.weaponSlot);
+    input.weaponSlot = 0;
+  }
+  if (input.scrollDelta !== 0) {
+    combat.scrollWeapon(input.scrollDelta > 0 ? 1 : -1);
+    input.scrollDelta = 0;
+  }
+
+  // --- Grappling hook (free-aim: raycast to find surface) ---
   const grapplePressed = input.grapple;
   const grappleJustPressed = grapplePressed && !wasGrapplePressed;
   wasGrapplePressed = grapplePressed;
@@ -239,15 +250,16 @@ export function physicsTick(
       applyGrappleSwing(velocity, _playerPos, combat.grappleTarget, combat.grappleLength, dt);
     }
   } else if (grappleJustPressed) {
-    const grapplePoints = combat.registeredGrapplePoints;
-    let bestDist = PHYSICS.GRAPPLE_MAX_DISTANCE;
-    let bestPoint: [number, number, number] | null = null;
-
     _fireDir.set(
       -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
       Math.sin(refs.pitch.current),
       -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
     ).normalize();
+
+    // Free-aim grapple: first check registered points, then raycast walls
+    const grapplePoints = combat.registeredGrapplePoints;
+    let bestDist = PHYSICS.GRAPPLE_MAX_DISTANCE;
+    let bestPoint: [number, number, number] | null = null;
 
     for (const gp of grapplePoints) {
       const gpDx = gp[0] - _playerPos.x;
@@ -255,69 +267,179 @@ export function physicsTick(
       const gpDz = gp[2] - _playerPos.z;
       const dist = Math.sqrt(gpDx * gpDx + gpDy * gpDy + gpDz * gpDz);
       if (dist > PHYSICS.GRAPPLE_MAX_DISTANCE || dist < 1) continue;
-
       const dot = (gpDx / dist) * _fireDir.x + (gpDy / dist) * _fireDir.y + (gpDz / dist) * _fireDir.z;
       if (dot < 0.3) continue;
+      if (dist < bestDist) { bestDist = dist; bestPoint = gp; }
+    }
 
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestPoint = gp;
+    // If no grapple point found, raycast to nearest surface
+    if (!bestPoint) {
+      const grappleRay = new Ray(
+        { x: _playerPos.x, y: _playerPos.y, z: _playerPos.z },
+        { x: _fireDir.x, y: _fireDir.y, z: _fireDir.z },
+      );
+      const grappleHit = rapierWorld.castRay(grappleRay, PHYSICS.GRAPPLE_MAX_DISTANCE, true, undefined, undefined, undefined, rb);
+      if (grappleHit) {
+        bestPoint = [
+          _playerPos.x + _fireDir.x * grappleHit.timeOfImpact,
+          _playerPos.y + _fireDir.y * grappleHit.timeOfImpact,
+          _playerPos.z + _fireDir.z * grappleHit.timeOfImpact,
+        ];
+        bestDist = grappleHit.timeOfImpact;
       }
     }
 
     if (bestPoint) {
       combat.startGrapple(bestPoint, bestDist);
       audioManager.play(SOUNDS.GRAPPLE_ATTACH);
+      devLog.info('Combat', `Grapple attached → dist=${bestDist.toFixed(1)}`);
     }
   }
 
   // --- Weapon firing ---
   combat.tickCooldown(dt);
 
-  if (input.fire && combat.fireCooldown <= 0 && combat.rocketAmmo > 0) {
-    _fireDir.set(
-      -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
-      Math.sin(refs.pitch.current),
-      -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
-    ).normalize();
+  // Compute fire direction from camera
+  _fireDir.set(
+    -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
+    Math.sin(refs.pitch.current),
+    -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
+  ).normalize();
 
-    const eyeOff = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
-    const spawnPos: [number, number, number] = [
-      _playerPos.x + _fireDir.x * 1.0,
-      _playerPos.y + eyeOff + _fireDir.y * 1.0,
-      _playerPos.z + _fireDir.z * 1.0,
-    ];
-    const rocketVel: [number, number, number] = [
-      _fireDir.x * PHYSICS.ROCKET_SPEED,
-      _fireDir.y * PHYSICS.ROCKET_SPEED,
-      _fireDir.z * PHYSICS.ROCKET_SPEED,
-    ];
-    combat.fireRocket(spawnPos, rocketVel);
-    audioManager.play(SOUNDS.ROCKET_FIRE);
-    devLog.info('Combat', `Rocket fired → dir=[${_fireDir.x.toFixed(2)}, ${_fireDir.y.toFixed(2)}, ${_fireDir.z.toFixed(2)}] ammo=${combat.rocketAmmo - 1}`);
+  const eyeOff = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
+  const weapon = combat.activeWeapon;
+  const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
+
+  // Sniper zoom toggle (right-click when sniper is active)
+  if (weapon === 'sniper' && input.altFire && !wasAltFire) {
+    useCombatStore.setState({ isZoomed: !combat.isZoomed });
+  }
+  wasAltFire = input.altFire;
+
+  // Knife lunge movement (applied during lunge timer)
+  if (combat.knifeLungeTimer > 0) {
+    const ld = combat.knifeLungeDir;
+    velocity.x = ld[0] * PHYSICS.KNIFE_LUNGE_SPEED;
+    velocity.z = ld[2] * PHYSICS.KNIFE_LUNGE_SPEED;
+    velocity.y = Math.max(velocity.y, ld[1] * PHYSICS.KNIFE_LUNGE_SPEED * 0.3);
   }
 
-  if (input.altFire && combat.fireCooldown <= 0 && combat.grenadeAmmo > 0) {
-    _fireDir.set(
-      -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
-      Math.sin(refs.pitch.current),
-      -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
-    ).normalize();
+  // Plasma beam tick
+  if (weapon === 'plasma' && input.fire && combat.ammo.plasma.current > 0) {
+    if (!combat.isPlasmaFiring) combat.startPlasma();
+    combat.tickPlasma(dt);
+    // Self-pushback (mini-boost in aim direction)
+    velocity.x -= _fireDir.x * PHYSICS.PLASMA_PUSHBACK * dt;
+    velocity.y -= _fireDir.y * PHYSICS.PLASMA_PUSHBACK * dt;
+    velocity.z -= _fireDir.z * PHYSICS.PLASMA_PUSHBACK * dt;
+  } else if (combat.isPlasmaFiring) {
+    combat.stopPlasma();
+  }
 
-    const eyeOff = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
-    const spawnPos: [number, number, number] = [
-      _playerPos.x + _fireDir.x * 0.8,
-      _playerPos.y + eyeOff + _fireDir.y * 0.8,
-      _playerPos.z + _fireDir.z * 0.8,
-    ];
-    const grenadeVel: [number, number, number] = [
-      _fireDir.x * PHYSICS.GRENADE_SPEED,
-      _fireDir.y * PHYSICS.GRENADE_SPEED + 100,
-      _fireDir.z * PHYSICS.GRENADE_SPEED,
-    ];
-    combat.fireGrenade(spawnPos, grenadeVel);
-    audioManager.play(SOUNDS.GRENADE_THROW);
-    devLog.info('Combat', `Grenade thrown → ammo=${combat.grenadeAmmo - 1}`);
+  if (input.fire && canFireNow) {
+    switch (weapon) {
+      case 'rocket': {
+        if (combat.ammo.rocket.current > 0) {
+          const spawnPos: [number, number, number] = [
+            _playerPos.x + _fireDir.x, _playerPos.y + eyeOff + _fireDir.y, _playerPos.z + _fireDir.z,
+          ];
+          const rocketVel: [number, number, number] = [
+            _fireDir.x * PHYSICS.ROCKET_SPEED, _fireDir.y * PHYSICS.ROCKET_SPEED, _fireDir.z * PHYSICS.ROCKET_SPEED,
+          ];
+          combat.fireRocket(spawnPos, rocketVel);
+          audioManager.play(SOUNDS.ROCKET_FIRE);
+          devLog.info('Combat', `Rocket fired → ammo=${combat.ammo.rocket.current - 1}`);
+        }
+        break;
+      }
+      case 'grenade': {
+        if (combat.ammo.grenade.current > 0) {
+          const spawnPos: [number, number, number] = [
+            _playerPos.x + _fireDir.x * 0.8, _playerPos.y + eyeOff + _fireDir.y * 0.8, _playerPos.z + _fireDir.z * 0.8,
+          ];
+          const grenadeVel: [number, number, number] = [
+            _fireDir.x * PHYSICS.GRENADE_SPEED, _fireDir.y * PHYSICS.GRENADE_SPEED + 100, _fireDir.z * PHYSICS.GRENADE_SPEED,
+          ];
+          combat.fireGrenade(spawnPos, grenadeVel);
+          audioManager.play(SOUNDS.GRENADE_THROW);
+          devLog.info('Combat', `Grenade thrown → ammo=${combat.ammo.grenade.current - 1}`);
+        }
+        break;
+      }
+      case 'sniper': {
+        if (combat.fireHitscan('sniper')) {
+          // Hitscan raycast
+          const sniperRay = new Ray(
+            { x: _playerPos.x, y: _playerPos.y + eyeOff, z: _playerPos.z },
+            { x: _fireDir.x, y: _fireDir.y, z: _fireDir.z },
+          );
+          rapierWorld.castRay(sniperRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
+          // Self-knockback backward
+          velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
+          velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
+          velocity.z -= _fireDir.z * PHYSICS.SNIPER_KNOCKBACK;
+          audioManager.play(SOUNDS.ROCKET_FIRE); // reuse sound for now
+          devLog.info('Combat', `Sniper fired → ammo=${combat.ammo.sniper.current}`);
+        }
+        break;
+      }
+      case 'assault': {
+        if (combat.fireHitscan('assault')) {
+          // Spread: random offset within cone
+          const spreadX = (Math.random() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+          const spreadY = (Math.random() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+          const aimX = _fireDir.x + spreadX;
+          const aimY = _fireDir.y + spreadY;
+          const aimZ = _fireDir.z;
+          const aimLen = Math.sqrt(aimX * aimX + aimY * aimY + aimZ * aimZ);
+          const assaultRay = new Ray(
+            { x: _playerPos.x, y: _playerPos.y + eyeOff, z: _playerPos.z },
+            { x: aimX / aimLen, y: aimY / aimLen, z: aimZ / aimLen },
+          );
+          rapierWorld.castRay(assaultRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
+          // Small knockback
+          velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * dt;
+          velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * dt;
+          audioManager.play(SOUNDS.LAND_SOFT, 0.05); // light tick sound
+        }
+        break;
+      }
+      case 'shotgun': {
+        if (combat.fireHitscan('shotgun')) {
+          // Fire multiple pellets in a cone
+          for (let i = 0; i < PHYSICS.SHOTGUN_PELLETS; i++) {
+            const sx = (Math.random() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+            const sy = (Math.random() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+            const px = _fireDir.x + sx;
+            const py = _fireDir.y + sy;
+            const pz = _fireDir.z;
+            const pl = Math.sqrt(px * px + py * py + pz * pz);
+            const shotRay = new Ray(
+              { x: _playerPos.x, y: _playerPos.y + eyeOff, z: _playerPos.z },
+              { x: px / pl, y: py / pl, z: pz / pl },
+            );
+            rapierWorld.castRay(shotRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
+          }
+          // Strong self-knockback (shotgun jump!)
+          velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+          velocity.y -= _fireDir.y * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+          velocity.z -= _fireDir.z * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+          audioManager.play(SOUNDS.ROCKET_EXPLODE); // reuse explosive sound
+          devLog.info('Combat', `Shotgun fired → ammo=${combat.ammo.shotgun.current}`);
+        }
+        break;
+      }
+      case 'knife': {
+        if (combat.fireKnife([_fireDir.x, _fireDir.y, _fireDir.z])) {
+          audioManager.play(SOUNDS.GRAPPLE_ATTACH, 0.15);
+          devLog.info('Combat', 'Knife lunge');
+        }
+        break;
+      }
+      case 'plasma':
+        // Handled above in continuous beam section
+        break;
+    }
   }
 
   // --- Projectile collision via raycasts (BEFORE position update) ---

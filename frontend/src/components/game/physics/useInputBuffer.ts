@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { InputState } from './types';
 
 type BooleanInputKey = keyof Pick<InputState,
-  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple'
+  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload'
 >;
 
 /** Default key bindings — maps physical key codes to input actions. */
@@ -16,6 +16,13 @@ const DEFAULT_KEY_BINDINGS: Record<string, BooleanInputKey> = {
   ControlLeft: 'crouch',
   KeyE: 'grapple',
   KeyG: 'altFire',
+  KeyR: 'reload',
+} as const;
+
+/** Maps Digit keys to weapon slots (1-7) */
+const WEAPON_SLOT_KEYS: Record<string, number> = {
+  Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4,
+  Digit5: 5, Digit6: 6, Digit7: 7,
 } as const;
 
 const createEmptyInput = (): InputState => ({
@@ -28,8 +35,11 @@ const createEmptyInput = (): InputState => ({
   fire: false,
   altFire: false,
   grapple: false,
+  reload: false,
   mouseDeltaX: 0,
   mouseDeltaY: 0,
+  weaponSlot: 0,
+  scrollDelta: 0,
 });
 
 export function useInputBuffer() {
@@ -41,6 +51,10 @@ export function useInputBuffer() {
     const onKeyDown = (e: KeyboardEvent) => {
       const action = DEFAULT_KEY_BINDINGS[e.code];
       if (action) input[action] = true;
+
+      // Weapon slot keys (consumed once per press)
+      const slot = WEAPON_SLOT_KEYS[e.code];
+      if (slot !== undefined) input.weaponSlot = slot;
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -66,6 +80,12 @@ export function useInputBuffer() {
       }
     };
 
+    const onWheel = (e: WheelEvent) => {
+      if (document.pointerLockElement) {
+        input.scrollDelta += e.deltaY;
+      }
+    };
+
     const onContextMenu = (e: Event) => e.preventDefault();
 
     window.addEventListener('keydown', onKeyDown);
@@ -73,6 +93,7 @@ export function useInputBuffer() {
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('wheel', onWheel, { passive: true });
     window.addEventListener('contextmenu', onContextMenu);
 
     return () => {
@@ -81,6 +102,7 @@ export function useInputBuffer() {
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('wheel', onWheel);
       window.removeEventListener('contextmenu', onContextMenu);
     };
   }, []);

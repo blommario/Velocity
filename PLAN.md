@@ -29,21 +29,21 @@
 **Förutsättning:** Fas 13
 
 ### 14a — Hitscan-vapen
-- 🔲 Weapon switching system — siffertangenter (1–5) + scrollhjul, animerad weapon swap
+- ✅ Weapon switching system — tangenter 1–7 + scrollhjul, 0.3s swap cooldown
 - 🔲 Weapon viewmodel — enkel 3D-modell i nedre högra hörnet (first person arms/gun)
-- 🔲 Sniper rifle — hitscan, 1-shot kill NPCs, zoom (right-click), liten knockback bakåt, 2s cooldown
-- 🔲 Assault rifle — hitscan, snabb eldhastighet (100ms), liten knockback, spread, 30 ammo magazine
-- 🔲 Shotgun — 8 pellets i kon, hög nära-skada, stor knockback (shotgun jump!), 1s pump
+- ✅ Sniper rifle — hitscan, zoom (right-click), 80 u/s self-knockback, 2s cooldown
+- ✅ Assault rifle — hitscan, 80ms fire rate, spread 0.03 rad, 30-round magazine
+- ✅ Shotgun — 8 pellets, 0.1 rad spread, 350 u/s self-knockback (shotgun jump!), 0.9s pump
 
 ### 14b — Melee & Special
-- 🔲 Knife/Sword — lunge forward (kort dash), no ammo, snabb attack
-- 🔲 Plasma gun — kontinuerlig stråle, pushback-effekt (användbar som mini-boost)
-- 🔲 Grapple upgrade — grapple hook som vapen (valfri riktning, inte bara grapple points)
+- ✅ Knife — lunge forward (600 u/s dash, 0.12s), no ammo, 0.4s cooldown
+- ✅ Plasma gun — continuous beam, 200 u/s self-pushback (mini-boost), 10 ammo/s
+- ✅ Grapple upgrade — free-aim raycast (any surface), fallback to registered points
 
 ### 14c — Weapon HUD
-- 🔲 Weapon wheel — snabbval med mushjul eller tangent
-- 🔲 Ammo display per vapen i CombatHud
-- 🔲 Weapon crosshair — anpassad crosshair per vapentyp (dot, spread-ring, scope)
+- ✅ Weapon slots bar — 1-7 nummerindikator med aktiv markering
+- ✅ Ammo display per vapen — visar current/max + magazine för AR
+- ✅ Weapon crosshair — dot (knife), cross (AR/RL/GL), ring (SG/plasma), scope (sniper)
 - 🔲 Muzzle flash + impact particles per vapen
 
 ---
