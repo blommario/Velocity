@@ -231,29 +231,43 @@ export function MainMenu() {
         </div>
       </div>
 
-      {/* Map Grid */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-8 py-6 scrollbar-thin">
-        {tab === 'official' ? (
-          filteredOfficialMaps.length === 0 ? (
-            <EmptyState text="No maps match filter" />
+      {/* Content area — maps + hero character */}
+      <div className="relative z-10 flex-1 flex overflow-hidden">
+        {/* Map Grid */}
+        <div className="flex-1 overflow-y-auto px-8 py-6 scrollbar-thin">
+          {tab === 'official' ? (
+            filteredOfficialMaps.length === 0 ? (
+              <EmptyState text="No maps match filter" />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredOfficialMaps.map((map) => (
+                  <OfficialMapCard key={map.id} map={map} onPlay={() => handlePlayOfficial(map)} />
+                ))}
+              </div>
+            )
+          ) : loading ? (
+            <LoadingState />
+          ) : communityMaps.length === 0 ? (
+            <EmptyState text="No community maps found" />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredOfficialMaps.map((map) => (
-                <OfficialMapCard key={map.id} map={map} onPlay={() => handlePlayOfficial(map)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {communityMaps.map((map) => (
+                <CommunityMapCard key={map.id} map={map} onPlay={() => handlePlayCommunity(map)} />
               ))}
             </div>
-          )
-        ) : loading ? (
-          <LoadingState />
-        ) : communityMaps.length === 0 ? (
-          <EmptyState text="No community maps found" />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {communityMaps.map((map) => (
-              <CommunityMapCard key={map.id} map={map} onPlay={() => handlePlayCommunity(map)} />
-            ))}
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Hero character */}
+        <div className="hidden xl:flex w-[380px] shrink-0 items-end justify-center relative pb-4 pr-4">
+          <div className="hero-glow" />
+          <img
+            src="/assets/ui/hero-character.png"
+            alt=""
+            className="hero-character relative h-[85%] w-auto object-contain select-none"
+            draggable={false}
+          />
+        </div>
       </div>
     </div>
   );

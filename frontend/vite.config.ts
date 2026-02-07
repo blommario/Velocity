@@ -31,6 +31,7 @@ export default defineConfig({
     target: 'esnext',
   },
   server: {
+    open: false,
     proxy: {
       '/api': {
         target: 'https://localhost:5001',
