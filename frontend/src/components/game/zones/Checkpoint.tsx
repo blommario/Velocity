@@ -35,7 +35,7 @@ export function Checkpoint({ position, size, index }: CheckpointProps) {
           transparent
           opacity={CHECKPOINT_OPACITY}
           emissive={CHECKPOINT_COLOR}
-          emissiveIntensity={0.2}
+          emissiveIntensity={1.0}
         />
       </mesh>
     </RigidBody>

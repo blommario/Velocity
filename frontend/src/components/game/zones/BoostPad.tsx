@@ -1,6 +1,13 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '../../../stores/combatStore';
+import { GpuParticles } from '../particles/GpuParticles';
+
+const BOOST_PARTICLES = {
+  COUNT: 200,
+  SPREAD: 1.5,
+  SPEED: 2.0,
+} as const;
 
 interface BoostPadProps {
   position: [number, number, number];
@@ -33,7 +40,7 @@ export function BoostPad({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={0.8}
+          emissiveIntensity={1.5}
           transparent
           opacity={0.6}
         />
@@ -44,11 +51,19 @@ export function BoostPad({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={1.5}
+          emissiveIntensity={3.0}
           transparent
           opacity={0.4}
         />
       </mesh>
+      <GpuParticles
+        count={BOOST_PARTICLES.COUNT}
+        position={position}
+        color={color}
+        spread={BOOST_PARTICLES.SPREAD}
+        speed={BOOST_PARTICLES.SPEED}
+        direction={[0, 1, 0]}
+      />
     </RigidBody>
   );
 }

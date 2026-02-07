@@ -1,6 +1,13 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '../../../stores/combatStore';
+import { GpuParticles } from '../particles/GpuParticles';
+
+const GATE_PARTICLES = {
+  COUNT: 150,
+  SPREAD: 2.5,
+  SPEED: 1.5,
+} as const;
 
 interface SpeedGateProps {
   position: [number, number, number];
@@ -34,7 +41,7 @@ export function SpeedGate({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={1.2}
+          emissiveIntensity={2.5}
           transparent
           opacity={0.5}
         />
@@ -45,12 +52,20 @@ export function SpeedGate({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={0.5}
+          emissiveIntensity={1.0}
           transparent
           opacity={0.15}
           side={2}
         />
       </mesh>
+      <GpuParticles
+        count={GATE_PARTICLES.COUNT}
+        position={position}
+        color={color}
+        spread={GATE_PARTICLES.SPREAD}
+        speed={GATE_PARTICLES.SPEED}
+        direction={[0, 0.5, 0]}
+      />
     </RigidBody>
   );
 }

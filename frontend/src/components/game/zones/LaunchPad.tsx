@@ -33,7 +33,7 @@ export function LaunchPad({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={1.0}
+          emissiveIntensity={2.0}
           transparent
           opacity={0.7}
         />

@@ -51,6 +51,7 @@ interface SettingsState {
   fov: number;
   qualityPreset: QualityPreset;
   shadows: boolean;
+  bloom: boolean;
   particles: boolean;
   speedLines: boolean;
   screenShake: boolean;
@@ -83,6 +84,7 @@ interface SettingsState {
   setFov: (f: number) => void;
   setQualityPreset: (p: QualityPreset) => void;
   setShadows: (b: boolean) => void;
+  setBloom: (b: boolean) => void;
   setParticles: (b: boolean) => void;
   setSpeedLines: (b: boolean) => void;
   setScreenShake: (b: boolean) => void;
@@ -110,6 +112,7 @@ const DEFAULT_STATE = {
   fov: 90,
   qualityPreset: QUALITY_PRESETS.HIGH as QualityPreset,
   shadows: true,
+  bloom: true,
   particles: true,
   speedLines: true,
   screenShake: true,
@@ -139,6 +142,7 @@ export const useSettingsStore = create<SettingsState>()(
       setFov: (fov) => set({ fov }),
       setQualityPreset: (qualityPreset) => set({ qualityPreset }),
       setShadows: (shadows) => set({ shadows }),
+      setBloom: (bloom) => set({ bloom }),
       setParticles: (particles) => set({ particles }),
       setSpeedLines: (speedLines) => set({ speedLines }),
       setScreenShake: (screenShake) => set({ screenShake }),
@@ -169,6 +173,7 @@ export const useSettingsStore = create<SettingsState>()(
         fov: state.fov,
         qualityPreset: state.qualityPreset,
         shadows: state.shadows,
+        bloom: state.bloom,
         particles: state.particles,
         speedLines: state.speedLines,
         screenShake: state.screenShake,

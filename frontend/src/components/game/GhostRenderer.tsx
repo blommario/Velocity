@@ -46,7 +46,7 @@ export function GhostRenderer() {
       <meshStandardMaterial
         color={GHOST_COLOR}
         emissive={GHOST_COLOR}
-        emissiveIntensity={0.5}
+        emissiveIntensity={1.0}
         transparent
         opacity={GHOST_OPACITY}
         depthWrite={false}

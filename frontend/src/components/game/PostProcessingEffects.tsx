@@ -1,0 +1,59 @@
+import { useEffect, useRef } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import { PostProcessing, ACESFilmicToneMapping, SRGBColorSpace } from 'three/webgpu';
+import { pass, renderOutput, viewportUV, clamp } from 'three/tsl';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { useSettingsStore } from '../../stores/settingsStore';
+
+const POST_PROCESSING = {
+  BLOOM_THRESHOLD: 0.6,
+  BLOOM_STRENGTH: 0.8,
+  BLOOM_RADIUS: 0.4,
+  VIGNETTE_INTENSITY: 1.4,
+  VIGNETTE_SOFTNESS: 0.6,
+} as const;
+
+export function PostProcessingEffects() {
+  const { gl, scene, camera } = useThree();
+  const pipelineRef = useRef<PostProcessing | null>(null);
+
+  useEffect(() => {
+    const pipeline = new PostProcessing(gl);
+
+    const scenePass = pass(scene, camera);
+    const scenePassColor = scenePass.getTextureNode('output');
+
+    // Bloom
+    const bloomPass = bloom(scenePassColor);
+    bloomPass.threshold.value = POST_PROCESSING.BLOOM_THRESHOLD;
+    bloomPass.strength.value = POST_PROCESSING.BLOOM_STRENGTH;
+    bloomPass.radius.value = POST_PROCESSING.BLOOM_RADIUS;
+
+    // Vignette: darken edges based on distance from screen center
+    const vignetteFactor = clamp(
+      viewportUV.sub(0.5).length().mul(POST_PROCESSING.VIGNETTE_INTENSITY),
+      0.0,
+      1.0,
+    ).oneMinus().pow(POST_PROCESSING.VIGNETTE_SOFTNESS);
+
+    // Combine: scene + bloom → vignette → tonemapping + color space
+    const combined = scenePassColor.add(bloomPass).mul(vignetteFactor);
+    pipeline.outputNode = renderOutput(combined, SRGBColorSpace, ACESFilmicToneMapping);
+
+    pipelineRef.current = pipeline;
+
+    return () => {
+      pipelineRef.current = null;
+    };
+  }, [gl, scene, camera]);
+
+  // renderPriority=1 disables R3F auto-rendering
+  useFrame(() => {
+    const bloomEnabled = useSettingsStore.getState().bloom;
+    if (pipelineRef.current && bloomEnabled) {
+      pipelineRef.current.render();
+    }
+  }, 1);
+
+  return null;
+}

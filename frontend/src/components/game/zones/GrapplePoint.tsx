@@ -22,7 +22,7 @@ export function GrapplePoint({ position }: GrapplePointProps) {
         <meshStandardMaterial
           color="#ffcc00"
           emissive="#ffcc00"
-          emissiveIntensity={0.8}
+          emissiveIntensity={1.5}
           transparent
           opacity={0.7}
         />
@@ -33,7 +33,7 @@ export function GrapplePoint({ position }: GrapplePointProps) {
         <meshStandardMaterial
           color="#ffcc00"
           emissive="#ffcc00"
-          emissiveIntensity={1.5}
+          emissiveIntensity={3.0}
           transparent
           opacity={0.4}
         />

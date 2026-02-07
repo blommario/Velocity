@@ -145,7 +145,11 @@ cd frontend && npx vitest run      # Frontend Vitest tests
 - **Rate limiting:** Fixed window (10 req/min) on `/api/auth/*`
 
 ## Frontend Stack
-- **Rendering:** React Three Fiber + drei (Three.js)
+- **Renderer:** WebGPU via `three/webgpu` + R3F v9 async `gl` prop (auto-fallback to WebGL2)
+- **PostProcessing:** Three.js native `PostProcessing` class + TSL nodes (bloom, vignette, ACES tonemapping)
+- **Fog:** TSL `scene.fogNode` with `fog()` + `rangeFogFactor()` for height-based atmospheric fog
+- **Particles:** GPU compute shaders via TSL `instancedArray` + `SpriteNodeMaterial`
+- **Instancing:** `InstancedBlocks` groups map blocks by visual properties for fewer draw calls
 - **Physics:** @react-three/rapier v2.2.0 — KinematicCharacterController at 128Hz
 - **State:** Zustand (gameStore, settingsStore)
 - **Styling:** Tailwind CSS v4 (via @tailwindcss/vite plugin)
@@ -319,3 +323,52 @@ interface MapData {
 - 60 FPS minimum on mid-range hardware
 - Physics at 128Hz regardless of frame rate
 - Draw calls under 200 per frame, instanced rendering for repeated geometry
+
+---
+
+## Technical References & Sources
+
+### WebGPU Renderer Migration
+- [R3F v9 Migration Guide — WebGPU canvas setup, async `gl` prop](https://r3f.docs.pmnd.rs/tutorials/v9-migration-guide)
+- [R3F Canvas API — `gl` prop documentation](https://r3f.docs.pmnd.rs/api/canvas)
+- [R3F WebGPU Starter (ektogamat) — reference implementation](https://github.com/ektogamat/r3f-webgpu-starter)
+- [R3F WebGPU Support Issue #3352 — community discussion](https://github.com/pmndrs/react-three-fiber/issues/3352)
+- [Pragmattic: R3F WebGPU + TypeScript setup](https://blog.pragmattic.dev/react-three-fiber-webgpu-typescript)
+- [Loopspeed: R3F WebGPU with TypeScript](https://blog.loopspeed.co.uk/react-three-fiber-webgpu-typescript)
+
+### Three.js TSL & PostProcessing
+- [Three.js Shading Language Wiki — full TSL node reference](https://github.com/mrdoob/three.js/wiki/Three.js-Shading-Language)
+- [Three.js WebGPU Bloom Example](https://threejs.org/examples/webgpu_postprocessing_bloom.html)
+- [Three.js WebGPU Custom Fog Example](https://threejs.org/examples/webgpu_custom_fog.html)
+- [Three.js WebGPU Instance Mesh Example](https://threejs.org/examples/webgpu_instance_mesh.html)
+- [Three.js Migration Guide — PostProcessing → RenderPipeline (r183)](https://github.com/mrdoob/three.js/wiki/Migration-Guide)
+- [Maxime Heckel: Field Guide to TSL and WebGPU](https://blog.maximeheckel.com/posts/field-guide-to-tsl-and-webgpu/)
+- [Wawa Sensei: WebGPU/TSL with R3F — course](https://wawasensei.dev/courses/react-three-fiber/lessons/webgpu-tsl)
+- [Wawa Sensei: GPGPU Particles with TSL](https://wawasensei.dev/courses/react-three-fiber/lessons/tsl-gpgpu)
+- [Codrops: BatchedMesh + WebGPU PostProcessing (vignette, SSAO, DoF)](https://tympanus.net/codrops/2024/10/30/interactive-3d-with-three-js-batchedmesh-and-webgpurenderer/)
+- [Galaxy Simulation with WebGPU Compute Shaders](https://threejsroadmap.com/blog/galaxy-simulation-webgpu-compute-shaders)
+
+### Three.js Core Documentation
+- [Three.js WebGPURenderer Docs](https://threejs.org/docs/pages/WebGPURenderer.html)
+- [Three.js TSL Docs](https://threejs.org/docs/pages/TSL.html)
+- [Three.js Fog Docs](https://threejs.org/docs/pages/Fog.html)
+- [Three.js Releases (r171–r182)](https://github.com/mrdoob/three.js/releases)
+
+### WebGPU Browser Support
+- [WebGPU Implementation Status (GPU Web Wiki)](https://github.com/gpuweb/gpuweb/wiki/Implementation-Status)
+- [Can I Use: WebGPU](https://caniuse.com/webgpu)
+- [web.dev: WebGPU supported in major browsers](https://web.dev/blog/webgpu-supported-major-browsers)
+
+### Visual Inspiration — Project Prismatic
+- [Project Prismatic on CrazyGames — first WebGPU title](https://www.crazygames.com/game/project-prismatic)
+- [Pocket Gamer: First WebGPU game on CrazyGames](https://www.pocketgamer.com/project-prismatic/the-first-webgpu-game-launched-on-crazygames/)
+- [Unity WebGPU Transformation (GDC summary) — LOD, compression, compute shaders](https://gist.ly/youtube-summarizer/advances-in-gaming-on-the-web-unitys-transformation-with-webgpu)
+- [Gamedev.js: Project Prismatic — WebGPU powered FPS](https://gamedevjs.com/games/project-prismatic-webgpu-powered-fps/)
+- [PlayOnRay: Project Prismatic Preview — atmospheric lighting breakdown](https://playonray.com/blog/project-prismatic-preview-scifi-fps-web-gaming)
+- [Bleeding Cool: Project Prismatic Announced](https://bleedingcool.com/games/sci-fi-web-based-fps-project-prismatic-announced/)
+
+### Three.js Forum Discussions
+- [WebGPU Performance Regression in r182 vs WebGL r170](https://discourse.threejs.org/t/webgpu-significant-performance-drop-and-shadow-quality-regression-in-r182-vs-webgl-r170/89322)
+- [stats-gl Incompatibility with WebGPU in r181](https://discourse.threejs.org/t/webgpu-r181-fyi-stats-gl-no-longer-compatible-with-webgpu/87944)
+- [WebGPU Post-Processing Effects discussion](https://discourse.threejs.org/t/three-js-webgpu-post-processing-effects/87390)
+- [DataTexture regression in r171](https://github.com/mrdoob/three.js/issues/30484)

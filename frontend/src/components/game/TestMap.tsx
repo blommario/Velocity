@@ -9,6 +9,7 @@ import { LaunchPad } from './zones/LaunchPad';
 import { SpeedGate } from './zones/SpeedGate';
 import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
+import { AtmosphericFog } from './AtmosphericFog';
 import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
 
@@ -153,9 +154,9 @@ export function TestMap() {
       />
       <hemisphereLight args={['#87ceeb', '#3a3a3a', 0.3]} />
 
-      {/* Sky color */}
+      {/* Sky color + atmospheric fog */}
       <color attach="background" args={['#1a1a2e']} />
-      <fog attach="fog" args={['#1a1a2e', 80, 200]} />
+      <AtmosphericFog color="#1a1a2e" near={80} far={200} />
     </group>
   );
 }

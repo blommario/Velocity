@@ -34,7 +34,7 @@ export function FinishZone({ position, size }: FinishZoneProps) {
           transparent
           opacity={FINISH_ZONE_OPACITY}
           emissive={FINISH_ZONE_COLOR}
-          emissiveIntensity={0.4}
+          emissiveIntensity={1.5}
         />
       </mesh>
     </RigidBody>

@@ -44,7 +44,7 @@ export function AmmoPickup({ position, type, amount, respawnTime = DEFAULT_RESPA
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={0.6}
+          emissiveIntensity={1.5}
           transparent
           opacity={0.8}
         />

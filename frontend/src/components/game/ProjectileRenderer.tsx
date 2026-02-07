@@ -16,7 +16,7 @@ export function ProjectileRenderer() {
               <meshStandardMaterial
                 color={ROCKET_COLOR}
                 emissive={ROCKET_COLOR}
-                emissiveIntensity={2}
+                emissiveIntensity={4}
               />
             </>
           ) : (
@@ -25,7 +25,7 @@ export function ProjectileRenderer() {
               <meshStandardMaterial
                 color={GRENADE_COLOR}
                 emissive={GRENADE_COLOR}
-                emissiveIntensity={1.5}
+                emissiveIntensity={3}
               />
             </>
           )}

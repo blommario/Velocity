@@ -11,6 +11,8 @@ import { LaunchPad } from '../zones/LaunchPad';
 import { SpeedGate } from '../zones/SpeedGate';
 import { AmmoPickup } from '../zones/AmmoPickup';
 import { GrapplePoint } from '../zones/GrapplePoint';
+import { AtmosphericFog } from '../AtmosphericFog';
+import { InstancedBlocks } from './InstancedBlocks';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import type { MapData, MapBlock, MovingPlatformData, Vec3 } from './types';
@@ -53,10 +55,8 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
   return (
     <group>
-      {/* Blocks (static geometry) */}
-      {data.blocks.map((block, i) => (
-        <BlockRenderer key={`block-${i}`} block={block} />
-      ))}
+      {/* Blocks (static geometry — instanced for performance) */}
+      <InstancedBlocks blocks={data.blocks} />
 
       {/* Start zone at spawn */}
       <StartZone
@@ -174,7 +174,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
       {/* Environment */}
       <color attach="background" args={[bgColor]} />
-      <fog attach="fog" args={[lighting.fogColor!, lighting.fogNear!, lighting.fogFar!]} />
+      <AtmosphericFog color={lighting.fogColor!} near={lighting.fogNear!} far={lighting.fogFar!} />
 
       {/* Grid for orientation */}
       <gridHelper args={[400, 80, '#333', '#222']} position={[0, 0.01, 0]} />

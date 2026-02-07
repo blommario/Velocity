@@ -9,6 +9,7 @@ import { MapLoader } from './map/MapLoader';
 import { ScreenShake } from './ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
+import { PostProcessingEffects } from './PostProcessingEffects';
 import { HudOverlay } from '../hud/HudOverlay';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
@@ -81,6 +82,7 @@ export function GameCanvas() {
             <TestMap />
           )}
         </Physics>
+        <PostProcessingEffects />
       </Canvas>
       <HudOverlay />
     </div>
