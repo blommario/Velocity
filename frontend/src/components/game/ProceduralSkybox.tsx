@@ -9,9 +9,9 @@ import {
   Mesh as ThreeMesh, SphereGeometry, NodeMaterial,
   BackSide,
 } from 'three/webgpu';
-import type { SkyboxType } from './map/types';
+import type { ProceduralSkyboxType } from './map/types';
 
-const SKY_PRESETS: Record<SkyboxType, {
+const SKY_PRESETS: Record<ProceduralSkyboxType, {
   sunColor: [number, number, number];
   zenithColor: [number, number, number];
   horizonColor: [number, number, number];
@@ -62,7 +62,7 @@ const SKY_PRESETS: Record<SkyboxType, {
 } as const;
 
 interface ProceduralSkyboxProps {
-  type?: SkyboxType;
+  type?: ProceduralSkyboxType;
   radius?: number;
 }
 

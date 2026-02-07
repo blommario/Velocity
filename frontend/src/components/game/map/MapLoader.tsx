@@ -13,8 +13,10 @@ import { AmmoPickup } from '../zones/AmmoPickup';
 import { GrapplePoint } from '../zones/GrapplePoint';
 import { AtmosphericFog } from '../AtmosphericFog';
 import { ProceduralSkybox } from '../ProceduralSkybox';
+import { HdriSkybox } from '../HdriSkybox';
 import { EmissivePointLight } from '../DynamicPointLights';
 import { InstancedBlocks } from './InstancedBlocks';
+import { ModelBlock } from './ModelBlock';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../stores/devLogStore';
@@ -64,6 +66,11 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
     <group>
       {/* Blocks (static geometry — instanced for performance) */}
       <InstancedBlocks blocks={data.blocks} />
+
+      {/* glTF models */}
+      {data.models?.map((model, i) => (
+        <ModelBlock key={`model-${i}`} model={model} />
+      ))}
 
       {/* Start zone at spawn */}
       <StartZone
@@ -210,9 +217,15 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         />
       ))}
 
-      {/* Environment */}
-      <ProceduralSkybox type={data.skybox ?? 'day'} />
-      <color attach="background" args={[bgColor]} />
+      {/* Environment — HDRI or procedural skybox */}
+      {data.skybox?.startsWith('hdri:') ? (
+        <HdriSkybox filename={data.skybox.slice(5)} />
+      ) : (
+        <>
+          <ProceduralSkybox type={data.skybox ?? 'day'} />
+          <color attach="background" args={[bgColor]} />
+        </>
+      )}
       <AtmosphericFog color={lighting.fogColor!} near={lighting.fogNear!} far={lighting.fogFar!} />
 
       {/* Grid for orientation */}

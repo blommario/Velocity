@@ -17,6 +17,17 @@ export interface MapBlock {
   emissiveIntensity?: number;
   transparent?: boolean;
   opacity?: number;
+  textureSet?: string;   // texture set prefix in /assets/textures/ (e.g. "sci-fi-panel-01")
+  textureScale?: [number, number];  // UV repeat [x, y], default [1,1]
+}
+
+// ── Model props (glTF placed in map) ──
+export interface MapModel {
+  modelUrl: string;       // path relative to /assets/models/ (e.g. "corridor-01.glb")
+  position: Vec3;
+  rotation?: Vec3;        // euler angles in radians
+  scale?: Vec3;           // default [1,1,1]
+  collider?: 'trimesh' | 'hull' | 'none';  // physics collider type
 }
 
 // ── Game objects ──
@@ -87,7 +98,8 @@ export interface MovingPlatformData {
 }
 
 // ── Lighting & Environment ──
-export type SkyboxType = 'day' | 'sunset' | 'night' | 'neon' | 'sky';
+export type ProceduralSkyboxType = 'day' | 'sunset' | 'night' | 'neon' | 'sky';
+export type SkyboxType = ProceduralSkyboxType | `hdri:${string}`;
 
 export interface AmbientLighting {
   ambientIntensity: number;
@@ -127,6 +139,7 @@ export interface MapData {
   surfRamps?: SurfRampData[];
   movingPlatforms?: MovingPlatformData[];
   killZones?: KillZoneData[];
+  models?: MapModel[];
   settings?: MapSettings;
   skybox?: SkyboxType;
   lighting?: AmbientLighting;

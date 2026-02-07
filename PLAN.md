@@ -12,35 +12,34 @@
 **Förutsättning:** Ingen
 
 ### A1 — glTF Model Loader
-- 🔲 GLTFLoader integration — ladda `.glb`-filer via Three.js GLTFLoader (WebGPU-kompatibel)
-- 🔲 Asset manager — cache för laddade modeller, progress-callbacks, lazy loading
-- 🔲 Model placement i MapData — utöka `MapBlock` med optional `modelUrl` fält (fallback till primitiv geometri)
-- 🔲 Collider-generering från mesh — trimesh eller convex hull colliders för importerade modeller
+- ✅ GLTFLoader integration — `assetManager.ts` med GLTFLoader + DRACOLoader (WebGPU-kompatibel)
+- ✅ Asset manager — cache för laddade modeller, progress-callbacks, lazy loading
+- ✅ Model placement i MapData — `MapModel` interface med `modelUrl`, position, rotation, scale
+- ✅ Collider-generering från mesh — `ModelBlock` component med trimesh/hull via `MeshCollider`
 
 ### A2 — PBR Texture System
-- 🔲 Texture loader — ladda albedo, normal, roughness, metalness, emissive maps
-- 🔲 Texture atlas / manager — undvik duplicerade laddningar, stöd för olika upplösningar
-- 🔲 Material factory — skapa `MeshStandardNodeMaterial` från texture-set med TSL nodes
-- 🔲 Per-block texture override — MapData-block kan referera till en texture-set istället för enkel färg
+- ✅ Texture loader — `loadTexture()` med sRGB/linear color space, RepeatWrapping
+- ✅ Texture atlas / manager — `loadTextureSet()` med cache, undviker duplicerade laddningar
+- ✅ Material factory — `useTexturedMaterial` hook skapar MeshStandardMaterial från texture-set
+- ✅ Per-block texture override — MapBlock `textureSet` + `textureScale` fält
 
 ### A3 — HDRI Skybox
-- 🔲 RGBELoader / EXRLoader — ladda HDR environment maps
-- 🔲 Fallback — behåll ProceduralSkybox som alternativ om HDRI inte laddats
-- 🔲 Environment map reflection — `scene.environment` för PBR metallic reflektioner
-- 🔲 Per-map skybox config — MapData `skybox` fält stöder `"procedural"` | `"hdri:filnamn"`
+- ✅ RGBELoader — `loadHDRI()` i assetManager, laddar .hdr med EquirectangularReflectionMapping
+- ✅ Fallback — `HdriSkybox` component, ProceduralSkybox kvarstår som standard
+- ✅ Environment map reflection — `scene.environment` sätts via PMREMGenerator
+- ✅ Per-map skybox config — `SkyboxType = ProceduralSkyboxType | 'hdri:filename'`
 
 ### A4 — Asset Downloads (CC0)
 - 🔲 **Quaternius Modular Sci-Fi MEGAKIT** — 270+ modulära corridor/platform/ramp/door pieces (glTF, CC0)
   - Källa: quaternius.itch.io/modular-sci-fi-megakit
-- 🔲 **Kenney Space Station Kit** — 90 modulära rymdstationsdelar (GLB, CC0)
-  - Källa: kenney.nl/assets/space-station-kit
-- 🔲 **Poly Haven Night HDRI** — rymdtema skybox (CC0, 2K/4K)
-  - Källa: polyhaven.com/hdris/night/skies (Satara Night, Dikhololo Night)
+- ✅ **Kenney Space Kit** — 153 FBX modeller (korridorer, hangarer, maskiner, rymdskepp) (CC0)
+  - Extraherat till `frontend/public/assets/models/kenney-space-kit/`
+  - FBXLoader tillagt i assetManager.ts
+- ✅ **Poly Haven Night HDRI** — `satara_night_2k.hdr` + `dikhololo_night_2k.hdr` (CC0, 2K)
 - 🔲 **3dtextures.me Sci-Fi Panels** — PBR texture-set för metallytor, paneler, ventilation
   - Källa: 3dtextures.me/category/sci-fi/
-- 🔲 **ambientCG Metal/Concrete** — PBR texturer för industriella ytor (CC0, 2K)
-  - Källa: ambientcg.com/list?category=Metal
-- 🔲 Organisera assets i `frontend/public/assets/` — models/, textures/, hdri/
+- ✅ **ambientCG Metal/Concrete** — `metal-009` + `concrete-034` PBR texturer (CC0, 1K)
+- ✅ Organisera assets i `frontend/public/assets/` — models/, textures/, hdri/
 
 ---
 
