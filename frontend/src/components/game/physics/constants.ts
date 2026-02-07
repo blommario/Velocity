@@ -122,16 +122,16 @@ export const PHYSICS = {
   SHOTGUN_DAMAGE_PER_PELLET: 15,
   SHOTGUN_RANGE: 80,
   SHOTGUN_SPREAD: 0.1,          // radians — wide cone
-  SHOTGUN_KNOCKBACK: 400,       // strong — enables shotgun jumping
-  SHOTGUN_SELF_KNOCKBACK: 350,
+  SHOTGUN_KNOCKBACK: 60,        // moderate push
+  SHOTGUN_SELF_KNOCKBACK: 40,   // small self-boost
   SHOTGUN_FIRE_COOLDOWN: 0.9,
   SHOTGUN_MAX_AMMO: 24,
 
   // ── Knife (melee) ──
   KNIFE_DAMAGE: 50,
   KNIFE_RANGE: 3.5,
-  KNIFE_LUNGE_SPEED: 600,       // forward dash speed
-  KNIFE_LUNGE_DURATION: 0.12,   // seconds
+  KNIFE_LUNGE_SPEED: 30,        // very short lunge
+  KNIFE_LUNGE_DURATION: 0.08,   // seconds
   KNIFE_FIRE_COOLDOWN: 0.4,
 
   // ── Plasma gun (continuous beam) ──

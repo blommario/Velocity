@@ -143,8 +143,8 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       ...DEFAULT_STATE,
-      devSpeedMultiplier: 0.5,
-      devGravityMultiplier: 0.5,
+      devSpeedMultiplier: 0.125,
+      devGravityMultiplier: 0.125,
 
       setDevSpeedMultiplier: (devSpeedMultiplier) => set({ devSpeedMultiplier }),
       setDevGravityMultiplier: (devGravityMultiplier) => set({ devGravityMultiplier }),
