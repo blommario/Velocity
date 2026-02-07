@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber';
+import { WebGPURenderer } from 'three/webgpu';
 import { Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { EditorCamera } from './EditorCamera';
 import { EditorObjects } from './EditorObjects';
@@ -13,6 +14,11 @@ export function EditorViewport() {
 
   return (
     <Canvas
+      gl={async (canvas) => {
+        const renderer = new WebGPURenderer({ canvas: canvas as HTMLCanvasElement, antialias: true });
+        await renderer.init();
+        return renderer;
+      }}
       camera={{ fov: 75, near: 0.1, far: 1000, position: [0, 20, 30] }}
       style={{ background: backgroundColor }}
       onContextMenu={(e) => e.preventDefault()}

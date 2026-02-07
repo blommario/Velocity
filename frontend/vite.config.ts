@@ -22,6 +22,14 @@ function openBrave(): PluginOption {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), openBrave()],
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext',
+    },
+  },
+  build: {
+    target: 'esnext',
+  },
   server: {
     proxy: {
       '/api': {

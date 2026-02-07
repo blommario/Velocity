@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { WebGPURenderer } from 'three/webgpu';
 import { Physics } from '@react-three/rapier';
 import { MathUtils, PerspectiveCamera } from 'three';
 import { PlayerController } from './PlayerController';
@@ -53,6 +54,11 @@ export function GameCanvas() {
   return (
     <div className="w-screen h-screen relative select-none">
       <Canvas
+        gl={async (canvas) => {
+          const renderer = new WebGPURenderer({ canvas: canvas as HTMLCanvasElement, antialias: true });
+          await renderer.init();
+          return renderer;
+        }}
         camera={{ fov, near: 0.1, far: 1000 }}
         shadows
         onPointerDown={(e) => {
