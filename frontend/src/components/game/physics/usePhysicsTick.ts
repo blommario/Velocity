@@ -511,7 +511,7 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
-        useExplosionStore.getState().spawnExplosion(hitPos, '#ff6600', 1.2);
+        useExplosionStore.getState().spawnExplosion(hitPos, '#ff6600', 2.0);
         removedIds.push(p.id);
         devLog.info('Combat', `Rocket exploded at [${hitPos.map(v => v.toFixed(1)).join(', ')}] dmg=${damage.toFixed(0)}`);
       }

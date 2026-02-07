@@ -11,12 +11,12 @@ import {
 import { create } from 'zustand';
 
 const EXPLOSION = {
-  PARTICLE_COUNT: 64,
-  SPRITE_SIZE: 0.25,
-  SPEED: 8.0,
-  LIFE: 0.6,
-  GRAVITY: 5.0,
-  MAX_ACTIVE: 8,
+  PARTICLE_COUNT: 192,
+  SPRITE_SIZE: 0.5,
+  SPEED: 14.0,
+  LIFE: 1.0,
+  GRAVITY: 6.0,
+  MAX_ACTIVE: 12,
 } as const;
 
 interface ExplosionRequest {
@@ -133,7 +133,7 @@ function spawnExplosion(
     positionBuffer.element(idx).assign(emitterPos);
     velocityBuffer.element(idx).assign(vec3(
       rx.div(len).mul(speed).mul(hash(seed.add(3)).mul(0.7).add(0.3)),
-      ry.div(len).mul(speed).mul(hash(seed.add(4)).mul(0.7).add(0.3)).add(float(2)),
+      ry.div(len).mul(speed).mul(hash(seed.add(4)).mul(0.7).add(0.3)).add(float(4)),
       rz.div(len).mul(speed).mul(hash(seed.add(5)).mul(0.7).add(0.3)),
     ));
     lifeBuffer.element(idx).assign(float(EXPLOSION.LIFE).mul(hash(seed.add(6)).mul(0.5).add(0.5)));
@@ -160,7 +160,7 @@ function spawnExplosion(
 
   const material = new SpriteNodeMaterial();
   material.positionNode = positionBuffer.toAttribute();
-  material.colorNode = vec4(colorNode.mul(float(2)), lifeBuffer.toAttribute().div(EXPLOSION.LIFE).clamp(0, 1));
+  material.colorNode = vec4(colorNode.mul(float(4)), lifeBuffer.toAttribute().div(EXPLOSION.LIFE).clamp(0, 1));
   material.scaleNode = uniform(EXPLOSION.SPRITE_SIZE * req.scale);
   material.transparent = true;
   material.blending = AdditiveBlending;
