@@ -30,14 +30,14 @@
 - ✅ Per-map skybox config — `SkyboxType = ProceduralSkyboxType | 'hdri:filename'`
 
 ### A4 — Asset Downloads (CC0)
-- 🔲 **Quaternius Modular Sci-Fi MEGAKIT** — 270+ modulära corridor/platform/ramp/door pieces (glTF, CC0)
-  - Källa: quaternius.itch.io/modular-sci-fi-megakit
+- ✅ **Quaternius Modular Sci-Fi MEGAKIT** — 190 glTF modeller (Walls, Platforms, Columns, Props, Decals, Aliens) (CC0)
+  - Extraherat till `frontend/public/assets/models/quaternius-scifi/glTF/`
 - ✅ **Kenney Space Kit** — 153 FBX modeller (korridorer, hangarer, maskiner, rymdskepp) (CC0)
   - Extraherat till `frontend/public/assets/models/kenney-space-kit/`
   - FBXLoader tillagt i assetManager.ts
 - ✅ **Poly Haven Night HDRI** — `satara_night_2k.hdr` + `dikhololo_night_2k.hdr` (CC0, 2K)
-- 🔲 **3dtextures.me Sci-Fi Panels** — PBR texture-set för metallytor, paneler, ventilation
-  - Källa: 3dtextures.me/category/sci-fi/
+- ✅ **3dtextures.me Sci-Fi Panels** — 6 PBR texture-set (wall-013, wall-015, metal-panel-005/007, metal-mesh-002, metal-grill-024)
+  - Extraherat till `frontend/public/assets/textures/scifi-*/`
 - ✅ **ambientCG Metal/Concrete** — `metal-009` + `concrete-034` PBR texturer (CC0, 1K)
 - ✅ Organisera assets i `frontend/public/assets/` — models/, textures/, hdri/
 
