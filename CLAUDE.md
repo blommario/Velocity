@@ -385,6 +385,47 @@ interface MapData {
 - [WebGPU Post-Processing Effects discussion](https://discourse.threejs.org/t/three-js-webgpu-post-processing-effects/87390)
 - [DataTexture regression in r171](https://github.com/mrdoob/three.js/issues/30484)
 
+### Free Game Asset Sources
+
+#### PBR Textures (concrete, metal, rock, industrial)
+- [ambientCG — 2000+ CC0 PBR materials, up to 8K](https://ambientcg.com/)
+- [Poly Haven Textures — CC0 PBR textures + HDRIs + models](https://polyhaven.com/textures)
+- [cgbookcase — High-quality CC0 PBR textures](https://www.cgbookcase.com/)
+- [3D Textures — CC0 seamless PBR with full map sets](https://3dtextures.me/)
+- [TextureCan — CC0 materials, min 4K resolution](https://www.texturecan.com/)
+- [FreePBR — 600+ materials at 2K, free commercial use](https://freepbr.com/)
+
+#### HDRI Skyboxes
+- [Poly Haven HDRIs — CC0, up to 16K, filterable by category](https://polyhaven.com/hdris)
+- [ambientCG HDRIs — CC0, multiple resolutions](https://ambientcg.com/)
+- [CGEES — CC0, up to 24K resolution](https://cgees.com/)
+- [HDRMAPS Freebies — CC-BY 4.0, 10000x5000px](https://hdrmaps.com/freebies/)
+- [FreeStylized Skyboxes — stylized game skyboxes](https://freestylized.com/all-skybox/)
+
+#### 3D Models (low-poly / game-ready)
+- [Kenney — 40,000+ CC0 game assets (models, UI, audio)](https://kenney.nl/assets)
+- [Poly Haven Models — CC0 realistic props with PBR](https://polyhaven.com/models)
+- [Quaternius — CC0 stylized low-poly models](https://quaternius.com/)
+- [OpenGameArt — Community-driven, filter for CC0/CC-BY](https://opengameart.org/)
+- [itch.io Game Assets — Free packs, filter for CC0](https://itch.io/game-assets/free/tag-low-poly)
+- [Sketchfab CC0 — Preview in 3D, export as glTF/GLB](https://sketchfab.com/tags/cc0)
+
+#### Sound Effects (weapons, explosions, footsteps, UI)
+- [Freesound — Massive CC0-filterable database, free account](https://freesound.org/)
+- [OpenGameArt Audio — Game-specific sounds, filter for CC0](https://opengameart.org/)
+- [ZapSplat — Professional quality, CC0 section available](https://www.zapsplat.com/)
+- [Kenney Audio — CC0 UI sounds, impacts, game audio](https://kenney.nl/assets)
+- Sonniss GDC Audio Bundles — Annual free pro game audio bundles, royalty-free
+
+#### Fonts (sci-fi / HUD / gaming)
+- [Orbitron — Geometric sci-fi display font, OFL](https://fonts.google.com/specimen/Orbitron)
+- [Space Mono — Retro-futuristic monospace, OFL](https://fonts.google.com/specimen/Space+Mono)
+- [Exo 2 — Tech geometric sans-serif, 18 styles, OFL](https://fonts.google.com/specimen/Exo+2)
+- [Rajdhani — Compact technical font, 5 weights, OFL](https://fonts.google.com/specimen/Rajdhani)
+- [1001 Fonts Sci-Fi — 1100+ sci-fi fonts, filter for commercial](https://www.1001fonts.com/science-fiction-fonts.html)
+
+> **Rekommenderat för Velocity:** ambientCG + Poly Haven (texturer/HDRI), Kenney (props/UI-ljud), Freesound CC0 (vapen/explosioner), Orbitron + Exo 2 (HUD-fonts). Alla CC0/OFL = ingen attribution krävs.
+
 ---
 
 ## Known Issues & Debugging Notes

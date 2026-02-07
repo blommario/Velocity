@@ -102,6 +102,9 @@
 - 🔲 Grenade boost — verifiera timing-baserad boost (2.5s fuse)
 
 ### C4 — Game Feel & Feedback
+- ✅ Rocket projectile upgrade — större kärna (0.35r), yttre glow-halo (0.6r), dynamisk pointlight, eldsvans (5 trail-sfärer)
+- ✅ Explosion upgrade — 192 partiklar (3x), större sprites (0.5), snabbare burst (14 u/s), längre liv (1.0s), starkare glow (4x)
+- ✅ Grenade projectile upgrade — större sfär (0.18r), pointlight
 - 🔲 Weapon viewmodel — enkel 3D-modell per vapen i nedre högra hörnet (first person)
 - 🔲 Muzzle flash — ljusblixt + partiklar vid avfyrning
 - 🔲 Impact particles — gnistor/debris vid kulträff på ytor
