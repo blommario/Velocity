@@ -85,7 +85,11 @@ export function GameCanvas() {
           <PlayerController />
           <ProjectileRenderer />
           <GhostRenderer />
-          <TestMap />
+          {mapData ? (
+            <MapLoader data={mapData} mapId={mapId ?? undefined} />
+          ) : (
+            <TestMap />
+          )}
         </Physics>
         <SpeedTrail />
         <GrappleBeam />

@@ -5,63 +5,59 @@ export const SKYBREAK: MapData = {
   spawnPoint: [0, 52, 0],
   spawnDirection: [0, 0, -1],
   blocks: [
-    // Starting island
-    { shape: 'box', position: [0, 50, 0], size: [14, 2, 14], color: '#5577aa' },
-    // Raised edges for visual
-    { shape: 'box', position: [-6, 51.5, 0], size: [1, 1, 14], color: '#4466aa' },
-    { shape: 'box', position: [6, 51.5, 0], size: [1, 1, 14], color: '#4466aa' },
+    // Starting island — metal panel texture
+    { shape: 'box', position: [0, 50, 0], size: [14, 2, 14], color: '#5577aa', textureSet: 'scifi-metal-panel-007/Sci_fi_Metal_Panel_007', textureScale: [2, 2] },
+    // Raised edges — mesh texture
+    { shape: 'box', position: [-6, 51.5, 0], size: [1, 1, 14], color: '#4466aa', textureSet: 'scifi-metal-mesh-002/Sci-fi_Metal_Mesh_002', textureScale: [1, 4] },
+    { shape: 'box', position: [6, 51.5, 0], size: [1, 1, 14], color: '#4466aa', textureSet: 'scifi-metal-mesh-002/Sci-fi_Metal_Mesh_002', textureScale: [1, 4] },
 
-    // Bridge to island 2 (narrow!)
-    { shape: 'box', position: [0, 50, -14], size: [2, 0.5, 14], color: '#6688aa' },
+    // Bridge to island 2 — grill texture
+    { shape: 'box', position: [0, 50, -14], size: [2, 0.5, 14], color: '#6688aa', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [1, 4] },
 
-    // Island 2 — medium sized
-    { shape: 'box', position: [0, 49, -28], size: [12, 2, 12], color: '#5577aa' },
+    // Island 2 — metal panel
+    { shape: 'box', position: [0, 49, -28], size: [12, 2, 12], color: '#5577aa', textureSet: 'scifi-metal-panel-007/Sci_fi_Metal_Panel_007', textureScale: [2, 2] },
 
-    // Rocket jump gap (no bridge — must rocket jump across)
     // Island 3
-    { shape: 'box', position: [20, 48, -28], size: [10, 2, 10], color: '#5577aa' },
+    { shape: 'box', position: [20, 48, -28], size: [10, 2, 10], color: '#5577aa', textureSet: 'scifi-wall-015/Sci-Fi_Wall_015', textureScale: [2, 2] },
 
-    // Stepping stones (small floating platforms)
-    { shape: 'box', position: [28, 50, -35], size: [3, 0.5, 3], color: '#7799bb' },
-    { shape: 'box', position: [33, 52, -42], size: [3, 0.5, 3], color: '#7799bb' },
-    { shape: 'box', position: [28, 54, -49], size: [3, 0.5, 3], color: '#7799bb' },
+    // Stepping stones
+    { shape: 'box', position: [28, 50, -35], size: [3, 0.5, 3], color: '#7799bb', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [1, 1] },
+    { shape: 'box', position: [33, 52, -42], size: [3, 0.5, 3], color: '#7799bb', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [1, 1] },
+    { shape: 'box', position: [28, 54, -49], size: [3, 0.5, 3], color: '#7799bb', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [1, 1] },
 
     // Island 4 — grapple hub
-    { shape: 'box', position: [20, 55, -56], size: [14, 2, 14], color: '#5577aa' },
+    { shape: 'box', position: [20, 55, -56], size: [14, 2, 14], color: '#5577aa', textureSet: 'scifi-wall-013/Sci-Fi_Wall_013', textureScale: [2, 2] },
 
-    // Tall pillar (grapple target landmark)
-    { shape: 'box', position: [20, 68, -56], size: [2, 24, 2], color: '#4466aa' },
+    // Tall pillar
+    { shape: 'box', position: [20, 68, -56], size: [2, 24, 2], color: '#4466aa', textureSet: 'scifi-metal-mesh-002/Sci-fi_Metal_Mesh_002', textureScale: [1, 8] },
 
-    // Island 5 — across grapple gap
-    { shape: 'box', position: [-10, 58, -70], size: [12, 2, 12], color: '#5577aa' },
-
-    // Surf ramp descent from island 5
-    // (connects to island 6 far below)
+    // Island 5
+    { shape: 'box', position: [-10, 58, -70], size: [12, 2, 12], color: '#5577aa', textureSet: 'scifi-metal-panel-007/Sci_fi_Metal_Panel_007', textureScale: [2, 2] },
 
     // Island 6 — low, large
-    { shape: 'box', position: [-10, 40, -100], size: [16, 2, 16], color: '#5577aa' },
+    { shape: 'box', position: [-10, 40, -100], size: [16, 2, 16], color: '#5577aa', textureSet: 'scifi-wall-015/Sci-Fi_Wall_015', textureScale: [3, 3] },
 
-    // Vertical wall for wall running
-    { shape: 'box', position: [-19, 48, -100], size: [1, 18, 16], color: '#446688' },
-    { shape: 'box', position: [-1, 48, -100], size: [1, 18, 16], color: '#446688' },
+    // Vertical walls for wall running
+    { shape: 'box', position: [-19, 48, -100], size: [1, 18, 16], color: '#446688', textureSet: 'scifi-wall-013/Sci-Fi_Wall_013', textureScale: [4, 4] },
+    { shape: 'box', position: [-1, 48, -100], size: [1, 18, 16], color: '#446688', textureSet: 'scifi-wall-013/Sci-Fi_Wall_013', textureScale: [4, 4] },
 
-    // Upper ledge (accessible via wall run)
-    { shape: 'box', position: [-10, 56, -108], size: [8, 1, 4], color: '#5577aa' },
+    // Upper ledge
+    { shape: 'box', position: [-10, 56, -108], size: [8, 1, 4], color: '#5577aa', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [2, 1] },
 
     // Bridge to island 7
-    { shape: 'box', position: [-10, 55.5, -118], size: [3, 0.5, 16], color: '#6688aa' },
+    { shape: 'box', position: [-10, 55.5, -118], size: [3, 0.5, 16], color: '#6688aa', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [1, 4] },
 
-    // Island 7 — launch + rocket jump combo
-    { shape: 'box', position: [-10, 55, -130], size: [10, 2, 10], color: '#5577aa' },
+    // Island 7
+    { shape: 'box', position: [-10, 55, -130], size: [10, 2, 10], color: '#5577aa', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [2, 2] },
 
-    // Final sky bridge (very narrow, wind challenge)
-    { shape: 'box', position: [5, 60, -140], size: [1.5, 0.5, 24], color: '#7799bb' },
+    // Final sky bridge
+    { shape: 'box', position: [5, 60, -140], size: [1.5, 0.5, 24], color: '#7799bb', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [1, 6] },
 
-    // Island 8 — grapple across
-    { shape: 'box', position: [20, 62, -150], size: [10, 2, 10], color: '#5577aa' },
+    // Island 8
+    { shape: 'box', position: [20, 62, -150], size: [10, 2, 10], color: '#5577aa', textureSet: 'scifi-wall-015/Sci-Fi_Wall_015', textureScale: [2, 2] },
 
     // Final island
-    { shape: 'box', position: [20, 64, -170], size: [16, 2, 14], color: '#5588bb' },
+    { shape: 'box', position: [20, 64, -170], size: [16, 2, 14], color: '#5588bb', textureSet: 'scifi-metal-panel-007/Sci_fi_Metal_Panel_007', textureScale: [3, 2] },
     // Victory platform accent
     { shape: 'box', position: [20, 65.02, -170], size: [14, 0.05, 12], color: '#88bbff', emissive: '#88bbff', emissiveIntensity: 0.5, transparent: true, opacity: 0.3 },
   ],
@@ -135,5 +131,6 @@ export const SKYBREAK: MapData = {
     fogFar: 250,
   },
 
+  skybox: 'hdri:satara_night_2k.hdr',
   backgroundColor: '#88bbee',
 };

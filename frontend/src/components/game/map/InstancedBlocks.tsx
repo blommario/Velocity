@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import { Object3D, InstancedMesh, Euler, Color } from 'three';
+import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
 import type { MapBlock, Vec3 } from './types';
 
 interface BlockGroup {
@@ -11,6 +12,8 @@ interface BlockGroup {
   emissiveIntensity: number;
   transparent: boolean;
   opacity: number;
+  textureSet?: string;
+  textureScale?: [number, number];
   blocks: MapBlock[];
 }
 
@@ -22,11 +25,10 @@ function groupBlocks(blocks: MapBlock[]): BlockGroup[] {
     const emissiveIntensity = block.emissiveIntensity ?? 0;
     const transparent = block.transparent ?? false;
     const opacity = block.opacity ?? 1;
+    const textureSet = block.textureSet ?? '';
+    const textureScale = block.textureScale ?? [1, 1];
 
-    // Group by visual properties + shape (not size — size is per-instance via matrix scale)
-    // But boxGeometry doesn't support per-instance size via scale without distortion for rotated blocks.
-    // So we group by shape + color + material props, and use matrix transforms for pos/rot/scale.
-    const key = `${block.shape}|${block.color}|${emissive}|${emissiveIntensity}|${transparent}|${opacity}`;
+    const key = `${block.shape}|${block.color}|${emissive}|${emissiveIntensity}|${transparent}|${opacity}|${textureSet}|${textureScale[0]},${textureScale[1]}`;
 
     let group = groups.get(key);
     if (!group) {
@@ -38,6 +40,8 @@ function groupBlocks(blocks: MapBlock[]): BlockGroup[] {
         emissiveIntensity,
         transparent,
         opacity,
+        textureSet: textureSet || undefined,
+        textureScale: block.textureScale,
         blocks: [],
       };
       groups.set(key, group);
@@ -48,7 +52,7 @@ function groupBlocks(blocks: MapBlock[]): BlockGroup[] {
   return Array.from(groups.values());
 }
 
-function InstancedBlockGroup({ group }: { group: BlockGroup }) {
+function useInstanceMatrix(blocks: MapBlock[]) {
   const meshRef = useRef<InstancedMesh>(null);
   const dummy = useMemo(() => new Object3D(), []);
 
@@ -56,8 +60,8 @@ function InstancedBlockGroup({ group }: { group: BlockGroup }) {
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    for (let i = 0; i < group.blocks.length; i++) {
-      const block = group.blocks[i];
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
       const rot = block.rotation ?? [0, 0, 0];
 
       dummy.position.set(block.position[0], block.position[1], block.position[2]);
@@ -67,9 +71,66 @@ function InstancedBlockGroup({ group }: { group: BlockGroup }) {
       mesh.setMatrixAt(i, dummy.matrix);
     }
     mesh.instanceMatrix.needsUpdate = true;
-  }, [group, dummy]);
+  }, [blocks, dummy]);
 
-  // Use unit geometry (1x1x1) — scale comes from instance matrix
+  return meshRef;
+}
+
+function TexturedBlockGroup({ group }: { group: BlockGroup }) {
+  const meshRef = useInstanceMatrix(group.blocks);
+  const scale = group.textureScale ?? [1, 1];
+
+  const material = useTexturedMaterial(
+    group.textureSet
+      ? {
+          textureSet: group.textureSet,
+          repeatX: scale[0],
+          repeatY: scale[1],
+          emissive: group.emissive !== '#000000' ? group.emissive : undefined,
+          emissiveIntensity: group.emissiveIntensity || undefined,
+        }
+      : null,
+  );
+
+  if (!material) {
+    // Fallback to flat color while loading
+    return (
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, group.blocks.length]}
+        castShadow
+        receiveShadow
+      >
+        {group.shape === 'cylinder' ? (
+          <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
+        ) : (
+          <boxGeometry args={[1, 1, 1]} />
+        )}
+        <meshStandardMaterial color={group.color} />
+      </instancedMesh>
+    );
+  }
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, group.blocks.length]}
+      castShadow
+      receiveShadow
+      material={material}
+    >
+      {group.shape === 'cylinder' ? (
+        <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
+      ) : (
+        <boxGeometry args={[1, 1, 1]} />
+      )}
+    </instancedMesh>
+  );
+}
+
+function FlatBlockGroup({ group }: { group: BlockGroup }) {
+  const meshRef = useInstanceMatrix(group.blocks);
+
   return (
     <instancedMesh
       ref={meshRef}
@@ -103,9 +164,13 @@ export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
   return (
     <group>
       {/* Visual instanced meshes */}
-      {groups.map((group) => (
-        <InstancedBlockGroup key={group.key} group={group} />
-      ))}
+      {groups.map((group) =>
+        group.textureSet ? (
+          <TexturedBlockGroup key={group.key} group={group} />
+        ) : (
+          <FlatBlockGroup key={group.key} group={group} />
+        ),
+      )}
 
       {/* Physics colliders — must remain individual per block */}
       {blocks.map((block, i) => {

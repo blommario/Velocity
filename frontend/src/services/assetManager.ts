@@ -184,30 +184,67 @@ export function loadTexture(
 
 // ── Texture Set Loading ──
 
+// Naming variants: supports both ambientCG (albedo/metalness/ao) and 3dtextures.me (basecolor/metallic/ambientOcclusion)
+const TEXTURE_MAP_VARIANTS: Record<keyof TextureSet, { names: string[]; colorSpace: 'srgb' | 'linear' }> = {
+  albedo:    { names: ['albedo', 'basecolor', 'diffuse', 'color'], colorSpace: 'srgb' },
+  normal:    { names: ['normal'], colorSpace: 'linear' },
+  roughness: { names: ['roughness'], colorSpace: 'linear' },
+  metalness: { names: ['metalness', 'metallic'], colorSpace: 'linear' },
+  emissive:  { names: ['emissive', 'emission'], colorSpace: 'srgb' },
+  ao:        { names: ['ao', 'ambientOcclusion', 'ambientocclusion'], colorSpace: 'linear' },
+} as const;
+
+const TEXTURE_EXTENSIONS = ['.jpg', '.png'] as const;
+
+async function tryLoadTextureVariants(
+  dir: string,
+  filePrefix: string,
+  names: readonly string[],
+  extensions: readonly string[],
+  colorSpace: 'srgb' | 'linear',
+): Promise<Texture | undefined> {
+  for (const name of names) {
+    for (const ext of extensions) {
+      try {
+        return await loadTexture(`${dir}/${filePrefix}_${name}${ext}`, colorSpace);
+      } catch {
+        // try next variant
+      }
+    }
+  }
+  return undefined;
+}
+
 export async function loadTextureSet(prefix: string): Promise<TextureSet> {
   const cached = textureSetCache.get(prefix);
   if (cached) return cached;
 
-  // Load albedo (required), rest are optional
-  const albedo = await loadTexture(`${prefix}_albedo.jpg`, 'srgb');
+  // prefix format: "scifi-wall-015/Sci-Fi_Wall_015" (dir/filePrefix)
+  // or legacy: "metal-009/metal-009" (dir/filePrefix)
+  const lastSlash = prefix.lastIndexOf('/');
+  const dir = lastSlash >= 0 ? prefix.substring(0, lastSlash) : prefix;
+  const filePrefix = lastSlash >= 0 ? prefix.substring(lastSlash + 1) : prefix;
 
-  const optionalLoad = async (
-    suffix: string,
-    cs: 'srgb' | 'linear',
-  ): Promise<Texture | undefined> => {
-    try {
-      return await loadTexture(`${prefix}_${suffix}`, cs);
-    } catch {
-      return undefined;
-    }
-  };
+  // Load albedo (required) — try all variants
+  const albedo = await tryLoadTextureVariants(
+    dir, filePrefix,
+    TEXTURE_MAP_VARIANTS.albedo.names,
+    TEXTURE_EXTENSIONS,
+    'srgb',
+  );
+  if (!albedo) {
+    throw new Error(`Failed to load albedo texture for ${prefix}`);
+  }
+
+  const loadMap = (key: keyof TextureSet) =>
+    tryLoadTextureVariants(dir, filePrefix, TEXTURE_MAP_VARIANTS[key].names, TEXTURE_EXTENSIONS, TEXTURE_MAP_VARIANTS[key].colorSpace);
 
   const [normal, roughness, metalness, emissive, ao] = await Promise.all([
-    optionalLoad('normal.jpg', 'linear'),
-    optionalLoad('roughness.jpg', 'linear'),
-    optionalLoad('metalness.jpg', 'linear'),
-    optionalLoad('emissive.jpg', 'srgb'),
-    optionalLoad('ao.jpg', 'linear'),
+    loadMap('normal'),
+    loadMap('roughness'),
+    loadMap('metalness'),
+    loadMap('emissive'),
+    loadMap('ao'),
   ]);
 
   const set: TextureSet = { albedo, normal, roughness, metalness, emissive, ao };
