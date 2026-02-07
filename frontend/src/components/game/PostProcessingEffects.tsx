@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
-import { PostProcessing, ACESFilmicToneMapping, SRGBColorSpace } from 'three/webgpu';
+import { PostProcessing, WebGPURenderer, ACESFilmicToneMapping, SRGBColorSpace } from 'three/webgpu';
 import { pass, renderOutput, viewportUV, clamp } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -15,10 +15,11 @@ const POST_PROCESSING = {
 
 export function PostProcessingEffects() {
   const { gl, scene, camera } = useThree();
+  const renderer = gl as unknown as WebGPURenderer;
   const pipelineRef = useRef<PostProcessing | null>(null);
 
   useEffect(() => {
-    const pipeline = new PostProcessing(gl);
+    const pipeline = new PostProcessing(renderer);
 
     const scenePass = pass(scene, camera);
     const scenePassColor = scenePass.getTextureNode('output');
@@ -38,20 +39,22 @@ export function PostProcessingEffects() {
 
     // Combine: scene + bloom → vignette → tonemapping + color space
     const combined = scenePassColor.add(bloomPass).mul(vignetteFactor);
-    pipeline.outputNode = renderOutput(combined, SRGBColorSpace, ACESFilmicToneMapping);
+    pipeline.outputNode = renderOutput(combined, ACESFilmicToneMapping, SRGBColorSpace);
 
     pipelineRef.current = pipeline;
 
     return () => {
       pipelineRef.current = null;
     };
-  }, [gl, scene, camera]);
+  }, [renderer, scene, camera]);
 
   // renderPriority=1 disables R3F auto-rendering
   useFrame(() => {
     const bloomEnabled = useSettingsStore.getState().bloom;
     if (pipelineRef.current && bloomEnabled) {
       pipelineRef.current.render();
+    } else {
+      renderer.renderAsync(scene, camera);
     }
   }, 1);
 

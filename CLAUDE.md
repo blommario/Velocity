@@ -367,6 +367,18 @@ interface MapData {
 - [PlayOnRay: Project Prismatic Preview — atmospheric lighting breakdown](https://playonray.com/blog/project-prismatic-preview-scifi-fps-web-gaming)
 - [Bleeding Cool: Project Prismatic Announced](https://bleedingcool.com/games/sci-fi-web-based-fps-project-prismatic-announced/)
 
+### WebGPU Samples (Official)
+- [WebGPU Samples — 52 reference implementations](https://webgpu.github.io/webgpu-samples/)
+- [computeBoids — compute shader init+update pattern](https://webgpu.github.io/webgpu-samples/samples/computeBoids)
+- [particles — GPU particle system with compute shaders](https://webgpu.github.io/webgpu-samples/samples/particles)
+- [instancedCube — instanced rendering reference](https://webgpu.github.io/webgpu-samples/samples/instancedCube)
+- [imageBlur — compute-based blur (bloom reference)](https://webgpu.github.io/webgpu-samples/samples/imageBlur)
+- [deferredRendering — deferred shading pipeline](https://webgpu.github.io/webgpu-samples/samples/deferredRendering)
+- [shadowMapping — WebGPU shadow mapping](https://webgpu.github.io/webgpu-samples/samples/shadowMapping)
+- [clusteredShading — many dynamic lights](https://webgpu.github.io/webgpu-samples/samples/clusteredShading)
+- [a-buffer — order-independent transparency](https://webgpu.github.io/webgpu-samples/samples/a-buffer)
+- [volumeRenderingTexture3D — volumetric fog reference](https://webgpu.github.io/webgpu-samples/samples/volumeRenderingTexture3D)
+
 ### Three.js Forum Discussions
 - [WebGPU Performance Regression in r182 vs WebGL r170](https://discourse.threejs.org/t/webgpu-significant-performance-drop-and-shadow-quality-regression-in-r182-vs-webgl-r170/89322)
 - [stats-gl Incompatibility with WebGPU in r181](https://discourse.threejs.org/t/webgpu-r181-fyi-stats-gl-no-longer-compatible-with-webgpu/87944)
