@@ -15,6 +15,7 @@ import { AtmosphericFog } from '../AtmosphericFog';
 import { InstancedBlocks } from './InstancedBlocks';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
+import { devLog } from '../../../stores/devLogStore';
 import type { MapData, MapBlock, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {
@@ -38,6 +39,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
   const spawnYaw = Math.atan2(data.spawnDirection[0], data.spawnDirection[2]);
 
   useEffect(() => {
+    devLog.info('Map', `Loading map "${mapId ?? 'unknown'}" (${data.blocks.length} blocks, ${data.checkpoints.length} checkpoints)`);
     useGameStore.getState().initRun(
       data.checkpoints.length,
       data.spawnPoint,
@@ -48,6 +50,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       data.settings?.maxRocketAmmo ?? 5,
       data.settings?.maxGrenadeAmmo ?? 3,
     );
+    devLog.success('Map', `Map loaded — spawn at [${data.spawnPoint.map(v => v.toFixed(0)).join(', ')}]`);
   }, [data, mapId, spawnYaw]);
 
   const lighting = { ...DEFAULT_LIGHTING, ...data.lighting };

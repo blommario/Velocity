@@ -11,9 +11,11 @@ import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from './PostProcessingEffects';
 import { HudOverlay } from '../hud/HudOverlay';
+import { DevLogPanel } from '../hud/DevLogPanel';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
 import { PHYSICS } from './physics/constants';
+import { devLog } from '../../stores/devLogStore';
 
 const FOV_SCALING = {
   BASE: 90,
@@ -55,9 +57,11 @@ export function GameCanvas() {
   return (
     <div className="w-screen h-screen relative select-none">
       <Canvas
-        gl={async (canvas) => {
-          const renderer = new WebGPURenderer({ canvas: canvas as HTMLCanvasElement, antialias: true });
+        gl={async (props) => {
+          devLog.info('Renderer', 'Creating WebGPURenderer...');
+          const renderer = new WebGPURenderer({ canvas: props.canvas as HTMLCanvasElement, antialias: true });
           await renderer.init();
+          devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name})`);
           return renderer;
         }}
         camera={{ fov, near: 0.1, far: 1000 }}
@@ -85,6 +89,7 @@ export function GameCanvas() {
         <PostProcessingEffects />
       </Canvas>
       <HudOverlay />
+      <DevLogPanel />
     </div>
   );
 }

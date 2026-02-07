@@ -4,13 +4,14 @@ import { PostProcessing, WebGPURenderer, ACESFilmicToneMapping, SRGBColorSpace }
 import { pass, renderOutput, viewportUV, clamp } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { devLog } from '../../stores/devLogStore';
 
 const POST_PROCESSING = {
-  BLOOM_THRESHOLD: 0.6,
-  BLOOM_STRENGTH: 0.8,
-  BLOOM_RADIUS: 0.4,
-  VIGNETTE_INTENSITY: 1.4,
-  VIGNETTE_SOFTNESS: 0.6,
+  BLOOM_THRESHOLD: 0.8,
+  BLOOM_STRENGTH: 0.4,
+  BLOOM_RADIUS: 0.3,
+  VIGNETTE_INTENSITY: 1.2,
+  VIGNETTE_SOFTNESS: 0.5,
 } as const;
 
 export function PostProcessingEffects() {
@@ -42,6 +43,7 @@ export function PostProcessingEffects() {
     pipeline.outputNode = renderOutput(combined, ACESFilmicToneMapping, SRGBColorSpace);
 
     pipelineRef.current = pipeline;
+    devLog.success('PostFX', 'Bloom + Vignette + ACES tonemapping ready');
 
     return () => {
       pipelineRef.current = null;
@@ -54,7 +56,7 @@ export function PostProcessingEffects() {
     if (pipelineRef.current && bloomEnabled) {
       pipelineRef.current.render();
     } else {
-      renderer.renderAsync(scene, camera);
+      renderer.render(scene, camera);
     }
   }, 1);
 

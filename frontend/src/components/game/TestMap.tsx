@@ -12,151 +12,302 @@ import { GrapplePoint } from './zones/GrapplePoint';
 import { AtmosphericFog } from './AtmosphericFog';
 import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
+import { devLog } from '../../stores/devLogStore';
 
-const TOTAL_CHECKPOINTS = 2;
-const SPAWN_POINT: [number, number, number] = [0, 3, 0];
+const TOTAL_CHECKPOINTS = 3;
+const SPAWN_POINT: [number, number, number] = [0, 2, 0];
 const SPAWN_YAW = 0;
+
+const GRID = {
+  SIZE: 200,
+  DIVISIONS: 40,
+  LINE_MAIN: '#555555',
+  LINE_SUB: '#333333',
+} as const;
+
+const PILLAR_COLORS = [
+  '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+  '#9b59b6', '#1abc9c', '#e67e22', '#2980b9',
+] as const;
+
+const SECTOR_MARKERS: Array<{
+  position: [number, number, number];
+  color: string;
+  label: string;
+}> = [
+  { position: [0, 0, 0], color: '#ffffff', label: 'Origin' },
+  { position: [40, 0, 0], color: '#e74c3c', label: '+X' },
+  { position: [-40, 0, 0], color: '#c0392b', label: '-X' },
+  { position: [0, 0, -40], color: '#3498db', label: '-Z' },
+  { position: [0, 0, 40], color: '#2980b9', label: '+Z' },
+];
 
 export function TestMap() {
   useEffect(() => {
+    devLog.info('Map', 'Loading GridMap...');
     useGameStore.getState().initRun(TOTAL_CHECKPOINTS, SPAWN_POINT, SPAWN_YAW);
     useCombatStore.getState().resetCombat(5, 3);
+    devLog.success('Map', `GridMap loaded (${TOTAL_CHECKPOINTS} checkpoints)`);
   }, []);
 
   return (
     <group>
-      {/* Large flat ground */}
+      {/* ── Ground plane ── */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[100, 0.5, 100]} position={[0, -0.5, 0]} />
         <mesh position={[0, -0.5, 0]} receiveShadow>
           <boxGeometry args={[200, 1, 200]} />
-          <meshStandardMaterial color="#3a3a3a" />
+          <meshStandardMaterial color="#2a2a2a" />
         </mesh>
       </RigidBody>
 
-      {/* Grid lines on floor for spatial reference */}
-      <gridHelper args={[200, 40, '#555', '#444']} position={[0, 0.01, 0]} />
+      {/* ── Grid overlay ── */}
+      <gridHelper
+        args={[GRID.SIZE, GRID.DIVISIONS, GRID.LINE_MAIN, GRID.LINE_SUB]}
+        position={[0, 0.02, 0]}
+      />
 
-      {/* === Gameplay Zones === */}
-      {/* Start zone — near spawn */}
-      <StartZone position={[0, 2, -5]} size={[6, 4, 3]} />
+      {/* ── Axis lines on ground (colored strips) ── */}
+      {/* +X axis (red) */}
+      <mesh position={[50, 0.03, 0]} receiveShadow>
+        <boxGeometry args={[100, 0.02, 0.3]} />
+        <meshStandardMaterial color="#e74c3c" emissive="#e74c3c" emissiveIntensity={0.5} />
+      </mesh>
+      {/* -X axis (dark red) */}
+      <mesh position={[-50, 0.03, 0]} receiveShadow>
+        <boxGeometry args={[100, 0.02, 0.3]} />
+        <meshStandardMaterial color="#922b21" emissive="#922b21" emissiveIntensity={0.3} />
+      </mesh>
+      {/* +Z axis (blue) */}
+      <mesh position={[0, 0.03, 50]} receiveShadow>
+        <boxGeometry args={[0.3, 0.02, 100]} />
+        <meshStandardMaterial color="#3498db" emissive="#3498db" emissiveIntensity={0.5} />
+      </mesh>
+      {/* -Z axis (dark blue) */}
+      <mesh position={[0, 0.03, -50]} receiveShadow>
+        <boxGeometry args={[0.3, 0.02, 100]} />
+        <meshStandardMaterial color="#1a5276" emissive="#1a5276" emissiveIntensity={0.3} />
+      </mesh>
 
-      {/* Checkpoint 1 — after ramp section */}
-      <Checkpoint position={[15, 2, -10]} size={[6, 4, 3]} index={0} />
+      {/* ── Sector marker pillars ── */}
+      {SECTOR_MARKERS.map((marker) => (
+        <group key={marker.label}>
+          <RigidBody type="fixed" colliders={false}>
+            <CuboidCollider
+              args={[0.5, 5, 0.5]}
+              position={[marker.position[0], 5, marker.position[2]]}
+            />
+            <mesh
+              position={[marker.position[0], 5, marker.position[2]]}
+              castShadow
+              receiveShadow
+            >
+              <boxGeometry args={[1, 10, 1]} />
+              <meshStandardMaterial
+                color={marker.color}
+                emissive={marker.color}
+                emissiveIntensity={0.3}
+              />
+            </mesh>
+          </RigidBody>
+          {/* Glowing top cap */}
+          <mesh position={[marker.position[0], 10.3, marker.position[2]]}>
+            <boxGeometry args={[1.6, 0.3, 1.6]} />
+            <meshStandardMaterial
+              color={marker.color}
+              emissive={marker.color}
+              emissiveIntensity={0.8}
+            />
+          </mesh>
+          {/* Ground glow */}
+          <mesh position={[marker.position[0], 0.04, marker.position[2]]}>
+            <boxGeometry args={[3, 0.02, 3]} />
+            <meshStandardMaterial
+              color={marker.color}
+              emissive={marker.color}
+              emissiveIntensity={0.5}
+            />
+          </mesh>
+        </group>
+      ))}
 
-      {/* Checkpoint 2 — after platforms */}
-      <Checkpoint position={[30, 2, 0]} size={[6, 4, 3]} index={1} />
+      {/* ── Beacon pillars in a ring (radius 30u) ── */}
+      {PILLAR_COLORS.map((color, i) => {
+        const angle = (i / PILLAR_COLORS.length) * Math.PI * 2;
+        const radius = 30;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        return (
+          <group key={`pillar-${i}`}>
+            <RigidBody type="fixed" colliders={false}>
+              <CuboidCollider args={[0.6, 6, 0.6]} position={[x, 6, z]} />
+              <mesh position={[x, 6, z]} castShadow receiveShadow>
+                <boxGeometry args={[1.2, 12, 1.2]} />
+                <meshStandardMaterial
+                  color={color}
+                  emissive={color}
+                  emissiveIntensity={0.3}
+                />
+              </mesh>
+            </RigidBody>
+            {/* Beacon sphere on top */}
+            <mesh position={[x, 12.5, z]}>
+              <sphereGeometry args={[0.6, 8, 8]} />
+              <meshStandardMaterial
+                color={color}
+                emissive={color}
+                emissiveIntensity={1.0}
+              />
+            </mesh>
+            {/* Ground glow at base */}
+            <mesh position={[x, 0.04, z]}>
+              <boxGeometry args={[2.5, 0.02, 2.5]} />
+              <meshStandardMaterial
+                color={color}
+                emissive={color}
+                emissiveIntensity={0.5}
+              />
+            </mesh>
+          </group>
+        );
+      })}
 
-      {/* Finish zone — end of course */}
-      <FinishZone position={[40, 2, -15]} size={[6, 4, 3]} />
+      {/* ── Distance marker walls (at 20u intervals along +X) ── */}
+      {[20, 40, 60, 80].map((dist) => (
+        <RigidBody key={`dist-${dist}`} type="fixed" colliders={false}>
+          <CuboidCollider args={[0.15, 1, 3]} position={[dist, 1, 0]} />
+          <mesh position={[dist, 1, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.3, 2, 6]} />
+            <meshStandardMaterial
+              color="#e74c3c"
+              emissive="#e74c3c"
+              emissiveIntensity={0.2 + dist * 0.005}
+              transparent
+              opacity={0.8}
+            />
+          </mesh>
+        </RigidBody>
+      ))}
 
-      {/* Kill zone — below the map */}
+      {/* ── Elevated platforms (stairs to show vertical movement) ── */}
+      {[0, 1, 2, 3, 4].map((step) => (
+        <Platform
+          key={`step-${step}`}
+          position={[-15 - step * 4, (step + 1) * 1.5, -15]}
+          size={[3.5, 0.4, 3.5]}
+          color={`hsl(${200 + step * 25}, 60%, ${40 + step * 5}%)`}
+        />
+      ))}
+
+      {/* ── Ramp for speed testing ── */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider
+          args={[3, 0.15, 10]}
+          position={[20, 2.5, -20]}
+          rotation={[-0.2, 0, 0]}
+        />
+        <mesh position={[20, 2.5, -20]} rotation={[-0.2, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[6, 0.3, 20]} />
+          <meshStandardMaterial color="#5a7a4a" emissive="#5a7a4a" emissiveIntensity={0.15} />
+        </mesh>
+      </RigidBody>
+
+      {/* ── Walls for collision reference ── */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.25, 3, 8]} position={[-8, 3, 20]} />
+        <mesh position={[-8, 3, 20]} castShadow receiveShadow>
+          <boxGeometry args={[0.5, 6, 16]} />
+          <meshStandardMaterial color="#4a4a6a" emissive="#4a4a6a" emissiveIntensity={0.1} />
+        </mesh>
+      </RigidBody>
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[8, 3, 0.25]} position={[0, 3, 28]} />
+        <mesh position={[0, 3, 28]} castShadow receiveShadow>
+          <boxGeometry args={[16, 6, 0.5]} />
+          <meshStandardMaterial color="#4a6a4a" emissive="#4a6a4a" emissiveIntensity={0.1} />
+        </mesh>
+      </RigidBody>
+
+      {/* ── Corridor (strafe practice) ── */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.25, 2.5, 20]} position={[48, 2.5, 0]} />
+        <mesh position={[48, 2.5, 0]} castShadow>
+          <boxGeometry args={[0.5, 5, 40]} />
+          <meshStandardMaterial color="#3d3d5c" />
+        </mesh>
+      </RigidBody>
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.25, 2.5, 20]} position={[53, 2.5, 0]} />
+        <mesh position={[53, 2.5, 0]} castShadow>
+          <boxGeometry args={[0.5, 5, 40]} />
+          <meshStandardMaterial color="#3d3d5c" />
+        </mesh>
+      </RigidBody>
+
+      {/* ── Welcome arch in front of spawn (visible immediately) ── */}
+      {/* Left pillar */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.5, 5, 0.5]} position={[-4, 5, -6]} />
+        <mesh position={[-4, 5, -6]} castShadow receiveShadow>
+          <boxGeometry args={[1, 10, 1]} />
+          <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.4} />
+        </mesh>
+      </RigidBody>
+      {/* Right pillar */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.5, 5, 0.5]} position={[4, 5, -6]} />
+        <mesh position={[4, 5, -6]} castShadow receiveShadow>
+          <boxGeometry args={[1, 10, 1]} />
+          <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.4} />
+        </mesh>
+      </RigidBody>
+      {/* Top beam */}
+      <mesh position={[0, 10.5, -6]}>
+        <boxGeometry args={[9, 1, 1]} />
+        <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.6} />
+      </mesh>
+      {/* Floor glow strip under arch */}
+      <mesh position={[0, 0.04, -6]}>
+        <boxGeometry args={[8, 0.02, 2]} />
+        <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.8} />
+      </mesh>
+
+      {/* ── Gameplay Zones ── */}
+      <StartZone position={[0, 2, -3]} size={[6, 4, 4]} />
+      <Checkpoint position={[20, 2, -20]} size={[6, 4, 4]} index={0} />
+      <Checkpoint position={[50, 2, 0]} size={[6, 4, 4]} index={1} />
+      <Checkpoint position={[-15, 8, -15]} size={[6, 4, 4]} index={2} />
+      <FinishZone position={[0, 2, 28]} size={[6, 4, 4]} />
       <KillZone position={[0, -55, 0]} size={[300, 10, 300]} />
 
-      {/* === Advanced Movement Zones === */}
-      {/* Boost pad — forward boost near corridor */}
-      <BoostPad position={[-22.5, 0.1, -20]} direction={[0, 0, -1]} speed={500} />
-
-      {/* Launch pad — launches player up and forward */}
-      <LaunchPad position={[10, 0.15, 10]} direction={[0, 0.6, -0.8]} speed={700} />
-
-      {/* Speed gate — between ramps */}
-      <SpeedGate position={[20, 3, -5]} />
-
-      {/* Ammo pickups */}
+      {/* ── Movement items ── */}
+      <BoostPad position={[50.5, 0.1, -15]} direction={[0, 0, 1]} speed={500} />
+      <LaunchPad position={[10, 0.15, 15]} direction={[0, 0.6, -0.8]} speed={600} />
+      <SpeedGate position={[20, 3, -10]} />
       <AmmoPickup position={[5, 0.5, -8]} type="rocket" amount={3} />
-      <AmmoPickup position={[25, 0.5, -8]} type="grenade" amount={2} />
+      <AmmoPickup position={[30, 0.5, 5]} type="grenade" amount={2} />
+      <GrapplePoint position={[-15, 14, -15]} />
+      <GrapplePoint position={[40, 12, -10]} />
 
-      {/* Grapple point — high up near platforms */}
-      <GrapplePoint position={[-10, 12, -20]} />
-      <GrapplePoint position={[30, 15, -10]} />
-
-      {/* === Map Geometry === */}
-      {/* Ramp — gentle slope */}
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider
-          args={[3, 0.15, 8]}
-          position={[15, 1.5, 0]}
-          rotation={[-0.18, 0, 0]}
-        />
-        <mesh position={[15, 1.5, 0]} rotation={[-0.18, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[6, 0.3, 16]} />
-          <meshStandardMaterial color="#5a7a4a" />
-        </mesh>
-      </RigidBody>
-
-      {/* Steep ramp */}
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider
-          args={[3, 0.15, 6]}
-          position={[25, 2.5, 0]}
-          rotation={[-0.4, 0, 0]}
-        />
-        <mesh position={[25, 2.5, 0]} rotation={[-0.4, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[6, 0.3, 12]} />
-          <meshStandardMaterial color="#7a5a4a" />
-        </mesh>
-      </RigidBody>
-
-      {/* Wall for collision testing */}
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[0.5, 4, 10]} position={[40, 4, 0]} />
-        <mesh position={[40, 4, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1, 8, 20]} />
-          <meshStandardMaterial color="#4a4a6a" />
-        </mesh>
-      </RigidBody>
-
-      {/* Elevated platforms — various heights for jump testing */}
-      <Platform position={[-10, 1, -10]} size={[4, 0.3, 4]} color="#6a4a5a" />
-      <Platform position={[-10, 2.5, -18]} size={[4, 0.3, 4]} color="#5a6a4a" />
-      <Platform position={[-10, 4, -26]} size={[4, 0.3, 4]} color="#4a5a6a" />
-      <Platform position={[-10, 6, -34]} size={[3, 0.3, 3]} color="#6a5a4a" />
-
-      {/* Wall running wall — long smooth wall */}
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[0.25, 5, 15]} position={[5, 5, -20]} />
-        <mesh position={[5, 5, -20]} castShadow receiveShadow>
-          <boxGeometry args={[0.5, 10, 30]} />
-          <meshStandardMaterial color="#5a5a8a" />
-        </mesh>
-      </RigidBody>
-
-      {/* Corridor for strafe practice */}
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[0.25, 3, 30]} position={[-25, 3, 0]} />
-        <mesh position={[-25, 3, 0]} castShadow>
-          <boxGeometry args={[0.5, 6, 60]} />
-          <meshStandardMaterial color="#4a4a4a" />
-        </mesh>
-      </RigidBody>
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[0.25, 3, 30]} position={[-20, 3, 0]} />
-        <mesh position={[-20, 3, 0]} castShadow>
-          <boxGeometry args={[0.5, 6, 60]} />
-          <meshStandardMaterial color="#4a4a4a" />
-        </mesh>
-      </RigidBody>
-
-      {/* Lighting */}
-      <ambientLight intensity={0.4} />
+      {/* ── Lighting ── */}
+      <ambientLight intensity={0.5} />
       <directionalLight
-        position={[50, 80, 30]}
-        intensity={1.2}
+        position={[60, 100, 40]}
+        intensity={1.4}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-camera-far={200}
-        shadow-camera-left={-50}
-        shadow-camera-right={50}
-        shadow-camera-top={50}
-        shadow-camera-bottom={-50}
+        shadow-camera-far={250}
+        shadow-camera-left={-80}
+        shadow-camera-right={80}
+        shadow-camera-top={80}
+        shadow-camera-bottom={-80}
       />
-      <hemisphereLight args={['#87ceeb', '#3a3a3a', 0.3]} />
+      <hemisphereLight args={['#87ceeb', '#3a3a3a', 0.4]} />
 
-      {/* Sky color + atmospheric fog */}
+      {/* ── Environment ── */}
       <color attach="background" args={['#1a1a2e']} />
-      <AtmosphericFog color="#1a1a2e" near={80} far={200} />
+      <AtmosphericFog color="#1a1a2e" near={100} far={300} />
     </group>
   );
 }
@@ -178,7 +329,7 @@ function Platform({
       />
       <mesh position={position} castShadow receiveShadow>
         <boxGeometry args={size} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.15} />
       </mesh>
     </RigidBody>
   );

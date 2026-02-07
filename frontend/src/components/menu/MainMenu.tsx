@@ -5,6 +5,7 @@ import { getMaps } from '../../services/mapService';
 import type { MapResponse, MapDifficulty } from '../../services/types';
 import { OFFICIAL_MAPS, OFFICIAL_MAP_BY_ID, type OfficialMap } from '../game/map/official';
 import type { MapData } from '../game/map/types';
+import { SystemStatus } from './SystemStatus';
 
 const DIFFICULTY_COLORS: Record<MapDifficulty, string> = {
   Easy: 'text-emerald-400',
@@ -123,7 +124,8 @@ export function MainMenu() {
             VELOCITY
           </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <SystemStatus />
           <div className="flex items-center gap-2 bg-white/5 rounded-full px-4 py-1.5">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-sm text-gray-300 font-medium">{username}</span>

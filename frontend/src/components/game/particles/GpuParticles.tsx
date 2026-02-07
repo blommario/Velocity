@@ -9,6 +9,7 @@ import {
   InstancedBufferAttribute, Mesh as ThreeMesh,
 } from 'three/webgpu';
 import { useSettingsStore } from '../../../stores/settingsStore';
+import { devLog } from '../../../stores/devLogStore';
 
 const PARTICLES = {
   SPRITE_SIZE: 0.15,
@@ -67,8 +68,10 @@ export function GpuParticles({
 
     // Run init compute
     const renderer = gl as import('three/webgpu').WebGPURenderer;
+    devLog.info('Particles', `Initializing ${count} GPU particles via compute shader`);
     renderer.computeAsync(nodes.computeInit).then(() => {
       initializedRef.current = true;
+      devLog.success('Particles', `${count} particles active at [${position.join(', ')}]`);
     });
 
     return () => {

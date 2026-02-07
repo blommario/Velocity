@@ -11,6 +11,7 @@ import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
 import { PHYSICS, DEG2RAD } from './physics/constants';
 import { useInputBuffer } from './physics/useInputBuffer';
 import { physicsTick } from './physics/usePhysicsTick';
+import { devLog } from '../../stores/devLogStore';
 
 export function PlayerController() {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
@@ -40,6 +41,7 @@ export function PlayerController() {
     controller.setMaxSlopeClimbAngle(PHYSICS.MAX_SLOPE_ANGLE * DEG2RAD);
     controller.enableSnapToGround(PHYSICS.PLAYER_RADIUS);
     controllerRef.current = controller;
+    devLog.success('Physics', `CharacterController created (skinWidth=${PHYSICS.SKIN_WIDTH})`);
 
     return () => {
       world.removeCharacterController(controller);
