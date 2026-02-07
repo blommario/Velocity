@@ -59,6 +59,15 @@ let wallRunState: WallRunState = {
 // Track grapple input edge (press/release)
 let wasGrapplePressed = false;
 
+// Camera effects
+let cameraTilt = 0;            // Z-axis roll for wall run tilt (radians)
+let landingDip = 0;            // Y offset for landing impact
+const WALL_RUN_TILT = 0.15;   // max tilt radians (~8.6°)
+const TILT_LERP_SPEED = 10;   // how fast tilt changes
+const LANDING_DIP_AMOUNT = 0.12;  // max dip in units
+const LANDING_DIP_DECAY = 8;      // exponential decay rate
+const LANDING_DIP_MIN_FALL = 150;  // min fall speed to trigger dip
+
 // Audio tracking
 let wasGrounded = false;
 let footstepTimer = 0;
@@ -107,10 +116,12 @@ export function physicsTick(
   const store = useGameStore.getState();
   const pos = rb.translation();
   if (pos.y < -50) {
+    store.triggerDeathFlash();
     store.requestRespawn();
   }
   const respawn = store.consumeRespawn();
   if (respawn) {
+    store.triggerRespawnFade();
     rb.setNextKinematicTranslation({ x: respawn.pos[0], y: respawn.pos[1], z: respawn.pos[2] });
     _newPos.set(respawn.pos[0], respawn.pos[1], respawn.pos[2]);
     velocity.set(0, 0, 0);
@@ -611,6 +622,11 @@ export function physicsTick(
     const landHSpeed = getHorizontalSpeed(velocity);
     if (fallSpeed > 200) audioManager.play(SOUNDS.LAND_HARD, 0.1);
     else audioManager.play(SOUNDS.LAND_SOFT, 0.1);
+    // Landing camera dip — proportional to fall speed
+    if (fallSpeed > LANDING_DIP_MIN_FALL) {
+      const intensity = Math.min((fallSpeed - LANDING_DIP_MIN_FALL) / 400, 1);
+      landingDip = -LANDING_DIP_AMOUNT * intensity;
+    }
     devLog.info('Physics', `Landed | fallSpeed=${fallSpeed.toFixed(0)} hSpeed=${landHSpeed.toFixed(0)}`);
   }
   if (refs.grounded.current && hSpeed > 50 && !refs.isSliding.current) {
@@ -635,12 +651,29 @@ export function physicsTick(
     velocity.y = 0;
   }
 
+  // --- Camera effects ---
+  // Wall run tilt: lean into the wall
+  let targetTilt = 0;
+  if (wallRunState.isWallRunning) {
+    // Determine which side the wall is on via wall normal dot with camera right
+    const sinYaw = Math.sin(refs.yaw.current);
+    const cosYaw = Math.cos(refs.yaw.current);
+    const wallDot = wallRunState.wallNormal[0] * cosYaw + wallRunState.wallNormal[2] * sinYaw;
+    targetTilt = wallDot > 0 ? -WALL_RUN_TILT : WALL_RUN_TILT;
+  }
+  cameraTilt += (targetTilt - cameraTilt) * Math.min(TILT_LERP_SPEED * dt, 1);
+
+  // Landing dip decay
+  landingDip *= Math.max(0, 1 - LANDING_DIP_DECAY * dt);
+  if (Math.abs(landingDip) < 0.001) landingDip = 0;
+
   // --- Camera ---
   const eyeOffset = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
-  camera.position.set(_newPos.x, _newPos.y + eyeOffset, _newPos.z);
+  camera.position.set(_newPos.x, _newPos.y + eyeOffset + landingDip, _newPos.z);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = refs.yaw.current;
   camera.rotation.x = refs.pitch.current;
+  camera.rotation.z = cameraTilt;
 
   // --- Replay recording ---
   if (store.runState === RUN_STATES.RUNNING) {
@@ -657,6 +690,7 @@ export function physicsTick(
     const finalHSpeed = getHorizontalSpeed(velocity);
     store.updateHud(finalHSpeed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
     if (store.timerRunning) store.tickTimer();
+    store.tickScreenEffects(1 / HUD_UPDATE_HZ);
   }
 
   // --- Dev logging (throttled ~0.5Hz) ---

@@ -2,20 +2,20 @@ export const PHYSICS = {
   TICK_RATE: 128,
   TICK_DELTA: 1 / 128,
 
-  // Movement (classic Quake values — proven feel)
-  GROUND_ACCEL: 10,
-  GROUND_DECEL: 8,
+  // Movement — tuned for snappy feel (higher accel than Quake defaults)
+  GROUND_ACCEL: 15,
+  GROUND_DECEL: 10,
   GROUND_MAX_SPEED: 320,
-  AIR_ACCEL: 10,
+  AIR_ACCEL: 12,
   AIR_SPEED_CAP: 30,
   GROUND_FRICTION: 6.0,
   STOP_SPEED: 100,
   MAX_SPEED: 2500,
   MAX_DISPLACEMENT_PER_STEP: 2,
 
-  // Jumping — peak height = v²/(2g) → 75²/1600 ≈ 3.5 units
-  JUMP_FORCE: 75,
-  JUMP_FORCE_MIN: 40,             // tap-jump minimum
+  // Jumping — peak height = v²/(2g) → 150²/1600 ≈ 14 units
+  JUMP_FORCE: 150,
+  JUMP_FORCE_MIN: 80,             // tap-jump minimum
   JUMP_BUFFER_MS: 80,             // pre-land buffer
   JUMP_RELEASE_WINDOW_MS: 100,    // ms after jump where releasing cuts velocity
   COYOTE_TIME_MS: 100,            // grace period to jump after leaving ground
@@ -32,9 +32,9 @@ export const PHYSICS = {
   PLAYER_EYE_OFFSET_CROUCH: 0.2,
 
   // Crouch sliding
-  CROUCH_FRICTION: 1.5,
-  CROUCH_SLIDE_MIN_SPEED: 200,
-  CROUCH_SLIDE_BOOST: 40,
+  CROUCH_FRICTION: 1.2,
+  CROUCH_SLIDE_MIN_SPEED: 150,
+  CROUCH_SLIDE_BOOST: 60,
 
   // Collision
   STAIR_STEP_HEIGHT: 0.45,

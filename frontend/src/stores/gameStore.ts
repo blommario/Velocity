@@ -88,6 +88,10 @@ interface GameState {
   // Screen shake
   shakeIntensity: number;
 
+  // Screen effects
+  respawnFadeOpacity: number;  // 0 = clear, 1 = black
+  deathFlashOpacity: number;   // 0 = clear, 1 = red vignette
+
   // Actions
   setScreen: (screen: Screen) => void;
   loadMap: (mapId: string, mapData: MapData) => void;
@@ -113,6 +117,11 @@ interface GameState {
   // Screen shake
   triggerShake: (intensity: number) => void;
   clearShake: () => void;
+
+  // Screen effects
+  triggerDeathFlash: () => void;
+  triggerRespawnFade: () => void;
+  tickScreenEffects: (dt: number) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -147,6 +156,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   pbSplitTimes: [],
 
   shakeIntensity: 0,
+  respawnFadeOpacity: 0,
+  deathFlashOpacity: 0,
 
   setScreen: (screen) => set({ screen }),
 
@@ -320,4 +331,16 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerShake: (intensity) => set({ shakeIntensity: Math.min(intensity, 1) }),
   clearShake: () => set({ shakeIntensity: 0 }),
+
+  triggerDeathFlash: () => set({ deathFlashOpacity: 1 }),
+  triggerRespawnFade: () => set({ respawnFadeOpacity: 1 }),
+  tickScreenEffects: (dt) => {
+    const s = get();
+    const fadeDecay = 3; // fades out over ~0.33s
+    const flashDecay = 4; // fades out over ~0.25s
+    set({
+      respawnFadeOpacity: s.respawnFadeOpacity > 0.01 ? s.respawnFadeOpacity * Math.max(0, 1 - fadeDecay * dt) : 0,
+      deathFlashOpacity: s.deathFlashOpacity > 0.01 ? s.deathFlashOpacity * Math.max(0, 1 - flashDecay * dt) : 0,
+    });
+  },
 }));

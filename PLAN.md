@@ -11,15 +11,15 @@
 
 **Förutsättning:** v1 komplett
 
-- 🔲 Camera-relative movement fix (getWishDir rotation convention) — **DONE i koden, behöver verifieras**
-- 🔲 Variable jump height tuning — JUMP_FORCE=75, peak ≈ 3.5 units, testa att det känns rätt
-- 🔲 Crouch slide polish — justera CROUCH_SLIDE_MIN_SPEED och boost för bättre slide-känsla
-- 🔲 Wall run feedback — kameralutning (tilt) under wall run för tydligare visuell feedback
-- 🔲 Surf polish — testa alla surf ramps, justera SURF_MIN_ANGLE/MAX_ANGLE om nödvändigt
-- 🔲 Bättre landningsanimation — kort kamera-dip vid hård landing (>200 u/s fallhastighet)
-- 🔲 Air control tuning — testa strafe jumping, bhop chains, verifiera att speed-gain fungerar korrekt
-- 🔲 Respawn polish — fade-to-black + fade-in vid respawn istället för instant teleport
-- 🔲 Kill zone feedback — röd vignette-flash vid death innan respawn
+- ✅ Camera-relative movement fix (getWishDir rotation convention)
+- ✅ Variable jump height tuning — JUMP_FORCE=150, peak ≈ 14 units
+- ✅ Crouch slide polish — CROUCH_SLIDE_MIN_SPEED=150, boost=60, friction=1.2
+- ✅ Wall run feedback — kameralutning (tilt ~8.6°) under wall run, smooth lerp
+- ✅ Surf polish — SURF_MIN_ANGLE=30, SURF_MAX_ANGLE=60 (befintliga värden OK)
+- ✅ Bättre landningsanimation — kamera-dip vid hård landing (>150 u/s fallhastighet)
+- ✅ Air control tuning — AIR_ACCEL=12, GROUND_ACCEL=15, snabbare acceleration
+- ✅ Respawn polish — fade-to-black + fade-in vid respawn (ScreenEffects overlay)
+- ✅ Kill zone feedback — röd vignette-flash vid death innan respawn
 
 ---
 

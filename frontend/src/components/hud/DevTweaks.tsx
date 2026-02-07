@@ -2,9 +2,10 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { PHYSICS } from '../game/physics/constants';
 
 const BASE_SPEED = PHYSICS.GROUND_MAX_SPEED; // 320 u/s
+const BASE_GRAVITY = PHYSICS.GRAVITY;         // 800 u/s²
 
 const SPEED_RANGE = { min: 0.05, max: 5, step: 0.05 } as const; // 16–1600 u/s
-const GRAVITY_RANGE = { min: 0.1, max: 3, step: 0.1 } as const;
+const GRAVITY_RANGE = { min: 0.05, max: 3, step: 0.05 } as const; // 40–2400 u/s²
 
 export function DevTweaks() {
   const speedMult = useSettingsStore((s) => s.devSpeedMultiplier);
@@ -49,7 +50,7 @@ export function DevTweaks() {
             className="w-full h-1.5 accent-orange-400 cursor-pointer"
           />
           <span className="text-xs font-mono font-bold text-orange-400">
-            {gravMult.toFixed(1)}x
+            {Math.round(BASE_GRAVITY * gravMult)} u/s²
           </span>
         </div>
 
