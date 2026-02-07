@@ -1,178 +1,233 @@
-# VELOCITY 2.0 — Implementation Plan
+# VELOCITY — Gameplay & Graphics Plan
 
-> Ny plan som ersätter v1. Alla v1-faser (1–12) betraktas som klara.
-> Fokus: gameplay-djup, multiplayer, community, polish.
+> Fokus: spelupplevelse, grafik, physics, assets.
+> Multiplayer, community, socialt **parkerat** tills kärnan är polerad.
 > ✅ = klart | 🔲 = kvar | 🔧 = pågår
 
 ---
 
-## Fas 13 — Gameplay Feel & Physics Polish
-*Finslipa det som redan finns. Grunden måste vara perfekt innan nya features.*
+## Fas A — Asset Pipeline & glTF Loading
+*Innan vi kan höja grafiken behöver spelet kunna ladda riktiga 3D-modeller och texturer.*
 
-**Förutsättning:** v1 komplett
+**Förutsättning:** Ingen
 
-- ✅ Camera-relative movement fix (getWishDir rotation convention)
-- ✅ Variable jump height tuning — JUMP_FORCE=150, peak ≈ 14 units
-- ✅ Crouch slide polish — CROUCH_SLIDE_MIN_SPEED=150, boost=60, friction=1.2
-- ✅ Wall run feedback — kameralutning (tilt ~8.6°) under wall run, smooth lerp
-- ✅ Surf polish — SURF_MIN_ANGLE=30, SURF_MAX_ANGLE=60 (befintliga värden OK)
-- ✅ Bättre landningsanimation — kamera-dip vid hård landing (>150 u/s fallhastighet)
-- ✅ Air control tuning — AIR_ACCEL=12, GROUND_ACCEL=15, snabbare acceleration
-- ✅ Respawn polish — fade-to-black + fade-in vid respawn (ScreenEffects overlay)
-- ✅ Kill zone feedback — röd vignette-flash vid death innan respawn
+### A1 — glTF Model Loader
+- 🔲 GLTFLoader integration — ladda `.glb`-filer via Three.js GLTFLoader (WebGPU-kompatibel)
+- 🔲 Asset manager — cache för laddade modeller, progress-callbacks, lazy loading
+- 🔲 Model placement i MapData — utöka `MapBlock` med optional `modelUrl` fält (fallback till primitiv geometri)
+- 🔲 Collider-generering från mesh — trimesh eller convex hull colliders för importerade modeller
 
----
+### A2 — PBR Texture System
+- 🔲 Texture loader — ladda albedo, normal, roughness, metalness, emissive maps
+- 🔲 Texture atlas / manager — undvik duplicerade laddningar, stöd för olika upplösningar
+- 🔲 Material factory — skapa `MeshStandardNodeMaterial` från texture-set med TSL nodes
+- 🔲 Per-block texture override — MapData-block kan referera till en texture-set istället för enkel färg
 
-## Fas 14 — Vapenexpansion
-*Fler vapen ger djup och strategi. Varje vapen ska ha unik movement-utility.*
+### A3 — HDRI Skybox
+- 🔲 RGBELoader / EXRLoader — ladda HDR environment maps
+- 🔲 Fallback — behåll ProceduralSkybox som alternativ om HDRI inte laddats
+- 🔲 Environment map reflection — `scene.environment` för PBR metallic reflektioner
+- 🔲 Per-map skybox config — MapData `skybox` fält stöder `"procedural"` | `"hdri:filnamn"`
 
-**Förutsättning:** Fas 13
-
-### 14a — Hitscan-vapen
-- ✅ Weapon switching system — tangenter 1–7 + scrollhjul, 0.3s swap cooldown
-- 🔲 Weapon viewmodel — enkel 3D-modell i nedre högra hörnet (first person arms/gun)
-- ✅ Sniper rifle — hitscan, zoom (right-click), 80 u/s self-knockback, 2s cooldown
-- ✅ Assault rifle — hitscan, 80ms fire rate, spread 0.03 rad, 30-round magazine
-- ✅ Shotgun — 8 pellets, 0.1 rad spread, 350 u/s self-knockback (shotgun jump!), 0.9s pump
-
-### 14b — Melee & Special
-- ✅ Knife — lunge forward (600 u/s dash, 0.12s), no ammo, 0.4s cooldown
-- ✅ Plasma gun — continuous beam, 200 u/s self-pushback (mini-boost), 10 ammo/s
-- ✅ Grapple upgrade — free-aim raycast (any surface), fallback to registered points
-
-### 14c — Weapon HUD
-- ✅ Weapon slots bar — 1-7 nummerindikator med aktiv markering
-- ✅ Ammo display per vapen — visar current/max + magazine för AR
-- ✅ Weapon crosshair — dot (knife), cross (AR/RL/GL), ring (SG/plasma), scope (sniper)
-- 🔲 Muzzle flash + impact particles per vapen
+### A4 — Asset Downloads (CC0)
+- 🔲 **Quaternius Modular Sci-Fi MEGAKIT** — 270+ modulära corridor/platform/ramp/door pieces (glTF, CC0)
+  - Källa: quaternius.itch.io/modular-sci-fi-megakit
+- 🔲 **Kenney Space Station Kit** — 90 modulära rymdstationsdelar (GLB, CC0)
+  - Källa: kenney.nl/assets/space-station-kit
+- 🔲 **Poly Haven Night HDRI** — rymdtema skybox (CC0, 2K/4K)
+  - Källa: polyhaven.com/hdris/night/skies (Satara Night, Dikhololo Night)
+- 🔲 **3dtextures.me Sci-Fi Panels** — PBR texture-set för metallytor, paneler, ventilation
+  - Källa: 3dtextures.me/category/sci-fi/
+- 🔲 **ambientCG Metal/Concrete** — PBR texturer för industriella ytor (CC0, 2K)
+  - Källa: ambientcg.com/list?category=Metal
+- 🔲 Organisera assets i `frontend/public/assets/` — models/, textures/, hdri/
 
 ---
 
-## Fas 15 — Visuell Upgrade
-*Höj den visuella kvaliteten markant. WebGPU-features som skiljer oss från andra.*
+## Fas B — Grafik & Visuell Kvalitet
+*Höj renderingskvaliteten markant med riktiga assets och moderna effekter.*
 
-**Förutsättning:** Fas 13
+**Förutsättning:** Fas A (asset pipeline)
 
-### 15a — Lighting & Atmosphere
-- ✅ Dynamisk skybox — ProceduralSkybox med TSL shader (5 presets: day/sunset/night/neon/sky, moln, sol, atmospheric scattering)
-- ✅ Volumetric fog — befintlig TSL height-fog uppgraderad, integrerad med skybox
-- ✅ Point lights — EmissivePointLight vid boost pads, speed gates, grapple points, ammo pickups (pulsande glow)
-- ✅ Baked ambient occlusion — GTAO post-process pass via TSL (ao() från GTAONode)
-- 🔲 Reflections — screen-space reflections på metalliska/glansiga ytor
-- ✅ Shadow quality — 4096x4096 shadow maps, extended frustum (120u), bias/normalBias tuning
+### B1 — Material Upgrade
+- 🔲 Normal mapping — alla större ytor (golv, väggar, plattformar) med normal maps
+- 🔲 Roughness/Metalness variation — metalliska ytor reflekterar ljus, betong/sten är matta
+- 🔲 Emissive detail maps — neon-accenter, skärmar, varningsljus med emissive textures
+- 🔲 Instanced rendering med texturer — InstancedBlocks stöder texture-sets per grupp
 
-### 15b — Effekter & Particles
-- ✅ Trail effect — SpeedTrail linje bakom spelaren vid >400 u/s (färglerp cyan→röd vid högre hastighet)
-- ✅ Explosion particles — GPU compute partikelexplosion vid raket/granat-impact (64 partiklar per explosion, max 8 aktiva)
-- 🔲 Wall run sparks — partikeleffekt vid väggkontakt under wall run
-- 🔲 Speed gate whoosh — visuell distortion-ring när man passerar speed gate
-- ✅ Grapple beam — synlig våglinje från kamera till grapple point (wave displacement, fade in/out)
-- ✅ Checkpoint shimmer — 32-partikel guldskimmer-burst vid checkpoint-passage
-- 🔲 Water/lava surfaces — animated shader-ytor för kill zones / dekorativa element
+### B2 — Lighting Upgrade
+- 🔲 Screen-space reflections (SSR) — TSL postprocessing pass för speglande ytor
+- 🔲 Area lights — emissive paneler som ljuskällor (approximerad via rect lights)
+- 🔲 Light probes — baked irradiance för inomhusmiljöer (korridorer, rum)
+- 🔲 Volumetric light shafts — god rays genom fönster/öppningar (TSL compute)
 
-### 15c — UI & HUD Polish
-- ✅ Animated transitions — ScreenTransition fade vid screen-byte
-- ✅ Damage indicator — röd vignette-flash vid skada (intensitet proportionell mot dmg)
-- ✅ Kill feed — EventFeed visar checkpoint/run/damage events i övre högra hörnet (auto-fade efter 3s)
-- 🔲 Minimap — valfri minimap för stora/komplexa banor
-- ✅ Crosshair customization — settings-driven (stil, färg, size) med weapon-default fallback
+### B3 — Miljöeffekter
+- 🔲 Animerade vatten/lava-ytor — TSL shader med wave displacement, reflektion, glow
+- 🔲 Rök/dimma-partiklar — GPU compute, placeras i specifika zoner (ventilation, lava)
+- 🔲 Damm/gnistor — ambient partiklar i industriella miljöer
+- 🔲 Decals — spår efter explosioner, skotthål, markeringar på ytor
+
+### B4 — Kamera & Post-Processing
+- 🔲 SSAO förbättring — tuna GTAO-parametrar med nya material (normal maps ger bättre AO)
+- 🔲 Motion blur — per-object velocity-baserad blur vid hög hastighet (valfritt i settings)
+- 🔲 Chromatic aberration — subtil vid extrema hastigheter (>600 u/s)
+- 🔲 Color grading LUT — per-map color grade (Neon: kall cyan, Cliffside: varm orange)
+- 🔲 Depth of field — enbart i menyer/end-of-run (aldrig under gameplay)
 
 ---
 
-## Fas 16 — Banor 2.0
-*Fler och bättre banor. Community-verktyg för att upptäcka community maps.*
+## Fas C — Physics & Movement Feel
+*Finjustera känslan. Varje mekanik ska vara satisfying att använda.*
 
-**Förutsättning:** Fas 15 (nya visuella features) + Fas 14 (nya vapen)
+**Förutsättning:** Ingen (kan köras parallellt med A/B)
 
-### 16a — Nya officiella banor
-- 🔲 **"Frostbite"** (Medium) — Istema, hala ytor (låg friktion), grottgångar, frostdimma
-- 🔲 **"Molten Core"** (Hard) — Lava-tema, rörliga plattformar över lava, stigande lava-timer
-- 🔲 **"Orbital"** (Expert) — Rymdstation, låg gravitation, zero-G-sektioner, glaskorridorer
-- 🔲 **"Vertigo"** (Hard) — Extremt vertikalt, spiraltorn, grapple-chains, inget golv
-- 🔲 **"Speedway"** (Medium) — Ren hastighets-bana, boost pad chains, minimal hinder, WR-fokus
-- 🔲 **"Labyrinth"** (Hard) — Labyrint med rörliga väggar, multiple paths, route-finding
-- 🔲 **"Aether"** (Expert) — Alla mekaniker, ultra-tight timing, <1% clear rate designmål
+### C1 — Kärnrörelse
+- 🔲 Bunny hop consistency — verifiera att bhop ger konsekvent speedgain per hop
+- 🔲 Air strafe precision — testa och justera AIR_ACCEL/speed cap för tighta turns
+- 🔲 Landing recovery — frames mellan landing och nästa hopp ska vara 0 (instant bhop)
+- 🔲 Speed preservation vid ramphopp — horisontell hastighet ska inte sjunka vid ramp-launch
+- 🔲 Slope boosting — nedförsbackar ger acceleration (gravity component projicerad längs slope)
 
-### 16b — Map Editor v2
+### C2 — Avancerad Rörelse
+- 🔲 Wall run polish — smooth entry/exit, snabbare väggdetektering, bättre kameratilt
+- 🔲 Surf ramp feel — testa Cliffside/Skybreak surf-sektioner, justera friktions-ramper
+- 🔲 Crouch slide chain — slide → jump → slide ska vara fluid utan input-drops
+- 🔲 Grapple swing momentum — verifiera pendel-fysik, release-boost ska vara pålitlig
+- 🔲 Edge grab / mantle — håll jump vid kanter för att klättra upp (ny mekanik, valfritt)
+
+### C3 — Vapenrörelse
+- 🔲 Rocket jump consistency — verifiera att self-knockback alltid fungerar oavsett vinkel
+- 🔲 Shotgun jump — verifiera 350 u/s self-knockback, testa double shotgun jump
+- 🔲 Knife lunge precision — dash-riktning ska följa kameran exakt
+- 🔲 Plasma surfing — continuous pushback ska kunna användas för sustained flight
+- 🔲 Grenade boost — verifiera timing-baserad boost (2.5s fuse)
+
+### C4 — Game Feel & Feedback
+- 🔲 Weapon viewmodel — enkel 3D-modell per vapen i nedre högra hörnet (first person)
+- 🔲 Muzzle flash — ljusblixt + partiklar vid avfyrning
+- 🔲 Impact particles — gnistor/debris vid kulträff på ytor
+- 🔲 Wall run sparks — gnistpartiklar vid väggkontakt
+- 🔲 Speed gate whoosh — visuell distortion-ring vid passage
+- 🔲 Screen shake tuning — intensitet per vapentyp, avtagande med avstånd
+- 🔲 Hit marker — visuell + audio feedback vid träff
+
+---
+
+## Fas D — Ljud & Audio
+*Ersätt synth-ljud med riktiga ljud. Lägg till musik och ambience.*
+
+**Förutsättning:** Fas C (behöver veta vilka actions som finns)
+
+### D1 — Sound Effects (CC0)
+- 🔲 Ladda ner SFX-pack — OpenGameArt "50 CC0 Sci-Fi SFX" + Freesound CC0
+- 🔲 Migrera AudioManager från synth till samples — Web Audio API `AudioBufferSourceNode`
+- 🔲 Rörelse-ljud — footsteps (metall/betong/glas), jump, land, slide, wall run
+- 🔲 Vapen-ljud — rocket fire/explode, grenade throw/bounce/explode, sniper crack, shotgun pump, AR burst, plasma hum, knife swish
+- 🔲 Miljö-ljud — boost pad whoosh, speed gate hum, grapple wire, checkpoint chime, finish fanfare
+- 🔲 UI-ljud — button click, menu transition, countdown beeps
+
+### D2 — Spatial Audio
+- 🔲 3D-positionerat ljud — explosioner, projektiler, boost pads med distance falloff
+- 🔲 Reverb per miljö — stor/liten hall, utomhus, korridor (ConvolverNode)
+- 🔲 Doppler-effekt — projektiler som passerar (valfritt)
+
+### D3 — Musik & Ambience
+- 🔲 Ambient loops per map-tema — industriell hum, rymd-drone, neon-beat
+- 🔲 Dynamisk musik — intensitet ökar med spelarens hastighet
+- 🔲 Menu music — lugn loop för main menu
+- 🔲 Victory/defeat stingers — kort musikeffekt vid run complete / death
+
+---
+
+## Fas E — Banor & Level Design
+*Nya banor som utnyttjar alla mekaniker och nya assets.*
+
+**Förutsättning:** Fas A+B (assets & grafik) + Fas C (polerad physics)
+
+### E1 — Uppgradera befintliga banor
+- 🔲 First Steps — byt ut primitiva boxar mot Quaternius/Kenney-modeller, tutorial-text
+- 🔲 Cliffside — klipp-texturer, HDRI skybox, bättre belysning, atmosfär
+- 🔲 Neon District — neon-paneler med emissive textures, reflektioner i golv, regn-partiklar
+- 🔲 The Gauntlet — industriella modeller, rök, varningsljus, lava-kill zones
+- 🔲 Skybreak — rymdstation-modeller, glasgolv med stars under, rymd-HDRI
+
+### E2 — Nya banor
+- 🔲 **"Orbital"** (Expert) — Rymdstation inomhus, korridorer (Quaternius modular kit), låg gravitation-zoner, glasväggar med rymd utanför, grapple chains
+- 🔲 **"Molten Core"** (Hard) — Lavagruva, animerade lava-ytor, rörliga plattformar, stigande lava-timer, industriella texturer
+- 🔲 **"Speedway"** (Medium) — Ren hastighet, boost pad chains, surf ramps i sekvens, WR-fokus, clean design
+- 🔲 **"Vertigo"** (Hard) — Extremt vertikalt torn, spiral-ramper, grapple-chains, inget golv
+- 🔲 **"Frostbite"** (Medium) — Is-texturer, låg friktion-ytor, grottgångar, frostdimma
+
+### E3 — Map Editor v2
 - 🔲 Prefabs — sparade block-grupper som kan återanvändas
-- 🔲 Terrain brush — skulptera terräng istället för bara boxar
-- 🔲 Custom textures — ladda upp texturer för block
-- 🔲 Trigger zones — scriptbara events (visa text, öppna dörr, ändra gravitation)
-- 🔲 Decorations — icke-kolliderande visuella objekt (träd, lampor, skyltar)
+- 🔲 3D-modell placering — drag-and-drop glTF-modeller i editor
+- 🔲 Texture picker — välj texture-set per block
+- 🔲 Decorations — icke-kolliderande visuella objekt
 - 🔲 Map thumbnails — auto-screenshot vid publicering
-- 🔲 Versionshantering — spara revisioner, rollback till tidigare version
-
-### 16c — Community Browser
-- 🔲 Map rating — 1–5 stjärnor + likes
-- 🔲 Tags — difficulty, style (speed, puzzle, combat, technical), theme
-- 🔲 Sökfilter — efter namn, skapare, difficulty, rating, senaste
-- 🔲 Featured maps — kuraterad "Editors Pick" sektion
-- 🔲 Download count — visa popularitet
-- 🔲 Comment system — feedback på community maps
 
 ---
 
-## Fas 17 — Live Multiplayer
-*Faktisk real-time multiplayer. Största featuren i v2.0.*
+## Fas F — Gameplay Loop Polish
+*Allt som gör spelet beroendeframkallande att spela om och om igen.*
 
-**Förutsättning:** Fas 13 (polerad fysik)
+**Förutsättning:** Fas C + E (polerad physics + banor)
 
-### 17a — Race System Completion
-- 🔲 Live position broadcasting — skicka position via SSE med 20Hz, interpolera på klienten
-- 🔲 Ghost rendering under race — andra spelare som semi-transparenta kapslar (ingen kollision)
-- 🔲 Live standings panel — visa alla spelare sorterade efter checkpoint-progress + tid
-- 🔲 Race finish — slutresultat för alla deltagare, vänta på alla eller timeout
-- 🔲 Race chat — enkel textchat i lobby och under race
-- 🔲 Spectator mode — titta på pågående race utan att delta
+### F1 — Tutorial & Onboarding
+- 🔲 Interaktiv tutorial — guidade steg med tip-popups och visuella markeringar
+- 🔲 Rörelse-tutorial — bhop, strafe jump, air strafe med instant feedback
+- 🔲 Avancerad tutorial — rocket jump, wall run, surf, grapple
+- 🔲 Practice mode — checkpoint-restart, segment-timer, ghost-trail av bästa run
 
-### 17b — Matchmaking
-- 🔲 ELO-system — rating baserat på average finish percentile per bana
-- 🔲 Quick match — matcha med spelare på liknande ELO, slumpad official map
-- 🔲 Ranked seasons — veckovis rotation av 3 banor, säsongs-leaderboard
-- 🔲 Casual vs Ranked — separata köer, ranked har ELO-påverkan
-- 🔲 Queue UI — sökindikator, estimated wait time, cancel-knapp
+### F2 — Replay & Ghost System
+- 🔲 Replay viewing UI — play/pause/scrub, frikamera, speed control
+- 🔲 Ghost rendering — transparent spelarkapsel som kör bästa run
+- 🔲 PB comparison — live split-tider mot personal best under run
+- 🔲 Replay export — spara replay som delbar fil
 
-### 17c — Socialt
-- 🔲 Friends list — lägg till/ta bort vänner, se online-status
-- 🔲 Friend invites — bjud in vänner till race room direkt
-- 🔲 Activity feed — "X slog nytt PB på Cliffside", "Y joinade Neon District race"
-- 🔲 Player profiles v2 — avatar, titel, favoritbana, trophy cabinet
-- 🔲 Achievements — 50+ achievements (first clear, sub-par clear, 1000 jumps, etc.)
+### F3 — End-of-Run Experience
+- 🔲 Detaljerad stats-skärm — max speed, total distance, jumps, rocket jumps, air time
+- 🔲 Checkpoint split breakdown — tid per segment, delta mot PB
+- 🔲 Medal system — guld/silver/brons baserat på par time
+- 🔲 "One more run" flow — snabb retry utan att lämna spelskärmen
 
 ---
 
-## Fas 18 — Game Modes
-*Bortom time trial. Nya sätt att spela ger replayability.*
-
-**Förutsättning:** Fas 17a (live multiplayer)
-
-- 🔲 **Elimination** — 8 spelare, långsammaste varje runda elimineras, 4 rundor
-- 🔲 **Tag/Infection** — en "it"-spelare jagar andra, touch = infect, siste överlevande vinner
-- 🔲 **Relay Race** — 2–4 lag, varje spelare springer en sektion av banan
-- 🔲 **Time Attack Challenge** — daglig/veckovis challenge, alla kör samma bana, global leaderboard
-- 🔲 **Practice Mode v2** — checkpoint-restart, segment-timer, slow-mo, noclip
-- 🔲 **Tutorial Mode** — interaktiv tutorial med guidade steg, tip-popups, visuella guider
-
----
-
-## Beroendeöversikt v2.0
+## Beroendeöversikt
 
 ```
-v1 Komplett (Fas 1–12)
-├── Fas 13 (Gameplay Feel) ← STARTPUNKT
-│   ├── Fas 14 (Vapenexpansion)
-│   ├── Fas 15 (Visuell Upgrade)
-│   │   └── Fas 16 (Banor 2.0) ← kräver även Fas 14
-│   ├── Fas 17 (Live Multiplayer)
-│   │   └── Fas 18 (Game Modes)
-│   └── (Ljud — ingår i Fas 15c som polish)
+┌── Fas A (Asset Pipeline) ──────────────┐
+│   └── Fas B (Grafik Upgrade)           │
+│       └── Fas E (Banor & Level Design) │
+│                                        │
+├── Fas C (Physics & Feel) ──────────────┤
+│   ├── Fas D (Ljud & Audio)             │
+│   └── Fas E (Banor & Level Design)     │
+│       └── Fas F (Gameplay Loop Polish)  │
+└────────────────────────────────────────┘
 ```
 
-**Rekommenderad prioritet (implementeringsordning):**
-1. Fas 13 — Gameplay Feel (fix + polish det som finns)
-2. Fas 15a+c — Visuell polish + HUD (synliga förbättringar)
-3. Fas 14 — Vapen (gameplay-djup)
-4. Fas 17a — Live multiplayer race loop
-5. Fas 16a — Nya banor
-6. Fas 17b+c — Matchmaking + socialt
-7. Fas 18 — Game modes
+**Parallella spår:**
+- **Spår 1:** A → B → E (grafik pipeline)
+- **Spår 2:** C → D (physics + ljud)
+- **Korsning:** E kräver både B och C
+- **Slutfas:** F (gameplay loop) kräver E + C
+
+**Rekommenderad prioritet:**
+1. **Fas A** — Asset pipeline (lås upp allt annat)
+2. **Fas C** — Physics feel (kan köras parallellt med A)
+3. **Fas B** — Grafik upgrade (kräver A)
+4. **Fas D** — Ljud (kräver C)
+5. **Fas E** — Banor (kräver A+B+C)
+6. **Fas F** — Gameplay loop polish
+
+---
+
+## Parkerat (framtida faser)
+
+Dessa faser är **inte borttagna**, bara parkerade tills kärnan är klar:
+
+- **Multiplayer** — Live race, ghost race, SSE broadcasting
+- **Matchmaking** — ELO, ranked, seasons
+- **Socialt** — Friends, activity feed, achievements
+- **Game Modes** — Elimination, tag, relay, time attack
+- **Community** — Map rating, tags, featured maps, comments
