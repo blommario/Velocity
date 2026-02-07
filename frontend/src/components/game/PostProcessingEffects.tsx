@@ -21,6 +21,9 @@ export function PostProcessingEffects() {
 
   useEffect(() => {
     const pipeline = new PostProcessing(renderer);
+    // We handle tonemapping + sRGB manually via renderOutput(),
+    // so disable the auto output transform to prevent double-processing.
+    pipeline.outputColorTransform = false;
 
     const scenePass = pass(scene, camera);
     const scenePassColor = scenePass.getTextureNode('output');
@@ -50,11 +53,11 @@ export function PostProcessingEffects() {
     };
   }, [renderer, scene, camera]);
 
-  // renderPriority=1 disables R3F auto-rendering
+  // renderPriority=1 disables R3F auto-rendering; pipeline handles render + post
   useFrame(() => {
-    const bloomEnabled = useSettingsStore.getState().bloom;
-    if (pipelineRef.current && bloomEnabled) {
-      pipelineRef.current.render();
+    const pipeline = pipelineRef.current;
+    if (pipeline) {
+      pipeline.render();
     } else {
       renderer.render(scene, camera);
     }

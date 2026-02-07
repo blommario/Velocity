@@ -12,6 +12,8 @@ import { SpeedGate } from '../zones/SpeedGate';
 import { AmmoPickup } from '../zones/AmmoPickup';
 import { GrapplePoint } from '../zones/GrapplePoint';
 import { AtmosphericFog } from '../AtmosphericFog';
+import { ProceduralSkybox } from '../ProceduralSkybox';
+import { EmissivePointLight } from '../DynamicPointLights';
 import { InstancedBlocks } from './InstancedBlocks';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
@@ -165,19 +167,51 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         intensity={lighting.directionalIntensity}
         color={lighting.directionalColor}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-far={200}
-        shadow-camera-left={-80}
-        shadow-camera-right={80}
-        shadow-camera-top={80}
-        shadow-camera-bottom={-80}
+        shadow-mapSize-width={4096}
+        shadow-mapSize-height={4096}
+        shadow-camera-far={300}
+        shadow-camera-left={-120}
+        shadow-camera-right={120}
+        shadow-camera-top={120}
+        shadow-camera-bottom={-120}
+        shadow-bias={-0.0005}
+        shadow-normalBias={0.02}
       />
       <hemisphereLight
         args={[lighting.hemisphereSky, lighting.hemisphereGround, lighting.hemisphereIntensity]}
       />
 
+      {/* Dynamic point lights at boost pads and speed gates */}
+      {data.boostPads?.map((bp, i) => (
+        <EmissivePointLight
+          key={`bpl-${i}`}
+          position={[bp.position[0], bp.position[1] + 1, bp.position[2]]}
+          color={bp.color ?? '#00ff88'}
+          intensity={3}
+          distance={20}
+        />
+      ))}
+      {data.speedGates?.map((sg, i) => (
+        <EmissivePointLight
+          key={`sgl-${i}`}
+          position={sg.position}
+          color={sg.color ?? '#00ccff'}
+          intensity={2}
+          distance={15}
+        />
+      ))}
+      {data.grapplePoints?.map((gp, i) => (
+        <EmissivePointLight
+          key={`gpl-${i}`}
+          position={[gp.position[0], gp.position[1] + 1, gp.position[2]]}
+          color="#a78bfa"
+          intensity={3}
+          distance={25}
+        />
+      ))}
+
       {/* Environment */}
+      <ProceduralSkybox type={data.skybox ?? 'day'} />
       <color attach="background" args={[bgColor]} />
       <AtmosphericFog color={lighting.fogColor!} near={lighting.fogNear!} far={lighting.fogFar!} />
 

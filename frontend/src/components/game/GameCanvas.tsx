@@ -10,6 +10,7 @@ import { ScreenShake } from './ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from './PostProcessingEffects';
+import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer } from './effects';
 import { HudOverlay } from '../hud/HudOverlay';
 import { DevLogPanel } from '../hud/DevLogPanel';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -59,12 +60,18 @@ export function GameCanvas() {
       <Canvas
         gl={async (props) => {
           devLog.info('Renderer', 'Creating WebGPURenderer...');
-          const renderer = new WebGPURenderer({ canvas: props.canvas as HTMLCanvasElement, antialias: true });
+          const renderer = new WebGPURenderer({
+            canvas: props.canvas as HTMLCanvasElement,
+            antialias: true,
+          });
           await renderer.init();
           devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name})`);
+          (window as unknown as Record<string, unknown>).__renderer = renderer;
           return renderer;
         }}
         camera={{ fov, near: 0.1, far: 1000 }}
+        linear
+        flat
         shadows
         onPointerDown={(e) => {
           (e.target as HTMLCanvasElement).requestPointerLock();
@@ -72,6 +79,7 @@ export function GameCanvas() {
       >
         <DynamicFov />
         <ScreenShake />
+        <PostProcessingEffects />
         <Physics
           timeStep={PHYSICS.TICK_DELTA}
           gravity={[0, 0, 0]}
@@ -80,13 +88,12 @@ export function GameCanvas() {
           <PlayerController />
           <ProjectileRenderer />
           <GhostRenderer />
-          {mapData ? (
-            <MapLoader data={mapData} mapId={mapId ?? undefined} />
-          ) : (
-            <TestMap />
-          )}
+          <TestMap />
         </Physics>
-        <PostProcessingEffects />
+        <SpeedTrail />
+        <GrappleBeam />
+        <ExplosionManager />
+        <CheckpointShimmer />
       </Canvas>
       <HudOverlay />
       <DevLogPanel />

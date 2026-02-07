@@ -27,6 +27,7 @@ import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { useReplayStore } from '../../../stores/replayStore';
 import { audioManager, SOUNDS } from '../../../systems/AudioManager';
+import { useExplosionStore } from '../effects/ExplosionEffect';
 import { devLog } from '../../../stores/devLogStore';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
@@ -490,6 +491,7 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
+        useExplosionStore.getState().spawnExplosion(hitPos, '#ff6600', 1.2);
         removedIds.push(p.id);
         devLog.info('Combat', `Rocket exploded at [${hitPos.map(v => v.toFixed(1)).join(', ')}] dmg=${damage.toFixed(0)}`);
       }
@@ -505,6 +507,7 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
+        useExplosionStore.getState().spawnExplosion(p.position, '#22c55e', 1.0);
         removedIds.push(p.id);
         continue;
       }
@@ -539,6 +542,7 @@ export function physicsTick(
             store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
           }
           audioManager.play(SOUNDS.GRENADE_EXPLODE);
+          useExplosionStore.getState().spawnExplosion(p.position, '#22c55e', 1.0);
           removedIds.push(p.id);
         } else {
           // Reflect velocity off surface normal

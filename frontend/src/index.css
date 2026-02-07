@@ -17,3 +17,9 @@ html, body, #root {
 canvas {
   display: block;
 }
+
+/* Damage flash animation */
+@keyframes damage-flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}

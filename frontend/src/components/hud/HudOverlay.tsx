@@ -9,6 +9,8 @@ import { CombatHud } from './CombatHud';
 import { EndRunModal } from './EndRunModal';
 import { DevTweaks } from './DevTweaks';
 import { ScreenEffects } from './ScreenEffects';
+import { DamageIndicator } from './DamageIndicator';
+import { EventFeed } from './EventFeed';
 import { useGameStore, RUN_STATES } from '../../stores/gameStore';
 
 export function HudOverlay() {
@@ -26,6 +28,8 @@ export function HudOverlay() {
       <SpeedLines />
       <CombatHud />
       <TrackProgressBar />
+      <DamageIndicator />
+      <EventFeed />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}
 

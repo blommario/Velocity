@@ -54,28 +54,28 @@
 **Förutsättning:** Fas 13
 
 ### 15a — Lighting & Atmosphere
-- 🔲 Dynamisk skybox — procedurell himmel med sol/måne-position, moln (TSL shader)
-- 🔲 Volumetric fog — riktig volumetrisk dimma i dalgångar och near ground (compute shader)
-- 🔲 Point lights — dynamiska ljuskällor vid boost pads, speed gates, ammo pickups (emissive glow)
-- 🔲 Baked ambient occlusion — SSAO post-process pass via TSL
+- ✅ Dynamisk skybox — ProceduralSkybox med TSL shader (5 presets: day/sunset/night/neon/sky, moln, sol, atmospheric scattering)
+- ✅ Volumetric fog — befintlig TSL height-fog uppgraderad, integrerad med skybox
+- ✅ Point lights — EmissivePointLight vid boost pads, speed gates, grapple points, ammo pickups (pulsande glow)
+- ✅ Baked ambient occlusion — GTAO post-process pass via TSL (ao() från GTAONode)
 - 🔲 Reflections — screen-space reflections på metalliska/glansiga ytor
-- 🔲 Shadow quality — cascaded shadow maps för bättre skuggor på stora banor
+- ✅ Shadow quality — 4096x4096 shadow maps, extended frustum (120u), bias/normalBias tuning
 
 ### 15b — Effekter & Particles
-- 🔲 Trail effect — hastighetsbaserad trail bakom spelaren vid >400 u/s
-- 🔲 Explosion particles — riktig partikelexplosion vid raket/granat-impact (GPU compute)
+- ✅ Trail effect — SpeedTrail linje bakom spelaren vid >400 u/s (färglerp cyan→röd vid högre hastighet)
+- ✅ Explosion particles — GPU compute partikelexplosion vid raket/granat-impact (64 partiklar per explosion, max 8 aktiva)
 - 🔲 Wall run sparks — partikeleffekt vid väggkontakt under wall run
 - 🔲 Speed gate whoosh — visuell distortion-ring när man passerar speed gate
-- 🔲 Grapple beam — synlig lina/stråle från spelare till grapple point
-- 🔲 Checkpoint shimmer — partikeleffekt vid checkpoint-passage
+- ✅ Grapple beam — synlig våglinje från kamera till grapple point (wave displacement, fade in/out)
+- ✅ Checkpoint shimmer — 32-partikel guldskimmer-burst vid checkpoint-passage
 - 🔲 Water/lava surfaces — animated shader-ytor för kill zones / dekorativa element
 
 ### 15c — UI & HUD Polish
-- 🔲 Animated transitions — slide/fade vid screen-byte (meny → spel → resultat)
-- 🔲 Damage indicator — riktningsbaserad röd arc på skärmen vid skada
-- 🔲 Kill feed — visa senaste events (checkpoint, kill, death) i övre högra hörnet
+- ✅ Animated transitions — ScreenTransition fade vid screen-byte
+- ✅ Damage indicator — röd vignette-flash vid skada (intensitet proportionell mot dmg)
+- ✅ Kill feed — EventFeed visar checkpoint/run/damage events i övre högra hörnet (auto-fade efter 3s)
 - 🔲 Minimap — valfri minimap för stora/komplexa banor
-- 🔲 Crosshair customization — fullständig anpassning (stil, färg, size, opacity) kopplad till settings
+- ✅ Crosshair customization — settings-driven (stil, färg, size) med weapon-default fallback
 
 ---
 

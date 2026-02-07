@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
+import { useThree } from '@react-three/fiber';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
+import { Color } from 'three';
 import { StartZone } from './zones/StartZone';
 import { Checkpoint } from './zones/Checkpoint';
 import { FinishZone } from './zones/FinishZone';
@@ -10,6 +12,8 @@ import { SpeedGate } from './zones/SpeedGate';
 import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
 import { AtmosphericFog } from './AtmosphericFog';
+import { ProceduralSkybox } from './ProceduralSkybox';
+import { EmissivePointLight } from './DynamicPointLights';
 import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { devLog } from '../../stores/devLogStore';
@@ -42,13 +46,18 @@ const SECTOR_MARKERS: Array<{
   { position: [0, 0, 40], color: '#2980b9', label: '+Z' },
 ];
 
+const BACKGROUND_COLOR = '#1a1a2e';
+
 export function TestMap() {
+  const scene = useThree((s) => s.scene);
+
   useEffect(() => {
     devLog.info('Map', 'Loading GridMap...');
+    scene.background = new Color(BACKGROUND_COLOR);
     useGameStore.getState().initRun(TOTAL_CHECKPOINTS, SPAWN_POINT, SPAWN_YAW);
     useCombatStore.getState().resetCombat(5, 3);
     devLog.success('Map', `GridMap loaded (${TOTAL_CHECKPOINTS} checkpoints)`);
-  }, []);
+  }, [scene]);
 
   return (
     <group>
@@ -68,22 +77,18 @@ export function TestMap() {
       />
 
       {/* ── Axis lines on ground (colored strips) ── */}
-      {/* +X axis (red) */}
       <mesh position={[50, 0.03, 0]} receiveShadow>
         <boxGeometry args={[100, 0.02, 0.3]} />
         <meshStandardMaterial color="#e74c3c" emissive="#e74c3c" emissiveIntensity={0.5} />
       </mesh>
-      {/* -X axis (dark red) */}
       <mesh position={[-50, 0.03, 0]} receiveShadow>
         <boxGeometry args={[100, 0.02, 0.3]} />
         <meshStandardMaterial color="#922b21" emissive="#922b21" emissiveIntensity={0.3} />
       </mesh>
-      {/* +Z axis (blue) */}
       <mesh position={[0, 0.03, 50]} receiveShadow>
         <boxGeometry args={[0.3, 0.02, 100]} />
         <meshStandardMaterial color="#3498db" emissive="#3498db" emissiveIntensity={0.5} />
       </mesh>
-      {/* -Z axis (dark blue) */}
       <mesh position={[0, 0.03, -50]} receiveShadow>
         <boxGeometry args={[0.3, 0.02, 100]} />
         <meshStandardMaterial color="#1a5276" emissive="#1a5276" emissiveIntensity={0.3} />
@@ -97,36 +102,18 @@ export function TestMap() {
               args={[0.5, 5, 0.5]}
               position={[marker.position[0], 5, marker.position[2]]}
             />
-            <mesh
-              position={[marker.position[0], 5, marker.position[2]]}
-              castShadow
-              receiveShadow
-            >
+            <mesh position={[marker.position[0], 5, marker.position[2]]} castShadow receiveShadow>
               <boxGeometry args={[1, 10, 1]} />
-              <meshStandardMaterial
-                color={marker.color}
-                emissive={marker.color}
-                emissiveIntensity={0.3}
-              />
+              <meshStandardMaterial color={marker.color} emissive={marker.color} emissiveIntensity={0.3} />
             </mesh>
           </RigidBody>
-          {/* Glowing top cap */}
           <mesh position={[marker.position[0], 10.3, marker.position[2]]}>
             <boxGeometry args={[1.6, 0.3, 1.6]} />
-            <meshStandardMaterial
-              color={marker.color}
-              emissive={marker.color}
-              emissiveIntensity={0.8}
-            />
+            <meshStandardMaterial color={marker.color} emissive={marker.color} emissiveIntensity={0.8} />
           </mesh>
-          {/* Ground glow */}
           <mesh position={[marker.position[0], 0.04, marker.position[2]]}>
             <boxGeometry args={[3, 0.02, 3]} />
-            <meshStandardMaterial
-              color={marker.color}
-              emissive={marker.color}
-              emissiveIntensity={0.5}
-            />
+            <meshStandardMaterial color={marker.color} emissive={marker.color} emissiveIntensity={0.5} />
           </mesh>
         </group>
       ))}
@@ -143,36 +130,22 @@ export function TestMap() {
               <CuboidCollider args={[0.6, 6, 0.6]} position={[x, 6, z]} />
               <mesh position={[x, 6, z]} castShadow receiveShadow>
                 <boxGeometry args={[1.2, 12, 1.2]} />
-                <meshStandardMaterial
-                  color={color}
-                  emissive={color}
-                  emissiveIntensity={0.3}
-                />
+                <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} />
               </mesh>
             </RigidBody>
-            {/* Beacon sphere on top */}
             <mesh position={[x, 12.5, z]}>
               <sphereGeometry args={[0.6, 8, 8]} />
-              <meshStandardMaterial
-                color={color}
-                emissive={color}
-                emissiveIntensity={1.0}
-              />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.0} />
             </mesh>
-            {/* Ground glow at base */}
             <mesh position={[x, 0.04, z]}>
               <boxGeometry args={[2.5, 0.02, 2.5]} />
-              <meshStandardMaterial
-                color={color}
-                emissive={color}
-                emissiveIntensity={0.5}
-              />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} />
             </mesh>
           </group>
         );
       })}
 
-      {/* ── Distance marker walls (at 20u intervals along +X) ── */}
+      {/* ── Distance marker walls ── */}
       {[20, 40, 60, 80].map((dist) => (
         <RigidBody key={`dist-${dist}`} type="fixed" colliders={false}>
           <CuboidCollider args={[0.15, 1, 3]} position={[dist, 1, 0]} />
@@ -189,7 +162,7 @@ export function TestMap() {
         </RigidBody>
       ))}
 
-      {/* ── Elevated platforms (stairs to show vertical movement) ── */}
+      {/* ── Elevated platforms ── */}
       {[0, 1, 2, 3, 4].map((step) => (
         <Platform
           key={`step-${step}`}
@@ -199,20 +172,16 @@ export function TestMap() {
         />
       ))}
 
-      {/* ── Ramp for speed testing ── */}
+      {/* ── Ramp ── */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider
-          args={[3, 0.15, 10]}
-          position={[20, 2.5, -20]}
-          rotation={[-0.2, 0, 0]}
-        />
+        <CuboidCollider args={[3, 0.15, 10]} position={[20, 2.5, -20]} rotation={[-0.2, 0, 0]} />
         <mesh position={[20, 2.5, -20]} rotation={[-0.2, 0, 0]} castShadow receiveShadow>
           <boxGeometry args={[6, 0.3, 20]} />
           <meshStandardMaterial color="#5a7a4a" emissive="#5a7a4a" emissiveIntensity={0.15} />
         </mesh>
       </RigidBody>
 
-      {/* ── Walls for collision reference ── */}
+      {/* ── Walls ── */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[0.25, 3, 8]} position={[-8, 3, 20]} />
         <mesh position={[-8, 3, 20]} castShadow receiveShadow>
@@ -228,7 +197,7 @@ export function TestMap() {
         </mesh>
       </RigidBody>
 
-      {/* ── Corridor (strafe practice) ── */}
+      {/* ── Corridor ── */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[0.25, 2.5, 20]} position={[48, 2.5, 0]} />
         <mesh position={[48, 2.5, 0]} castShadow>
@@ -244,8 +213,7 @@ export function TestMap() {
         </mesh>
       </RigidBody>
 
-      {/* ── Welcome arch in front of spawn (visible immediately) ── */}
-      {/* Left pillar */}
+      {/* ── Welcome arch ── */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[0.5, 5, 0.5]} position={[-4, 5, -6]} />
         <mesh position={[-4, 5, -6]} castShadow receiveShadow>
@@ -253,7 +221,6 @@ export function TestMap() {
           <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.4} />
         </mesh>
       </RigidBody>
-      {/* Right pillar */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[0.5, 5, 0.5]} position={[4, 5, -6]} />
         <mesh position={[4, 5, -6]} castShadow receiveShadow>
@@ -261,12 +228,10 @@ export function TestMap() {
           <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.4} />
         </mesh>
       </RigidBody>
-      {/* Top beam */}
       <mesh position={[0, 10.5, -6]}>
         <boxGeometry args={[9, 1, 1]} />
         <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.6} />
       </mesh>
-      {/* Floor glow strip under arch */}
       <mesh position={[0, 0.04, -6]}>
         <boxGeometry args={[8, 0.02, 2]} />
         <meshStandardMaterial color="#00ffcc" emissive="#00ffcc" emissiveIntensity={0.8} />
@@ -295,19 +260,30 @@ export function TestMap() {
         position={[60, 100, 40]}
         intensity={1.4}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-far={250}
-        shadow-camera-left={-80}
-        shadow-camera-right={80}
-        shadow-camera-top={80}
-        shadow-camera-bottom={-80}
+        shadow-mapSize-width={4096}
+        shadow-mapSize-height={4096}
+        shadow-camera-far={300}
+        shadow-camera-left={-120}
+        shadow-camera-right={120}
+        shadow-camera-top={120}
+        shadow-camera-bottom={-120}
+        shadow-bias={-0.0005}
+        shadow-normalBias={0.02}
       />
       <hemisphereLight args={['#87ceeb', '#3a3a3a', 0.4]} />
 
+      {/* ── Dynamic point lights ── */}
+      <EmissivePointLight position={[50.5, 1, -15]} color="#00ff88" intensity={3} distance={20} />
+      <EmissivePointLight position={[10, 1, 15]} color="#ff6600" intensity={3} distance={20} />
+      <EmissivePointLight position={[20, 4, -10]} color="#00ccff" intensity={2} distance={15} />
+      <EmissivePointLight position={[5, 1.5, -8]} color="#ef4444" intensity={2} distance={12} />
+      <EmissivePointLight position={[30, 1.5, 5]} color="#22c55e" intensity={2} distance={12} />
+      <EmissivePointLight position={[-15, 15, -15]} color="#a78bfa" intensity={3} distance={25} />
+      <EmissivePointLight position={[40, 13, -10]} color="#a78bfa" intensity={3} distance={25} />
+
       {/* ── Environment ── */}
-      <color attach="background" args={['#1a1a2e']} />
-      <AtmosphericFog color="#1a1a2e" near={100} far={300} />
+      <ProceduralSkybox type="night" />
+      <AtmosphericFog color={BACKGROUND_COLOR} near={100} far={300} />
     </group>
   );
 }
