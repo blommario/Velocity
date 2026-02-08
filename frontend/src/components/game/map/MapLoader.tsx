@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
@@ -14,7 +14,7 @@ import { GrapplePoint } from '../zones/GrapplePoint';
 import { AtmosphericFog } from '../AtmosphericFog';
 import { ProceduralSkybox } from '../ProceduralSkybox';
 import { HdriSkybox } from '../HdriSkybox';
-import { EmissivePointLight } from '../DynamicPointLights';
+import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
 import { InstancedBlocks } from './InstancedBlocks';
 import { ModelBlock } from './ModelBlock';
 import { useGameStore } from '../../../stores/gameStore';
@@ -69,6 +69,33 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
   const lighting = { ...DEFAULT_LIGHTING, ...data.lighting };
   const bgColor = data.backgroundColor ?? '#1a1a2e';
+
+  // Collect all light sprite positions into a single array for GpuLightSprites (1 draw call)
+  const lightSprites = useMemo(() => {
+    const sprites: LightSpriteData[] = [];
+    for (const bp of data.boostPads ?? []) {
+      sprites.push({
+        position: [bp.position[0], bp.position[1] + 1, bp.position[2]],
+        color: bp.color ?? '#00ff88',
+        size: 3.0,
+      });
+    }
+    for (const sg of data.speedGates ?? []) {
+      sprites.push({
+        position: sg.position,
+        color: sg.color ?? '#00ccff',
+        size: 2.0,
+      });
+    }
+    for (const gp of data.grapplePoints ?? []) {
+      sprites.push({
+        position: [gp.position[0], gp.position[1] + 1, gp.position[2]],
+        color: '#a78bfa',
+        size: 3.0,
+      });
+    }
+    return sprites;
+  }, [data.boostPads, data.speedGates, data.grapplePoints]);
 
   return (
     <group>
@@ -196,34 +223,8 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         args={[lighting.hemisphereSky, lighting.hemisphereGround, lighting.hemisphereIntensity]}
       />
 
-      {/* Dynamic point lights at boost pads and speed gates */}
-      {data.boostPads?.map((bp, i) => (
-        <EmissivePointLight
-          key={`bpl-${i}`}
-          position={[bp.position[0], bp.position[1] + 1, bp.position[2]]}
-          color={bp.color ?? '#00ff88'}
-          intensity={3}
-          distance={20}
-        />
-      ))}
-      {data.speedGates?.map((sg, i) => (
-        <EmissivePointLight
-          key={`sgl-${i}`}
-          position={sg.position}
-          color={sg.color ?? '#00ccff'}
-          intensity={2}
-          distance={15}
-        />
-      ))}
-      {data.grapplePoints?.map((gp, i) => (
-        <EmissivePointLight
-          key={`gpl-${i}`}
-          position={[gp.position[0], gp.position[1] + 1, gp.position[2]]}
-          color="#a78bfa"
-          intensity={3}
-          distance={25}
-        />
-      ))}
+      {/* Light sprites — single instanced draw call replaces N PointLights */}
+      {lightSprites.length > 0 && <GpuLightSprites lights={lightSprites} />}
 
       {/* Environment — HDRI or procedural skybox */}
       {data.skybox?.startsWith('hdri:') ? (

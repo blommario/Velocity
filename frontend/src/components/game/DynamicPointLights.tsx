@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use GpuLightSprites from engine/effects instead.
+ * This file creates individual PointLights (N draw calls).
+ * GpuLightSprites renders all lights in 1 draw call via instanced sprites.
+ */
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { PointLight } from 'three';

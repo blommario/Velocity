@@ -13,7 +13,7 @@ import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
 import { AtmosphericFog } from './AtmosphericFog';
 import { ProceduralSkybox } from './ProceduralSkybox';
-import { EmissivePointLight } from './DynamicPointLights';
+import { GpuLightSprites } from '../../engine/effects/GpuLightSprites';
 import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { devLog } from '../../engine/stores/devLogStore';
@@ -272,14 +272,16 @@ export function TestMap() {
       />
       <hemisphereLight args={['#87ceeb', '#3a3a3a', 0.4]} />
 
-      {/* ── Dynamic point lights ── */}
-      <EmissivePointLight position={[50.5, 1, -15]} color="#00ff88" intensity={3} distance={20} />
-      <EmissivePointLight position={[10, 1, 15]} color="#ff6600" intensity={3} distance={20} />
-      <EmissivePointLight position={[20, 4, -10]} color="#00ccff" intensity={2} distance={15} />
-      <EmissivePointLight position={[5, 1.5, -8]} color="#ef4444" intensity={2} distance={12} />
-      <EmissivePointLight position={[30, 1.5, 5]} color="#22c55e" intensity={2} distance={12} />
-      <EmissivePointLight position={[-15, 15, -15]} color="#a78bfa" intensity={3} distance={25} />
-      <EmissivePointLight position={[40, 13, -10]} color="#a78bfa" intensity={3} distance={25} />
+      {/* ── Light sprites (1 draw call) ── */}
+      <GpuLightSprites lights={[
+        { position: [50.5, 1, -15], color: '#00ff88', size: 3.0 },
+        { position: [10, 1, 15], color: '#ff6600', size: 3.0 },
+        { position: [20, 4, -10], color: '#00ccff', size: 2.0 },
+        { position: [5, 1.5, -8], color: '#ef4444', size: 2.0 },
+        { position: [30, 1.5, 5], color: '#22c55e', size: 2.0 },
+        { position: [-15, 15, -15], color: '#a78bfa', size: 3.0 },
+        { position: [40, 13, -10], color: '#a78bfa', size: 3.0 },
+      ]} />
 
       {/* ── Environment ── */}
       <ProceduralSkybox type="night" />

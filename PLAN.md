@@ -74,12 +74,12 @@
 - ✅ `services/assetManager.ts` — `clearAssetCache()` anropar dispose på cachade modeller
 - ✅ `components/game/map/MapLoader.tsx` — Trigga cache cleanup vid kartbyte
 
-### G3 — DynamicPointLights → TSL Sprites
+### G3 — DynamicPointLights → TSL Sprites ✅
 *Ersätt individuella `<pointLight>` (11+ shadow passes) med en enda instansad GpuLightSprites (1 draw call). Följer GpuProjectiles-mönstret.*
 
-- 🔲 `engine/effects/GpuLightSprites.tsx` — `instancedDynamicBufferAttribute` + `SpriteNodeMaterial` × 6.0 + bloom
-- 🔲 `components/game/map/MapLoader.tsx` — Ersätt `<EmissivePointLight>` med `<GpuLightSprites>`
-- 🔲 Deprecera `components/game/DynamicPointLights.tsx`
+- ✅ `engine/effects/GpuLightSprites.tsx` — `instancedDynamicBufferAttribute` + `SpriteNodeMaterial` × 6.0 + bloom
+- ✅ `components/game/map/MapLoader.tsx` — Ersätt `<EmissivePointLight>` med `<GpuLightSprites>`
+- ✅ Deprecera `components/game/DynamicPointLights.tsx`
 
 ### G4 — Spatial Partitioning (Grid Cells)
 *Dela upp kartan i 2D-celler (XZ-plan). Foundation för LOD, fog-of-war, stora världar.*
