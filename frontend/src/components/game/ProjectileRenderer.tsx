@@ -1,5 +1,6 @@
-import { useRef } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { SphereGeometry, MeshBasicMaterial, AdditiveBlending } from 'three';
 import { useCombatStore } from '../../stores/combatStore';
 
 const ROCKET_COLOR = '#ff4400';
@@ -7,7 +8,7 @@ const ROCKET_GLOW = '#ff8800';
 const GRENADE_COLOR = '#44ff00';
 
 const TRAIL_LENGTH = 5;
-const TRAIL_INTERVAL = 0.02; // seconds between trail samples
+const TRAIL_INTERVAL = 0.02;
 
 interface TrailPoint {
   x: number;
@@ -21,9 +22,73 @@ interface TrailData {
   lastSampleTime: number;
 }
 
+/** Shared geometries and materials — created once, reused for all projectiles */
+function useSharedAssets() {
+  const assets = useMemo(() => {
+    const rocketCoreGeo = new SphereGeometry(0.35, 10, 10);
+    const rocketGlowGeo = new SphereGeometry(0.6, 6, 6);
+    const trailGeo = new SphereGeometry(0.25, 5, 5);
+    const grenadeGeo = new SphereGeometry(0.18, 6, 6);
+
+    const rocketCoreMat = new MeshBasicMaterial({
+      color: ROCKET_COLOR,
+      toneMapped: false,
+    });
+    // Boost brightness by setting color to a brighter value (emissive simulation)
+    rocketCoreMat.color.multiplyScalar(8);
+
+    const rocketGlowMat = new MeshBasicMaterial({
+      color: ROCKET_GLOW,
+      transparent: true,
+      opacity: 0.3,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    rocketGlowMat.color.multiplyScalar(3);
+
+    const trailMat = new MeshBasicMaterial({
+      color: ROCKET_GLOW,
+      transparent: true,
+      opacity: 0.5,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    trailMat.color.multiplyScalar(3);
+
+    const grenadeCoreMat = new MeshBasicMaterial({
+      color: GRENADE_COLOR,
+      toneMapped: false,
+    });
+    grenadeCoreMat.color.multiplyScalar(4);
+
+    return {
+      rocketCoreGeo, rocketGlowGeo, trailGeo, grenadeGeo,
+      rocketCoreMat, rocketGlowMat, trailMat, grenadeCoreMat,
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      assets.rocketCoreGeo.dispose();
+      assets.rocketGlowGeo.dispose();
+      assets.trailGeo.dispose();
+      assets.grenadeGeo.dispose();
+      assets.rocketCoreMat.dispose();
+      assets.rocketGlowMat.dispose();
+      assets.trailMat.dispose();
+      assets.grenadeCoreMat.dispose();
+    };
+  }, [assets]);
+
+  return assets;
+}
+
 export function ProjectileRenderer() {
   const projectiles = useCombatStore((s) => s.projectiles);
-  const trailsRef = useRef<Map<string, TrailData>>(new Map());
+  const trailsRef = useRef<Map<number, TrailData>>(new Map());
+  const assets = useSharedAssets();
 
   useFrame((_, delta) => {
     const trails = trailsRef.current;
@@ -34,7 +99,7 @@ export function ProjectileRenderer() {
       if (!activeIds.has(id)) trails.delete(id);
     }
 
-    // Update trails for active projectiles
+    // Update trails for active rockets
     for (const p of projectiles) {
       if (p.type !== 'rocket') continue;
       let trail = trails.get(p.id);
@@ -48,7 +113,6 @@ export function ProjectileRenderer() {
         trail.points.push({ x: p.position[0], y: p.position[1], z: p.position[2], age: 0 });
         if (trail.points.length > TRAIL_LENGTH) trail.points.shift();
       }
-      // Age all points
       for (const pt of trail.points) pt.age += delta;
     }
   });
@@ -60,27 +124,11 @@ export function ProjectileRenderer() {
           const trail = trailsRef.current.get(p.id);
           return (
             <group key={p.id}>
-              {/* Rocket core — bright glowing sphere */}
-              <mesh position={p.position}>
-                <sphereGeometry args={[0.35, 12, 12]} />
-                <meshStandardMaterial
-                  color={ROCKET_COLOR}
-                  emissive={ROCKET_COLOR}
-                  emissiveIntensity={8}
-                />
-              </mesh>
+              {/* Rocket core */}
+              <mesh position={p.position} geometry={assets.rocketCoreGeo} material={assets.rocketCoreMat} />
               {/* Outer glow halo */}
-              <mesh position={p.position}>
-                <sphereGeometry args={[0.6, 8, 8]} />
-                <meshStandardMaterial
-                  color={ROCKET_GLOW}
-                  emissive={ROCKET_GLOW}
-                  emissiveIntensity={3}
-                  transparent
-                  opacity={0.3}
-                />
-              </mesh>
-              {/* Point light on rocket */}
+              <mesh position={p.position} geometry={assets.rocketGlowGeo} material={assets.rocketGlowMat} />
+              {/* Single point light per rocket */}
               <pointLight
                 position={p.position}
                 color={ROCKET_COLOR}
@@ -88,39 +136,28 @@ export function ProjectileRenderer() {
                 distance={12}
                 decay={2}
               />
-              {/* Trail particles */}
+              {/* Trail particles — shared geometry & material */}
               {trail?.points.map((pt, i) => {
                 const t = i / Math.max(trail.points.length - 1, 1);
-                const size = 0.25 * (1 - t * 0.6);
-                const opacity = 0.6 * (1 - t * 0.8);
+                const scale = 1 - t * 0.6;
                 return (
-                  <mesh key={i} position={[pt.x, pt.y, pt.z]}>
-                    <sphereGeometry args={[size, 6, 6]} />
-                    <meshStandardMaterial
-                      color={ROCKET_GLOW}
-                      emissive={ROCKET_GLOW}
-                      emissiveIntensity={4 * (1 - t)}
-                      transparent
-                      opacity={opacity}
-                    />
-                  </mesh>
+                  <mesh
+                    key={i}
+                    position={[pt.x, pt.y, pt.z]}
+                    scale={scale}
+                    geometry={assets.trailGeo}
+                    material={assets.trailMat}
+                  />
                 );
               })}
             </group>
           );
         }
 
-        // Grenades — slightly upgraded
+        // Grenades
         return (
           <group key={p.id}>
-            <mesh position={p.position}>
-              <sphereGeometry args={[0.18, 8, 8]} />
-              <meshStandardMaterial
-                color={GRENADE_COLOR}
-                emissive={GRENADE_COLOR}
-                emissiveIntensity={4}
-              />
-            </mesh>
+            <mesh position={p.position} geometry={assets.grenadeGeo} material={assets.grenadeCoreMat} />
             <pointLight
               position={p.position}
               color={GRENADE_COLOR}

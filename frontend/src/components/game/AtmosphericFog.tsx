@@ -4,9 +4,9 @@ import { fog, rangeFogFactor, color as tslColor, positionWorld, float } from 'th
 import { devLog } from '../../stores/devLogStore';
 
 const FOG_DEFAULTS = {
-  HEIGHT_FADE_START: 0,
-  HEIGHT_FADE_END: 40,
-  HEIGHT_DENSITY_REDUCTION: 0.3,
+  HEIGHT_FADE_START: -10,
+  HEIGHT_FADE_END: 60,
+  HEIGHT_DENSITY_REDUCTION: 0.6,
 } as const;
 
 interface AtmosphericFogProps {

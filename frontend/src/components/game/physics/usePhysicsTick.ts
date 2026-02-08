@@ -41,6 +41,9 @@ const _newPos = new Vector3();
 const _playerPos = new Vector3();
 const _fireDir = new Vector3();
 
+// Reusable Ray to avoid per-tick allocations (Rapier Ray origin/dir are mutable)
+const _reusableRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+
 let lastHudUpdate = 0;
 let lastDevLogUpdate = 0;
 const DEV_LOG_INTERVAL = 2000; // log physics state every 2s
@@ -295,11 +298,9 @@ export function physicsTick(
 
     // If no grapple point found, raycast to nearest surface
     if (!bestPoint) {
-      const grappleRay = new Ray(
-        { x: _playerPos.x, y: _playerPos.y, z: _playerPos.z },
-        { x: _fireDir.x, y: _fireDir.y, z: _fireDir.z },
-      );
-      const grappleHit = rapierWorld.castRay(grappleRay, PHYSICS.GRAPPLE_MAX_DISTANCE, true, undefined, undefined, undefined, rb);
+      _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y; _reusableRay.origin.z = _playerPos.z;
+      _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
+      const grappleHit = rapierWorld.castRay(_reusableRay, PHYSICS.GRAPPLE_MAX_DISTANCE, true, undefined, undefined, undefined, rb);
       if (grappleHit) {
         bestPoint = [
           _playerPos.x + _fireDir.x * grappleHit.timeOfImpact,
@@ -390,11 +391,9 @@ export function physicsTick(
       case 'sniper': {
         if (combat.fireHitscan('sniper')) {
           // Hitscan raycast
-          const sniperRay = new Ray(
-            { x: _playerPos.x, y: _playerPos.y + eyeOff, z: _playerPos.z },
-            { x: _fireDir.x, y: _fireDir.y, z: _fireDir.z },
-          );
-          rapierWorld.castRay(sniperRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
+          _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+          _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
+          rapierWorld.castRay(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
           // Self-knockback backward
           velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
           velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
@@ -413,11 +412,9 @@ export function physicsTick(
           const aimY = _fireDir.y + spreadY;
           const aimZ = _fireDir.z;
           const aimLen = Math.sqrt(aimX * aimX + aimY * aimY + aimZ * aimZ);
-          const assaultRay = new Ray(
-            { x: _playerPos.x, y: _playerPos.y + eyeOff, z: _playerPos.z },
-            { x: aimX / aimLen, y: aimY / aimLen, z: aimZ / aimLen },
-          );
-          rapierWorld.castRay(assaultRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
+          _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+          _reusableRay.dir.x = aimX / aimLen; _reusableRay.dir.y = aimY / aimLen; _reusableRay.dir.z = aimZ / aimLen;
+          rapierWorld.castRay(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
           // Small knockback
           velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * dt;
           velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * dt;
@@ -435,11 +432,9 @@ export function physicsTick(
             const py = _fireDir.y + sy;
             const pz = _fireDir.z;
             const pl = Math.sqrt(px * px + py * py + pz * pz);
-            const shotRay = new Ray(
-              { x: _playerPos.x, y: _playerPos.y + eyeOff, z: _playerPos.z },
-              { x: px / pl, y: py / pl, z: pz / pl },
-            );
-            rapierWorld.castRay(shotRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
+            _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+            _reusableRay.dir.x = px / pl; _reusableRay.dir.y = py / pl; _reusableRay.dir.z = pz / pl;
+            rapierWorld.castRay(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
           }
           // Strong self-knockback (shotgun jump!)
           velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
@@ -489,12 +484,10 @@ export function physicsTick(
       const dirZ = p.velocity[2] / speed;
       const travelDist = speed * dt;
 
-      const ray = new Ray(
-        { x: p.position[0], y: p.position[1], z: p.position[2] },
-        { x: dirX, y: dirY, z: dirZ },
-      );
+      _reusableRay.origin.x = p.position[0]; _reusableRay.origin.y = p.position[1]; _reusableRay.origin.z = p.position[2];
+      _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
-      const hit = rapierWorld.castRay(ray, travelDist + 0.5, true, undefined, undefined, undefined, rb);
+      const hit = rapierWorld.castRay(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         const hitPos: [number, number, number] = [
@@ -543,12 +536,10 @@ export function physicsTick(
       const dirZ = p.velocity[2] / speed;
       const travelDist = speed * dt;
 
-      const ray = new Ray(
-        { x: p.position[0], y: p.position[1], z: p.position[2] },
-        { x: dirX, y: dirY, z: dirZ },
-      );
+      _reusableRay.origin.x = p.position[0]; _reusableRay.origin.y = p.position[1]; _reusableRay.origin.z = p.position[2];
+      _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
-      const hit = rapierWorld.castRayAndGetNormal(ray, travelDist + 0.5, true, undefined, undefined, undefined, rb);
+      const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         if (p.bounces >= 1) {
