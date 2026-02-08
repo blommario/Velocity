@@ -18,6 +18,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '../../engine/stores/devLogStore';
+import { setMaxAnisotropy } from '../../services/assetManager';
 
 const FOV_SCALING = {
   BASE: 90,
@@ -66,7 +67,9 @@ export function GameCanvas() {
             antialias: true,
           });
           await renderer.init();
-          devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name})`);
+          const aniso = renderer.getMaxAnisotropy();
+          setMaxAnisotropy(aniso);
+          devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name}, anisotropy=${aniso})`);
           return renderer;
         }}
         camera={{ fov, near: 0.1, far: 1000 }}

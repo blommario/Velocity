@@ -39,6 +39,15 @@ const MODEL_PATH = `${ASSET_BASE}/models`;
 const TEXTURE_PATH = `${ASSET_BASE}/textures`;
 const HDRI_PATH = `${ASSET_BASE}/hdri`;
 
+// ── Anisotropic filtering ──
+// Set once from renderer capabilities, applied to all loaded textures.
+let maxAnisotropy = 1;
+
+/** Call once with renderer.getMaxAnisotropy() to enable anisotropic filtering on all future textures. */
+export function setMaxAnisotropy(value: number): void {
+  maxAnisotropy = value;
+}
+
 // ── Caches ──
 
 const modelCache = new Map<string, Group>();
@@ -166,6 +175,7 @@ export function loadTexture(
         texture.colorSpace = colorSpace === 'srgb' ? SRGBColorSpace : LinearSRGBColorSpace;
         texture.wrapS = RepeatWrapping;
         texture.wrapT = RepeatWrapping;
+        texture.anisotropy = maxAnisotropy;
         textureCache.set(cacheKey, texture);
         loadingTextures.delete(cacheKey);
         resolve(texture);
