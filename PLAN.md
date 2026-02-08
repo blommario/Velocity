@@ -158,13 +158,13 @@
 - 🔲 `engine/core/PostProcessingEffects.tsx` — Fog-of-war som post-processing pass (valfritt)
 - 🔲 Enkel version: avståndskontroll. Avancerad: ray march mot heightmap för line-of-sight
 
-### I3 — Physical Dice
+### I3 — Physical Dice ✅
 *Rapier dynamic bodies som tärningar (d4–d20). Procedurella polyeder-geometrier. Resultatavläsning via face-normal vs world-up vid settling.*
 
 **Förutsättning:** G1
 
-- 🔲 `engine/effects/PhysicsDice.ts` — Tärningsfysik, impulse, settling-detection, resultatavläsning
-- 🔲 `engine/effects/diceGeometry.ts` — Procedurella polyeder-generatorer (d4, d6, d8, d10, d12, d20)
+- ✅ `engine/effects/diceGeometry.ts` — Procedurella polyeder-generatorer (d4, d6, d8, d10, d12, d20) med face-normal/value mappings + cache
+- ✅ `engine/effects/PhysicsDice.tsx` — React-komponent med Rapier dynamic bodies, manuell gravitation, settling-detection, resultatavläsning via face-normal vs world-up
 
 ---
 
