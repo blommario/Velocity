@@ -1,8 +1,9 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
-import { Object3D, InstancedMesh, Euler, Color } from 'three';
+import { Object3D, InstancedMesh, Euler } from 'three';
 import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
-import type { MapBlock, Vec3 } from './types';
+import { batchStaticColliders } from '../../../engine/physics/colliderBatch';
+import type { MapBlock } from './types';
 
 interface BlockGroup {
   key: string;
@@ -167,6 +168,7 @@ interface InstancedBlocksProps {
 
 export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
   const groups = useMemo(() => groupBlocks(blocks), [blocks]);
+  const colliderGroups = useMemo(() => batchStaticColliders(blocks), [blocks]);
 
   return (
     <group>
@@ -179,29 +181,28 @@ export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
         ),
       )}
 
-      {/* Physics colliders — must remain individual per block */}
-      {blocks.map((block, i) => {
-        const rot = block.rotation ?? [0, 0, 0];
-        const halfSize: Vec3 = [block.size[0] / 2, block.size[1] / 2, block.size[2] / 2];
-
-        return (
-          <RigidBody key={`col-${i}`} type="fixed" colliders={false}>
-            {block.shape === 'cylinder' ? (
+      {/* Physics colliders — batched into compound rigid bodies (1 per shape type) */}
+      {colliderGroups.map((group) => (
+        <RigidBody key={group.shape} type="fixed" colliders={false}>
+          {group.colliders.map((col, i) =>
+            col.shape === 'cylinder' ? (
               <CylinderCollider
-                args={[halfSize[1], halfSize[0]]}
-                position={block.position}
-                rotation={rot}
+                key={i}
+                args={[col.args[0], col.args[1]]}
+                position={col.position}
+                rotation={col.rotation}
               />
             ) : (
               <CuboidCollider
-                args={halfSize}
-                position={block.position}
-                rotation={rot}
+                key={i}
+                args={col.args}
+                position={col.position}
+                rotation={col.rotation}
               />
-            )}
-          </RigidBody>
-        );
-      })}
+            ),
+          )}
+        </RigidBody>
+      ))}
     </group>
   );
 }

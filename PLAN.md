@@ -59,12 +59,12 @@
 
 **Förutsättning:** Fas A (asset pipeline klar)
 
-### G1 — Collider Merging
+### G1 — Collider Merging ✅
 *Slå ihop statiska block-colliders till 1-2 RigidBodies (en per shape-typ) med multipla child-colliders. ~200 Rapier-öar → ~2.*
 
-- 🔲 `engine/physics/colliderBatch.ts` — Ren funktion `batchStaticColliders(blocks)` → `ColliderBatchGroup[]`
-- 🔲 `components/game/map/InstancedBlocks.tsx` — Ersätt per-block `<RigidBody>` med batchade grupper
-- 🔲 Exportera från `engine/physics/index.ts`
+- ✅ `engine/physics/colliderBatch.ts` — Ren funktion `batchStaticColliders(blocks)` → `ColliderBatchGroup[]`
+- ✅ `components/game/map/InstancedBlocks.tsx` — Ersätt per-block `<RigidBody>` med batchade grupper
+- ✅ Exportera från `engine/physics/index.ts`
 
 ### G2 — ModelBlock Dispose & Cache Eviction
 *Full Three.js dispose vid unmount + assetManager cache-rensning vid kartbyte. Förhindrar GPU-minnesläckor.*
