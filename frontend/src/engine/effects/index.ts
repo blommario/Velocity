@@ -13,3 +13,8 @@ export {
   useFogOfWar,
   type UseFogOfWarProps, type FogOfWarResult, type FogOfWarUniforms,
 } from './useFogOfWar';
+export { buildHeightmap, fogConfigToHeightmapConfig, type HeightmapConfig } from './FogOfWarHeightmap';
+export {
+  createFogComputeResources,
+  type FogComputeResources, type FogComputeUniforms, type FogGridConfig,
+} from './fogOfWarCompute';

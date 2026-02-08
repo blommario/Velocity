@@ -166,7 +166,12 @@
 - ✅ `engine/effects/useFogOfWar.ts` — React hook: FogOfWarGrid → DataTexture (R8), ~4Hz uppdatering
 - ✅ `engine/core/PostProcessingEffects.tsx` — FoW TSL post-processing pass med depth-baserad world reconstruction (valfritt via props)
 - ✅ Integration: GameCanvas `ScenePostProcessing` → kameraposition → FoW → PostFX pipeline
-- 🔲 Steg 2 (framtida): Ray march mot heightmap för line-of-sight, compute shader för stora grids
+- ✅ Steg 2: GPU compute ray march mot heightmap för line-of-sight
+  - `FogOfWarHeightmap.ts` — CPU heightmap builder från MapBlock[] (max-Y per cell)
+  - `fogOfWarCompute.ts` — GPU compute shader med 2D DDA ray march, attributeArray heightmap + instancedArray visibility
+  - `useFogOfWar.ts` — dual-path hook: CPU (distance) / GPU (heightmap ray march), auto-select via `heightmapEnabled`
+  - `PostProcessingEffects.tsx` — storage buffer `.toReadOnly()` fragment read path
+  - Maps aktiverar via `fogOfWar: { heightmapEnabled: true }` i MapData
 
 ### I3 — Physical Dice ✅
 *Rapier dynamic bodies som tärningar (d4–d20). Procedurella polyeder-geometrier. Resultatavläsning via face-normal vs world-up vid settling.*

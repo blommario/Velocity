@@ -23,6 +23,8 @@ export interface FogOfWarConfig {
   originX: number;
   /** World Z of grid origin (bottom-left corner). Default -256. */
   originZ: number;
+  /** Enable GPU ray march against heightmap for line-of-sight occlusion. Default false. */
+  heightmapEnabled?: boolean;
 }
 
 export const FOG_DEFAULTS: Readonly<FogOfWarConfig> = {

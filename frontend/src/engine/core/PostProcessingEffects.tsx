@@ -5,13 +5,14 @@ import {
 } from 'three/webgpu';
 import type { DataTexture } from 'three/webgpu';
 import {
-  pass, renderOutput, viewportUV, screenUV, clamp, texture, float, vec2, vec4,
+  pass, renderOutput, viewportUV, screenUV, clamp, texture, float, uint, vec2, vec4,
   cameraNear, cameraFar, cameraProjectionMatrixInverse, cameraWorldMatrix,
-  perspectiveDepthToViewZ, getViewPosition,
+  perspectiveDepthToViewZ, getViewPosition, uniform, floor, min,
 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { devLog, frameTiming } from '../stores/devLogStore';
 import type { FogOfWarUniforms } from '../effects/useFogOfWar';
+import type { FogComputeResources } from '../effects/fogOfWarCompute';
 
 const POST_PROCESSING = {
   BLOOM_THRESHOLD: 0.8,
@@ -29,14 +30,17 @@ const FOG_BRIGHTNESS = {
 } as const;
 
 export interface PostProcessingProps {
-  /** R8 DataTexture from useFogOfWar. Omit to disable fog-of-war. */
+  /** R8 DataTexture from useFogOfWar (CPU path). Omit to disable fog-of-war. */
   fogTexture?: DataTexture | null;
-  /** Grid uniforms from useFogOfWar. Required when fogTexture is set. */
+  /** GPU compute resources from useFogOfWar (GPU path). Omit for CPU path. */
+  fogComputeResources?: FogComputeResources | null;
+  /** Grid uniforms from useFogOfWar. Required when any fog path is active. */
   fogUniforms?: FogOfWarUniforms | null;
 }
 
 export function PostProcessingEffects({
   fogTexture,
+  fogComputeResources,
   fogUniforms,
 }: PostProcessingProps = {}) {
   const { gl, scene, camera } = useThree();
@@ -63,9 +67,45 @@ export function PostProcessingEffects({
       1.0,
     ).oneMinus().pow(POST_PROCESSING.VIGNETTE_SOFTNESS);
 
-    // Fog of war (optional) — depth-based world position reconstruction
+    // Fog of war — two paths: GPU storage buffer or CPU DataTexture
     let fogFactor = float(1.0);
-    if (fogTexture && fogUniforms) {
+
+    if (fogComputeResources && fogUniforms) {
+      // ── GPU path: read visibility from storage buffer ──
+      const roVisibility = fogComputeResources.visibilityBuffer.toReadOnly();
+      const gc = fogComputeResources.gridConfig;
+      const fogOriginX = float(gc.originX);
+      const fogOriginZ = float(gc.originZ);
+      const fogCellWS = float(gc.cellWorldSize);
+      const fogGS = uint(gc.gridSize);
+      const fogGSf = float(gc.gridSize);
+
+      // Reconstruct world position from depth buffer per-pixel
+      const depthTex = scenePass.getTextureNode('depth');
+      const viewZ = perspectiveDepthToViewZ(depthTex, cameraNear, cameraFar);
+      const viewPos = getViewPosition(screenUV, viewZ, cameraProjectionMatrixInverse);
+      const worldPos = cameraWorldMatrix.mul(vec4(viewPos, 1.0));
+
+      // World XZ → cell index
+      const cellXf = worldPos.x.sub(fogOriginX).div(fogCellWS);
+      const cellZf = worldPos.z.sub(fogOriginZ).div(fogCellWS);
+      const cellX = floor(cellXf).clamp(float(0.0), fogGSf.sub(float(1.0))).toUint();
+      const cellZ = floor(cellZf).clamp(float(0.0), fogGSf.sub(float(1.0))).toUint();
+      const cellIdx = cellZ.mul(fogGS).add(cellX);
+
+      // Read uint visibility (0/128/255) → normalize to 0..1
+      const visibility = roVisibility.element(cellIdx).toFloat().div(float(255.0));
+
+      // Same two-segment brightness mapping as CPU path
+      const hiddenBright = float(FOG_BRIGHTNESS.HIDDEN);
+      const seenBright = float(FOG_BRIGHTNESS.PREVIOUSLY_SEEN);
+      const lowSeg = visibility.mul(2.0).clamp(0.0, 1.0);
+      const highSeg = visibility.sub(0.5).mul(2.0).clamp(0.0, 1.0);
+      fogFactor = hiddenBright.mix(seenBright, lowSeg).mix(float(1.0), highSeg);
+
+      devLog.success('PostFX', 'Fog of War GPU path enabled (storage buffer read)');
+    } else if (fogTexture && fogUniforms) {
+      // ── CPU path: sample DataTexture ──
       const fogTex = texture(fogTexture);
       const fogOriginX = float(fogUniforms.originX);
       const fogOriginZ = float(fogUniforms.originZ);
@@ -86,14 +126,13 @@ export function PostProcessingEffects({
       const visibility = fogTex.sample(fogUV).r;
 
       // Map visibility → brightness (branchless two-segment lerp)
-      // [0, 0.5] → [HIDDEN, PREVIOUSLY_SEEN], [0.5, 1.0] → [PREVIOUSLY_SEEN, 1.0]
       const hiddenBright = float(FOG_BRIGHTNESS.HIDDEN);
       const seenBright = float(FOG_BRIGHTNESS.PREVIOUSLY_SEEN);
       const lowSeg = visibility.mul(2.0).clamp(0.0, 1.0);
       const highSeg = visibility.sub(0.5).mul(2.0).clamp(0.0, 1.0);
       fogFactor = hiddenBright.mix(seenBright, lowSeg).mix(float(1.0), highSeg);
 
-      devLog.success('PostFX', 'Fog of War pass enabled (depth reconstruction)');
+      devLog.success('PostFX', 'Fog of War CPU path enabled (depth reconstruction)');
     }
 
     // Combine: scene + bloom → fog → vignette → tonemapping + color space
@@ -101,12 +140,13 @@ export function PostProcessingEffects({
     pipeline.outputNode = renderOutput(combined, ACESFilmicToneMapping, SRGBColorSpace);
 
     pipelineRef.current = pipeline;
-    devLog.success('PostFX', `Bloom + Vignette + ACES tonemapping ready${fogTexture ? ' (+ FoW)' : ''}`);
+    const fogLabel = fogComputeResources ? ' (+ FoW GPU)' : fogTexture ? ' (+ FoW CPU)' : '';
+    devLog.success('PostFX', `Bloom + Vignette + ACES tonemapping ready${fogLabel}`);
 
     return () => {
       pipelineRef.current = null;
     };
-  }, [renderer, scene, camera, fogTexture, fogUniforms]);
+  }, [renderer, scene, camera, fogTexture, fogComputeResources, fogUniforms]);
 
   // renderPriority=1 disables R3F auto-rendering; pipeline handles render + post
   useFrame(() => {

@@ -21,6 +21,7 @@ import { PHYSICS } from './physics/constants';
 import { devLog } from '../../engine/stores/devLogStore';
 import { setMaxAnisotropy } from '../../services/assetManager';
 import type { FogOfWarConfig } from '../../engine/effects/FogOfWar';
+import type { MapBlock } from '../../engine/types/map';
 
 const FOV_SCALING = {
   BASE: 90,
@@ -34,7 +35,10 @@ const FOV_SCALING = {
 const _fogViewPos: [number, number, number] = [0, 0, 0];
 
 /** Wraps PostProcessingEffects with optional fog-of-war driven by camera position. */
-function ScenePostProcessing({ fogConfig }: { fogConfig?: Partial<FogOfWarConfig> }) {
+function ScenePostProcessing({ fogConfig, blocks }: {
+  fogConfig?: Partial<FogOfWarConfig>;
+  blocks?: ReadonlyArray<MapBlock>;
+}) {
   const { camera } = useThree();
   const camPosRef = useRef(_fogViewPos);
 
@@ -46,15 +50,17 @@ function ScenePostProcessing({ fogConfig }: { fogConfig?: Partial<FogOfWarConfig
   });
 
   const enabled = fogConfig !== undefined;
-  const { fogTexture, fogUniforms } = useFogOfWar({
+  const { fogTexture, fogComputeResources, fogUniforms } = useFogOfWar({
     enabled,
     config: fogConfig,
     viewPosition: camPosRef.current,
+    blocks,
   });
 
   return (
     <PostProcessingEffects
       fogTexture={fogTexture}
+      fogComputeResources={fogComputeResources}
       fogUniforms={fogUniforms}
     />
   );
@@ -115,7 +121,7 @@ export function GameCanvas() {
           getIntensity={() => useGameStore.getState().shakeIntensity}
           onDecayed={() => useGameStore.getState().clearShake()}
         />
-        <ScenePostProcessing fogConfig={mapData?.fogOfWar} />
+        <ScenePostProcessing fogConfig={mapData?.fogOfWar} blocks={mapData?.blocks} />
         <Physics
           timeStep={PHYSICS.TICK_DELTA}
           gravity={[0, 0, 0]}
