@@ -43,6 +43,7 @@ RESOURCES.md                ← External links/tutorials (in .claudeignore)
 - **Nya features → Plan.md först.** Lägg till i rätt fas med 🔲 innan implementation.
 - **Fasordning respekteras.** Påbörja inte fas innan beroenden är klara (✅).
 - **Markera progress direkt.** 🔲 → ✅ omedelbart vid klart steg.
+- **Håll `.claudeignore` uppdaterad.** När nya filer/mappar skapas som inte behövs i AI-context (assets, genererade filer, stora binärer, ren referensdokumentation), lägg till dem i `.claudeignore` direkt.
 
 ## Rules
 
