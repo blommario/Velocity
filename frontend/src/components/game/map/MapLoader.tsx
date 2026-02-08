@@ -260,10 +260,34 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
 // ── Moving Platform ──
 
+// Pre-allocated vectors for MovingPlatformRenderer — zero GC in hot path
+const _mpFrom = new Vector3();
+const _mpTo = new Vector3();
+const _mpPos = new Vector3();
+
 function MovingPlatformRenderer({ platform }: { platform: MovingPlatformData }) {
   const rbRef = useRef<import('@react-three/rapier').RapierRigidBody>(null);
   const timeRef = useRef(0);
   const color = platform.color ?? '#8888aa';
+
+  // Pre-compute segment lengths once (stable reference — waypoints don't change)
+  const { segments, totalLength } = useMemo(() => {
+    const segs: number[] = [];
+    let total = 0;
+    const wps = platform.waypoints;
+    for (let i = 0; i < wps.length; i++) {
+      const next = wps[(i + 1) % wps.length];
+      const curr = wps[i];
+      const len = Math.sqrt(
+        (next[0] - curr[0]) ** 2 +
+        (next[1] - curr[1]) ** 2 +
+        (next[2] - curr[2]) ** 2,
+      );
+      segs.push(len);
+      total += len;
+    }
+    return { segments: segs, totalLength: total };
+  }, [platform.waypoints]);
 
   useFrame((_, delta) => {
     const rb = rbRef.current;
@@ -271,22 +295,7 @@ function MovingPlatformRenderer({ platform }: { platform: MovingPlatformData }) 
 
     timeRef.current += delta;
 
-    // Calculate total path length for timing
     const waypoints = platform.waypoints;
-    const segments: number[] = [];
-    let totalLength = 0;
-    for (let i = 0; i < waypoints.length; i++) {
-      const next = waypoints[(i + 1) % waypoints.length];
-      const curr = waypoints[i];
-      const len = Math.sqrt(
-        (next[0] - curr[0]) ** 2 +
-        (next[1] - curr[1]) ** 2 +
-        (next[2] - curr[2]) ** 2,
-      );
-      segments.push(len);
-      totalLength += len;
-    }
-
     const pauseTotal = (platform.pauseTime ?? 0) * waypoints.length;
     const moveTime = totalLength / platform.speed;
     const cycleTime = moveTime + pauseTotal;
@@ -302,20 +311,16 @@ function MovingPlatformRenderer({ platform }: { platform: MovingPlatformData }) 
       if (t < elapsed + segmentTotal) {
         const localT = t - elapsed;
         if (localT < segmentPause) {
-          // Pausing at waypoint i
           rb.setNextKinematicTranslation({
             x: waypoints[i][0], y: waypoints[i][1], z: waypoints[i][2],
           });
         } else {
-          // Moving from i to next
-          const moveFrac = (localT - segmentPause) / segmentMoveTime;
+          const moveFrac = Math.min((localT - segmentPause) / segmentMoveTime, 1);
           const next = waypoints[(i + 1) % waypoints.length];
-          const pos = new Vector3().lerpVectors(
-            new Vector3(...waypoints[i]),
-            new Vector3(...next),
-            Math.min(moveFrac, 1),
-          );
-          rb.setNextKinematicTranslation({ x: pos.x, y: pos.y, z: pos.z });
+          _mpFrom.set(waypoints[i][0], waypoints[i][1], waypoints[i][2]);
+          _mpTo.set(next[0], next[1], next[2]);
+          _mpPos.lerpVectors(_mpFrom, _mpTo, moveFrac);
+          rb.setNextKinematicTranslation({ x: _mpPos.x, y: _mpPos.y, z: _mpPos.z });
         }
         break;
       }

@@ -48,6 +48,7 @@ interface ScoredLight {
 }
 
 const _scored: ScoredLight[] = [];
+const _result: number[] = [];
 
 /**
  * Select the N nearest lights to a viewpoint (XZ distance).
@@ -82,25 +83,28 @@ export function selectNearestLights(
   const count = allLights.length;
   const n = Math.min(maxCount, count);
 
-  // Simple selection: for small maxCount (<16), selection sort beats full sort
-  const result: number[] = [];
-  const used = new Set<number>();
-
+  // Selection sort top-N in-place (no Set/Array allocation).
+  // Swap selected elements to front of _scored, then read indices.
   for (let pick = 0; pick < n; pick++) {
-    let bestIdx = -1;
-    let bestDist = Infinity;
-    for (let i = 0; i < count; i++) {
-      if (used.has(i)) continue;
+    let bestIdx = pick;
+    let bestDist = _scored[pick].distSq;
+    for (let i = pick + 1; i < count; i++) {
       if (_scored[i].distSq < bestDist) {
         bestDist = _scored[i].distSq;
         bestIdx = i;
       }
     }
-    if (bestIdx >= 0) {
-      result.push(_scored[bestIdx].index);
-      used.add(bestIdx);
+    if (bestIdx !== pick) {
+      const tmp = _scored[pick];
+      _scored[pick] = _scored[bestIdx];
+      _scored[bestIdx] = tmp;
     }
   }
 
-  return result;
+  // Reuse a pre-allocated result array (capped at typical maxActiveLights)
+  _result.length = n;
+  for (let i = 0; i < n; i++) {
+    _result[i] = _scored[i].index;
+  }
+  return _result;
 }

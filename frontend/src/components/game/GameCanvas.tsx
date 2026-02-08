@@ -105,6 +105,17 @@ export function GameCanvas() {
             antialias: true,
           });
           await renderer.init();
+
+          // Monitor GPU device loss (OOM, driver crash, TDR, etc.)
+          const device = renderer.backend.device as GPUDevice | undefined;
+          if (device?.lost) {
+            device.lost.then((info) => {
+              const msg = `WebGPU device lost: ${info.message} (reason: ${info.reason})`;
+              console.error(msg);
+              devLog.error('Renderer', msg);
+            });
+          }
+
           const aniso = renderer.getMaxAnisotropy();
           setMaxAnisotropy(aniso);
           devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name}, anisotropy=${aniso})`);
