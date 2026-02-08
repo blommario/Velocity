@@ -519,7 +519,7 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
-        useExplosionStore.getState().spawnExplosion(_hitPos, '#ff6600', 4.0);
+        useExplosionStore.getState().spawnExplosion(_hitPos, '#ff6600', 8.0);
         deactivateAt(i);
         devLog.info('Combat', `Rocket exploded at [${_hitPos[0].toFixed(1)}, ${_hitPos[1].toFixed(1)}, ${_hitPos[2].toFixed(1)}] dmg=${damage.toFixed(0)}`);
       }
@@ -536,7 +536,7 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
-        useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 2.0);
+        useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 3.5);
         deactivateAt(i);
         continue;
       }
@@ -567,7 +567,7 @@ export function physicsTick(
             store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
           }
           audioManager.play(SOUNDS.GRENADE_EXPLODE);
-          useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 2.0);
+          useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 3.5);
           deactivateAt(i);
         } else {
           // Reflect velocity off surface normal — mutate in-place, zero GC

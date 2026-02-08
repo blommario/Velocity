@@ -15,10 +15,10 @@ import {
 /** Rocket instanced mesh config */
 const ROCKET_MESH = {
   MAX_INSTANCES: 16,
-  BODY_RADIUS: 0.12,
-  BODY_LENGTH: 0.7,
-  NOSE_RADIUS: 0.12,
-  NOSE_LENGTH: 0.25,
+  BODY_RADIUS: 0.18,
+  BODY_LENGTH: 1.2,
+  NOSE_RADIUS: 0.18,
+  NOSE_LENGTH: 0.45,
   HIDDEN_Y: -9999,
 } as const;
 
