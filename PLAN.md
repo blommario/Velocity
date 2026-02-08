@@ -66,13 +66,13 @@
 - ✅ `components/game/map/InstancedBlocks.tsx` — Ersätt per-block `<RigidBody>` med batchade grupper
 - ✅ Exportera från `engine/physics/index.ts`
 
-### G2 — ModelBlock Dispose & Cache Eviction
+### G2 — ModelBlock Dispose & Cache Eviction ✅
 *Full Three.js dispose vid unmount + assetManager cache-rensning vid kartbyte. Förhindrar GPU-minnesläckor.*
 
-- 🔲 `engine/rendering/dispose.ts` — `disposeSceneGraph(obj)` traverserar och disposar geometrier, material, texturer
-- 🔲 `components/game/map/ModelBlock.tsx` — Anropa `disposeSceneGraph` i useEffect cleanup
-- 🔲 `services/assetManager.ts` — `clearAssetCache()` anropar dispose på cachade modeller
-- 🔲 `components/game/map/MapLoader.tsx` — Trigga cache cleanup vid kartbyte
+- ✅ `engine/rendering/dispose.ts` — `disposeSceneGraph(obj)` traverserar och disposar geometrier, material, texturer
+- ✅ `components/game/map/ModelBlock.tsx` — Anropa `disposeSceneGraph` i useEffect cleanup
+- ✅ `services/assetManager.ts` — `clearAssetCache()` anropar dispose på cachade modeller
+- ✅ `components/game/map/MapLoader.tsx` — Trigga cache cleanup vid kartbyte
 
 ### G3 — DynamicPointLights → TSL Sprites
 *Ersätt individuella `<pointLight>` (11+ shadow passes) med en enda instansad GpuLightSprites (1 draw call). Följer GpuProjectiles-mönstret.*

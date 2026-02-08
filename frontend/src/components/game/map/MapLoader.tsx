@@ -21,6 +21,7 @@ import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
 import { resetPool } from '../physics/projectilePool';
+import { clearAssetCache } from '../../../services/assetManager';
 import type { MapData, MapBlock, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {
@@ -59,6 +60,11 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       data.settings?.maxGrenadeAmmo ?? 3,
     );
     devLog.success('Map', `Map loaded — spawn at [${data.spawnPoint.map(v => v.toFixed(0)).join(', ')}]`);
+
+    return () => {
+      clearAssetCache();
+      devLog.info('Map', 'Asset cache cleared on map change');
+    };
   }, [data, mapId, spawnYaw]);
 
   const lighting = { ...DEFAULT_LIGHTING, ...data.lighting };

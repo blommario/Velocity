@@ -345,9 +345,23 @@ export function clearAssetCache(): void {
   }
   hdriCache.clear();
 
-  // Clear model cache (meshes disposed by Three.js scene)
+  // Dispose model geometries and materials
+  for (const model of modelCache.values()) {
+    disposeModelGroup(model);
+  }
   modelCache.clear();
   textureSetCache.clear();
+}
+
+function disposeModelGroup(group: Group): void {
+  group.traverse((child) => {
+    const mesh = child as { geometry?: import('three').BufferGeometry; material?: import('three').Material | import('three').Material[] };
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) {
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of materials) mat.dispose();
+    }
+  });
 }
 
 export function getAssetStats(): { models: number; textures: number; hdri: number } {
