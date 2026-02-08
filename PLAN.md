@@ -128,10 +128,10 @@
 - 🔲 `components/game/map/InstancedSurfRamps.tsx` — Gruppera ramps per färg, instansad wedge-geometri
 - 🔲 `components/game/map/MapLoader.tsx` — Ersätt per-ramp `BlockRenderer` med `InstancedSurfRamps`
 
-### H4 — Snap-to-Grid
+### H4 — Snap-to-Grid ✅
 *Rena matematikfunktioner för grid-snapping. Inga beroenden.*
 
-- 🔲 `engine/rendering/snapToGrid.ts` — `snapToGrid(value, gridSize)`, `snapPosition(pos, gridSize)`, `snapRotation(angle, step)`
+- ✅ `engine/rendering/snapToGrid.ts` — `snapToGrid(value, gridSize)`, `snapPosition(pos, gridSize)`, `snapRotation(angle, step)`
 
 ---
 
