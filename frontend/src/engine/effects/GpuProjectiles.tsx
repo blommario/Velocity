@@ -40,11 +40,11 @@ interface GpuProjectilesConfig {
 
 const DEFAULT_CONFIG: GpuProjectilesConfig = {
   maxSlots: 16,
-  trailLength: 5,
-  rocketColor: [1.0, 0.267, 0.0],     // #ff4400
-  grenadeColor: [0.267, 1.0, 0.0],     // #44ff00
-  spriteSize: 0.35,
-  trailSpriteSize: 0.25,
+  trailLength: 6,
+  rocketColor: [1.0, 0.4, 0.05],      // brighter orange-red
+  grenadeColor: [0.3, 1.0, 0.1],      // bright green
+  spriteSize: 0.6,
+  trailSpriteSize: 0.4,
 };
 
 /** Slot control interface — CPU writes per frame, zero allocation */

@@ -7,8 +7,8 @@ export const PHYSICS = {
   // ── Rocket launcher ──
   ROCKET_SPEED: 180,
   ROCKET_RADIUS: 0.15,
-  ROCKET_EXPLOSION_RADIUS: 12,  // was 150 — scaled to match game units
-  ROCKET_KNOCKBACK_FORCE: 800,  // was 1200 — tuned for gameplay balance
+  ROCKET_EXPLOSION_RADIUS: 8,   // blast radius in game units
+  ROCKET_KNOCKBACK_FORCE: 200,  // knockback force — balanced for controlled rocket jumps
   ROCKET_SELF_DAMAGE_MULT: 0.5,
   ROCKET_DAMAGE: 100,
   ROCKET_FIRE_COOLDOWN: 0.8, // seconds
@@ -18,8 +18,8 @@ export const PHYSICS = {
   GRENADE_RADIUS: 0.12,
   GRENADE_FUSE_TIME: 2.5,
   GRENADE_BOUNCE_DAMPING: 0.6,
-  GRENADE_EXPLOSION_RADIUS: 10, // was 120 — scaled to match game units
-  GRENADE_KNOCKBACK_FORCE: 650, // was 1000 — tuned for gameplay balance
+  GRENADE_EXPLOSION_RADIUS: 7,  // blast radius in game units
+  GRENADE_KNOCKBACK_FORCE: 180, // knockback force — balanced for grenade jumps
   GRENADE_DAMAGE: 80,
   GRENADE_FIRE_COOLDOWN: 0.6,
 
@@ -31,7 +31,7 @@ export const PHYSICS = {
   // ── Sniper rifle (hitscan) ──
   SNIPER_DAMAGE: 200,
   SNIPER_RANGE: 500,
-  SNIPER_KNOCKBACK: 80,         // small self-knockback backward
+  SNIPER_KNOCKBACK: 40,         // small self-knockback backward
   SNIPER_FIRE_COOLDOWN: 2.0,
   SNIPER_ZOOM_FOV: 30,
   SNIPER_MAX_AMMO: 10,
@@ -51,7 +51,7 @@ export const PHYSICS = {
   SHOTGUN_RANGE: 80,
   SHOTGUN_SPREAD: 0.1,          // radians — wide cone
   SHOTGUN_KNOCKBACK: 60,        // moderate push
-  SHOTGUN_SELF_KNOCKBACK: 40,   // small self-boost
+  SHOTGUN_SELF_KNOCKBACK: 25,   // small self-boost
   SHOTGUN_FIRE_COOLDOWN: 0.9,
   SHOTGUN_MAX_AMMO: 24,
 
@@ -65,7 +65,7 @@ export const PHYSICS = {
   // ── Plasma gun (continuous beam) ──
   PLASMA_DAMAGE_PER_SEC: 80,
   PLASMA_RANGE: 60,
-  PLASMA_PUSHBACK: 200,         // push force on self (mini-boost)
+  PLASMA_PUSHBACK: 100,         // push force on self (mini-boost)
   PLASMA_AMMO_PER_SEC: 10,
   PLASMA_MAX_AMMO: 100,
 

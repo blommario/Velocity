@@ -15,10 +15,10 @@ import {
 /** Rocket instanced mesh config */
 const ROCKET_MESH = {
   MAX_INSTANCES: 16,
-  BODY_RADIUS: 0.18,
-  BODY_LENGTH: 1.2,
-  NOSE_RADIUS: 0.18,
-  NOSE_LENGTH: 0.45,
+  BODY_RADIUS: 0.25,
+  BODY_LENGTH: 1.5,
+  NOSE_RADIUS: 0.25,
+  NOSE_LENGTH: 0.55,
   HIDDEN_Y: -9999,
 } as const;
 
@@ -65,19 +65,19 @@ function ProjectileBridge() {
     noseGeo.rotateX(-Math.PI / 2);
 
     const bodyMat = new MeshStandardMaterial({
-      color: 0x888888,
-      metalness: 0.7,
+      color: 0xaa4400,
+      metalness: 0.6,
       roughness: 0.3,
-      emissive: 0xff4400,
-      emissiveIntensity: 2.0,
+      emissive: 0xff6600,
+      emissiveIntensity: 4.0,
     });
 
     const noseMat = new MeshStandardMaterial({
-      color: 0xff2200,
-      metalness: 0.5,
-      roughness: 0.4,
-      emissive: 0xff2200,
-      emissiveIntensity: 3.0,
+      color: 0xff3300,
+      metalness: 0.4,
+      roughness: 0.3,
+      emissive: 0xff4400,
+      emissiveIntensity: 5.0,
     });
 
     // 2 InstancedMesh: body (1 draw call) + nose (1 draw call)
