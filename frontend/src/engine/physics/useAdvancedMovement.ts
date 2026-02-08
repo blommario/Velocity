@@ -77,11 +77,9 @@ export function updateWallRun(
     state.lastWallNormalX = wallNormalX;
     state.lastWallNormalZ = wallNormalZ;
 
-    // Preserve speed on entry
-    const preservedSpeed = hSpeed * PHYSICS.WALL_RUN_SPEED_PRESERVATION;
-    const scale = preservedSpeed / hSpeed;
-    velocity.x *= scale;
-    velocity.z *= scale;
+    // Preserve speed on entry (scale is always WALL_RUN_SPEED_PRESERVATION since hSpeed >= MIN_SPEED)
+    velocity.x *= PHYSICS.WALL_RUN_SPEED_PRESERVATION;
+    velocity.z *= PHYSICS.WALL_RUN_SPEED_PRESERVATION;
   }
 
   // Update wall run
@@ -126,6 +124,7 @@ export function isSurfSurface(normalX: number, normalY: number, normalZ: number)
 
 /**
  * Apply surf physics: zero friction, gravity slides along surface.
+ * Clamps final speed to MAX_SPEED to prevent KCC oscillation on ramps.
  */
 export function applySurfPhysics(
   velocity: Vector3,
@@ -149,6 +148,12 @@ export function applySurfPhysics(
     velocity.x -= velIntoSurface * _surfNormal.x;
     velocity.y -= velIntoSurface * _surfNormal.y;
     velocity.z -= velIntoSurface * _surfNormal.z;
+  }
+
+  // Safety clamp — prevent surf from exceeding engine speed limit
+  const surfSpeed = velocity.length();
+  if (surfSpeed > PHYSICS.MAX_SPEED) {
+    velocity.multiplyScalar(PHYSICS.MAX_SPEED / surfSpeed);
   }
 }
 
@@ -204,6 +209,9 @@ export function applyGrappleSwing(
 
 const _explosionDir = new Vector3();
 
+/** Max velocity delta from a single explosion — prevents tunneling through walls */
+const MAX_KNOCKBACK_DELTA = 400;
+
 /**
  * Apply explosion knockback to player.
  * Returns distance-based falloff (0–1) for damage calculation by the caller.
@@ -227,7 +235,7 @@ export function applyExplosionKnockback(
   _explosionDir.divideScalar(dist);
 
   const falloff = 1 - dist / radius;
-  const knockback = force * falloff;
+  const knockback = Math.min(force * falloff, MAX_KNOCKBACK_DELTA);
 
   velocity.x += _explosionDir.x * knockback;
   velocity.y += _explosionDir.y * knockback;

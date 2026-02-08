@@ -40,7 +40,8 @@ export const ENGINE_PHYSICS = {
   // Collision
   STAIR_STEP_HEIGHT: 0.45,
   MAX_SLOPE_ANGLE: 45,
-  SKIN_WIDTH: 0.05,             // character controller offset (tunneling protection)
+  SKIN_WIDTH: 0.08,             // character controller offset (tunneling protection)
+  SNAP_TO_GROUND_DIST: 0.1,    // max distance to snap player to ground (low = less floor tunneling)
 
   // Mouse
   DEFAULT_SENSITIVITY: 0.002,

@@ -51,8 +51,8 @@ export const OFFICIAL_MAPS: OfficialMap[] = [
     id: 'skybreak',
     name: 'Skybreak',
     difficulty: 'Expert',
-    description: 'Floating islands in the sky. Grappling hook, surf, extreme rocket jumps. Fall = respawn.',
-    parTime: 180,
+    description: 'Tactical operations compound. Concrete corridors, elevated walkways, wall-run channels.',
+    parTime: 90,
     data: SKYBREAK,
   },
 ];

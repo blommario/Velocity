@@ -56,8 +56,16 @@ export function batchStaticColliders(blocks: ReadonlyArray<MapBlock>): ColliderB
   }
 
   const groups: ColliderBatchGroup[] = [];
-  if (cuboids.length > 0) groups.push({ shape: 'cuboid', colliders: cuboids });
-  if (cylinders.length > 0) groups.push({ shape: 'cylinder', colliders: cylinders });
+
+  // Split into chunks of MAX_COLLIDERS_PER_BODY to preserve floating-point precision
+  // in Rapier's broad-phase. Large compound bodies with distant children lose accuracy.
+  const MAX_COLLIDERS_PER_BODY = 64;
+  for (let i = 0; i < cuboids.length; i += MAX_COLLIDERS_PER_BODY) {
+    groups.push({ shape: 'cuboid', colliders: cuboids.slice(i, i + MAX_COLLIDERS_PER_BODY) });
+  }
+  for (let i = 0; i < cylinders.length; i += MAX_COLLIDERS_PER_BODY) {
+    groups.push({ shape: 'cylinder', colliders: cylinders.slice(i, i + MAX_COLLIDERS_PER_BODY) });
+  }
   return groups;
 }
 

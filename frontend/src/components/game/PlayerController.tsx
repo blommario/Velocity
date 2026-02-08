@@ -40,7 +40,7 @@ export function PlayerController() {
     const controller = world.createCharacterController(PHYSICS.SKIN_WIDTH);
     controller.enableAutostep(PHYSICS.STAIR_STEP_HEIGHT, PHYSICS.PLAYER_RADIUS * 0.5, true);
     controller.setMaxSlopeClimbAngle(PHYSICS.MAX_SLOPE_ANGLE * DEG2RAD);
-    controller.enableSnapToGround(PHYSICS.PLAYER_RADIUS);
+    controller.enableSnapToGround(PHYSICS.SNAP_TO_GROUND_DIST);
     controllerRef.current = controller;
     devLog.success('Physics', `CharacterController created (skinWidth=${PHYSICS.SKIN_WIDTH})`);
 

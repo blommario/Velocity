@@ -504,7 +504,8 @@ export function physicsTick(
       _reusableRay.origin.x = p.posX; _reusableRay.origin.y = p.posY; _reusableRay.origin.z = p.posZ;
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
-      const hit = rapierWorld.castRay(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
+      // Raycast margin: at least projectile radius to catch near-contact hits
+      const hit = rapierWorld.castRay(_reusableRay, travelDist + PHYSICS.ROCKET_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         _hitPos[0] = p.posX + dirX * hit.timeOfImpact;
@@ -553,7 +554,7 @@ export function physicsTick(
       _reusableRay.origin.x = p.posX; _reusableRay.origin.y = p.posY; _reusableRay.origin.z = p.posZ;
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
-      const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
+      const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + PHYSICS.GRENADE_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         if (p.bounces >= 1) {
@@ -687,6 +688,13 @@ export function physicsTick(
 
   _newPos.set(pos.x, pos.y, pos.z);
 
+  // Accumulate total desired vs corrected movement across all substeps
+  // to decide velocity correction AFTER the loop (not mid-loop which kills remaining substeps)
+  let totalDesiredX = 0;
+  let totalDesiredZ = 0;
+  let totalCorrectedX = 0;
+  let totalCorrectedZ = 0;
+
   for (let step = 0; step < substeps; step++) {
     _desiredTranslation.copy(velocity).multiplyScalar(subDt);
     controller.computeColliderMovement(collider, _desiredTranslation, QueryFilterFlags.EXCLUDE_SENSORS);
@@ -694,24 +702,26 @@ export function physicsTick(
     const movement = controller.computedMovement();
     _correctedMovement.set(movement.x, movement.y, movement.z);
 
-    // --- Horizontal velocity correction ---
-    // Zero velocity on an axis only when a real wall collision blocks significant movement.
-    // The minimum threshold (SKIN_WIDTH) prevents small air-strafe velocities from being
-    // killed by floating-point noise in computeColliderMovement.
-    const desiredX = _desiredTranslation.x;
-    const desiredZ = _desiredTranslation.z;
-    if (Math.abs(desiredX) > PHYSICS.SKIN_WIDTH && Math.abs(_correctedMovement.x / desiredX) < 0.3) {
-      velocity.x = 0;
-    }
-    if (Math.abs(desiredZ) > PHYSICS.SKIN_WIDTH && Math.abs(_correctedMovement.z / desiredZ) < 0.3) {
-      velocity.z = 0;
-    }
+    totalDesiredX += _desiredTranslation.x;
+    totalDesiredZ += _desiredTranslation.z;
+    totalCorrectedX += _correctedMovement.x;
+    totalCorrectedZ += _correctedMovement.z;
 
     _newPos.x += _correctedMovement.x;
     _newPos.y += _correctedMovement.y;
     _newPos.z += _correctedMovement.z;
 
     rb.setNextKinematicTranslation(_newPos);
+  }
+
+  // --- Horizontal velocity correction (post-substep) ---
+  // Zero velocity on an axis only when a real wall collision blocks significant movement
+  // across the entire tick. This prevents "sticky walls" from killing velocity mid-substep.
+  if (Math.abs(totalDesiredX) > PHYSICS.SKIN_WIDTH && Math.abs(totalCorrectedX / totalDesiredX) < 0.3) {
+    velocity.x = 0;
+  }
+  if (Math.abs(totalDesiredZ) > PHYSICS.SKIN_WIDTH && Math.abs(totalCorrectedZ / totalDesiredZ) < 0.3) {
+    velocity.z = 0;
   }
 
   // --- Ground detection ---
