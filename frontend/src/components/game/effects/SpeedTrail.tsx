@@ -13,6 +13,10 @@ const TRAIL = {
   SPEED_FOR_FAST: 800,
 } as const;
 
+// Pre-allocated Colors — reused every frame in useFrame (zero GC)
+const _baseColor = new Color(TRAIL.BASE_COLOR);
+const _fastColor = new Color(TRAIL.FAST_COLOR);
+
 export function SpeedTrail() {
   const { scene, camera } = useThree();
   const lineRef = useRef<Line | null>(null);
@@ -72,9 +76,7 @@ export function SpeedTrail() {
 
     // Color lerp based on speed
     const speedFactor = Math.min((speed - TRAIL.SPEED_THRESHOLD) / (TRAIL.SPEED_FOR_FAST - TRAIL.SPEED_THRESHOLD), 1);
-    const baseColor = new Color(TRAIL.BASE_COLOR);
-    const fastColor = new Color(TRAIL.FAST_COLOR);
-    material.color.copy(baseColor).lerp(fastColor, speedFactor);
+    material.color.copy(_baseColor).lerp(_fastColor, speedFactor);
     material.opacity = 0.3 + speedFactor * 0.5;
 
     // Add new point at update interval

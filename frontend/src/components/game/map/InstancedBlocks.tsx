@@ -52,6 +52,8 @@ function groupBlocks(blocks: MapBlock[]): BlockGroup[] {
   return Array.from(groups.values());
 }
 
+const _blockEuler = new Euler();
+
 function useInstanceMatrix(blocks: MapBlock[]) {
   const meshRef = useRef<InstancedMesh>(null);
   const dummy = useMemo(() => new Object3D(), []);
@@ -65,7 +67,8 @@ function useInstanceMatrix(blocks: MapBlock[]) {
       const rot = block.rotation ?? [0, 0, 0];
 
       dummy.position.set(block.position[0], block.position[1], block.position[2]);
-      dummy.rotation.copy(new Euler(rot[0], rot[1], rot[2]));
+      _blockEuler.set(rot[0], rot[1], rot[2]);
+      dummy.rotation.copy(_blockEuler);
       dummy.scale.set(block.size[0], block.size[1], block.size[2]);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);

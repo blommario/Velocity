@@ -7,6 +7,7 @@ import { PHYSICS } from './physics/constants';
 
 const GHOST_COLOR = '#4488ff';
 const GHOST_OPACITY = 0.35;
+const _euler = new Euler(0, 0, 0, 'YXZ');
 
 export function GhostRenderer() {
   const meshRef = useRef<Mesh>(null);
@@ -35,7 +36,8 @@ export function GhostRenderer() {
 
     mesh.visible = true;
     mesh.position.set(ghostData.position[0], ghostData.position[1], ghostData.position[2]);
-    mesh.rotation.copy(new Euler(0, ghostData.yaw, 0, 'YXZ'));
+    _euler.set(0, ghostData.yaw, 0);
+    mesh.rotation.copy(_euler);
   });
 
   if (!hasGhost) return null;
