@@ -13,11 +13,11 @@ import { create } from 'zustand';
 import { devLog, frameTiming } from '../stores/devLogStore';
 
 const EXPLOSION = {
-  PARTICLE_COUNT: 96,
-  SPRITE_SIZE: 0.5,
-  SPEED: 14.0,
-  LIFE: 1.0,
-  GRAVITY: 6.0,
+  PARTICLE_COUNT: 192,
+  SPRITE_SIZE: 0.6,
+  SPEED: 18.0,
+  LIFE: 1.2,
+  GRAVITY: 5.0,
   /** Max simultaneous explosions — slots are pre-allocated at mount */
   POOL_SIZE: 6,
 } as const;

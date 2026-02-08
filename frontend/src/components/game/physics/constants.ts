@@ -5,7 +5,7 @@ export const PHYSICS = {
   ...ENGINE_PHYSICS,
 
   // ── Rocket launcher ──
-  ROCKET_SPEED: 900,
+  ROCKET_SPEED: 350,
   ROCKET_RADIUS: 0.15,
   ROCKET_EXPLOSION_RADIUS: 12,  // was 150 — scaled to match game units
   ROCKET_KNOCKBACK_FORCE: 800,  // was 1200 — tuned for gameplay balance
