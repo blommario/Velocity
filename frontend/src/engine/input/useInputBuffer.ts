@@ -1,30 +1,59 @@
 import { useEffect, useRef } from 'react';
 import type { InputState } from '../types/physics';
 import { getNormalizedWheelDelta } from './inputUtils';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 type BooleanInputKey = keyof Pick<InputState,
   'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload'
 >;
 
-/** Default key bindings — maps physical key codes to input actions. */
-const DEFAULT_KEY_BINDINGS: Record<string, BooleanInputKey> = {
-  KeyW: 'forward',
-  KeyS: 'backward',
-  KeyA: 'left',
-  KeyD: 'right',
-  Space: 'jump',
-  ShiftLeft: 'crouch',
-  ControlLeft: 'crouch',
-  KeyE: 'grapple',
-  KeyG: 'altFire',
-  KeyR: 'reload',
+/** Maps settingsStore action names → engine InputState boolean field names. */
+const SETTINGS_TO_INPUT: Record<string, BooleanInputKey> = {
+  moveForward: 'forward',
+  moveBack: 'backward',
+  moveLeft: 'left',
+  moveRight: 'right',
+  jump: 'jump',
+  crouch: 'crouch',
+  grapple: 'grapple',
+  reload: 'reload',
+  fireRocket: 'fire',
+  fireGrenade: 'altFire',
 } as const;
+
+const BOOLEAN_KEYS: readonly BooleanInputKey[] = [
+  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'fire', 'altFire', 'grapple', 'reload',
+] as const;
 
 /** Maps Digit keys to weapon slots (1-7) */
 const WEAPON_SLOT_KEYS: Record<string, number> = {
   Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4,
   Digit5: 5, Digit6: 6, Digit7: 7,
 } as const;
+
+/** Invert action→key bindings to key→InputState, skipping Mouse* entries. */
+function buildKeyMap(bindings: Record<string, string>): Record<string, BooleanInputKey> {
+  const map: Record<string, BooleanInputKey> = {};
+  for (const [action, key] of Object.entries(bindings)) {
+    if (key.startsWith('Mouse')) continue;
+    const inputAction = SETTINGS_TO_INPUT[action];
+    if (inputAction) map[key] = inputAction;
+  }
+  return map;
+}
+
+/** Extract Mouse{N} bindings to button-number→InputState map. */
+function buildMouseMap(bindings: Record<string, string>): Record<number, BooleanInputKey> {
+  const map: Record<number, BooleanInputKey> = {};
+  for (const [action, key] of Object.entries(bindings)) {
+    if (!key.startsWith('Mouse')) continue;
+    const inputAction = SETTINGS_TO_INPUT[action];
+    if (!inputAction) continue;
+    const button = parseInt(key.slice(5), 10);
+    if (!isNaN(button)) map[button] = inputAction;
+  }
+  return map;
+}
 
 const createEmptyInput = (): InputState => ({
   forward: false,
@@ -49,8 +78,25 @@ export function useInputBuffer() {
   useEffect(() => {
     const input = inputRef.current;
 
+    // Build initial maps from persisted settings
+    const initialBindings = useSettingsStore.getState().keyBindings;
+    let keyMap = buildKeyMap(initialBindings);
+    let mouseMap = buildMouseMap(initialBindings);
+
+    // Subscribe to keybind changes — rebuild maps reactively
+    let prevBindings = initialBindings;
+    const unsub = useSettingsStore.subscribe((state) => {
+      if (state.keyBindings !== prevBindings) {
+        prevBindings = state.keyBindings;
+        keyMap = buildKeyMap(state.keyBindings);
+        mouseMap = buildMouseMap(state.keyBindings);
+        // Reset all held actions to prevent stuck keys after rebind
+        for (const k of BOOLEAN_KEYS) input[k] = false;
+      }
+    });
+
     const onKeyDown = (e: KeyboardEvent) => {
-      const action = DEFAULT_KEY_BINDINGS[e.code];
+      const action = keyMap[e.code];
       if (action) input[action] = true;
 
       // Weapon slot keys (consumed once per press)
@@ -59,19 +105,19 @@ export function useInputBuffer() {
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      const action = DEFAULT_KEY_BINDINGS[e.code];
+      const action = keyMap[e.code];
       if (action) input[action] = false;
     };
 
     const onMouseDown = (e: MouseEvent) => {
       if (!document.pointerLockElement) return;
-      if (e.button === 0) input.fire = true;
-      if (e.button === 2) input.altFire = true;
+      const action = mouseMap[e.button];
+      if (action) input[action] = true;
     };
 
     const onMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) input.fire = false;
-      if (e.button === 2) input.altFire = false;
+      const action = mouseMap[e.button];
+      if (action) input[action] = false;
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -98,6 +144,7 @@ export function useInputBuffer() {
     window.addEventListener('contextmenu', onContextMenu);
 
     return () => {
+      unsub();
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('mousedown', onMouseDown);

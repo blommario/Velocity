@@ -60,6 +60,13 @@ export class FogOfWarGrid {
   private readonly revealRadiusSq: number;
   private readonly totalRadiusSq: number;
 
+  // Track previous reveal bounds for efficient VISIBLE→PREVIOUSLY_SEEN clearing
+  private prevMinCx = 0;
+  private prevMaxCx = 0;
+  private prevMinCz = 0;
+  private prevMaxCz = 0;
+  private hasPrevBounds = false;
+
   constructor(config?: Partial<FogOfWarConfig>) {
     const c = { ...FOG_DEFAULTS, ...config };
     this.gridSize = c.gridSize;
@@ -91,14 +98,24 @@ export class FogOfWarGrid {
     const minCz = Math.max(0, Math.floor(viewCz - cellRadius));
     const maxCz = Math.min(gridSize - 1, Math.ceil(viewCz + cellRadius));
 
-    // Fade any currently VISIBLE cells to PREVIOUSLY_SEEN first.
-    // Only iterate the full grid if we need to — track if any were visible.
-    // Optimization: since update runs at ~4Hz and grid is 16KB, full scan is fine.
-    for (let i = 0, len = grid.length; i < len; i++) {
-      if (grid[i] === VisibilityState.VISIBLE) {
-        grid[i] = VisibilityState.PREVIOUSLY_SEEN;
+    // Fade previously VISIBLE cells to PREVIOUSLY_SEEN.
+    // Only scan the bounding box from the last update (not the entire grid).
+    if (this.hasPrevBounds) {
+      for (let cz = this.prevMinCz; cz <= this.prevMaxCz; cz++) {
+        const rowOffset = cz * gridSize;
+        for (let cx = this.prevMinCx; cx <= this.prevMaxCx; cx++) {
+          if (grid[rowOffset + cx] === VisibilityState.VISIBLE) {
+            grid[rowOffset + cx] = VisibilityState.PREVIOUSLY_SEEN;
+          }
+        }
       }
     }
+
+    this.prevMinCx = minCx;
+    this.prevMaxCx = maxCx;
+    this.prevMinCz = minCz;
+    this.prevMaxCz = maxCz;
+    this.hasPrevBounds = true;
 
     // Reveal cells within radius
     for (let cz = minCz; cz <= maxCz; cz++) {
@@ -143,5 +160,6 @@ export class FogOfWarGrid {
   /** Reset entire grid to HIDDEN. */
   reset(): void {
     this.grid.fill(VisibilityState.HIDDEN);
+    this.hasPrevBounds = false;
   }
 }

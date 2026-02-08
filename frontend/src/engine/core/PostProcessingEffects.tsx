@@ -7,19 +7,19 @@ import type { DataTexture } from 'three/webgpu';
 import {
   pass, renderOutput, viewportUV, screenUV, clamp, texture, float, uint, vec2, vec4,
   cameraNear, cameraFar, cameraProjectionMatrixInverse, cameraWorldMatrix,
-  perspectiveDepthToViewZ, getViewPosition, uniform, floor, min,
+  perspectiveDepthToViewZ, getViewPosition, floor,
 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { devLog, frameTiming } from '../stores/devLogStore';
 import type { FogOfWarUniforms } from '../effects/useFogOfWar';
 import type { FogComputeResources } from '../effects/fogOfWarCompute';
 
-const POST_PROCESSING = {
-  BLOOM_THRESHOLD: 0.8,
-  BLOOM_STRENGTH: 0.4,
-  BLOOM_RADIUS: 0.3,
-  VIGNETTE_INTENSITY: 1.2,
-  VIGNETTE_SOFTNESS: 0.5,
+const POST_PROCESSING_DEFAULTS = {
+  bloomThreshold: 0.8,
+  bloomStrength: 0.4,
+  bloomRadius: 0.3,
+  vignetteIntensity: 1.2,
+  vignetteSoftness: 0.5,
 } as const;
 
 const FOG_BRIGHTNESS = {
@@ -30,6 +30,16 @@ const FOG_BRIGHTNESS = {
 } as const;
 
 export interface PostProcessingProps {
+  /** Bloom luminance threshold (default 0.8). */
+  bloomThreshold?: number;
+  /** Bloom intensity (default 0.4). */
+  bloomStrength?: number;
+  /** Bloom radius (default 0.3). */
+  bloomRadius?: number;
+  /** Vignette edge-darkening intensity (default 1.2). */
+  vignetteIntensity?: number;
+  /** Vignette softness falloff (default 0.5). */
+  vignetteSoftness?: number;
   /** R8 DataTexture from useFogOfWar (CPU path). Omit to disable fog-of-war. */
   fogTexture?: DataTexture | null;
   /** GPU compute resources from useFogOfWar (GPU path). Omit for CPU path. */
@@ -39,6 +49,11 @@ export interface PostProcessingProps {
 }
 
 export function PostProcessingEffects({
+  bloomThreshold = POST_PROCESSING_DEFAULTS.bloomThreshold,
+  bloomStrength = POST_PROCESSING_DEFAULTS.bloomStrength,
+  bloomRadius = POST_PROCESSING_DEFAULTS.bloomRadius,
+  vignetteIntensity = POST_PROCESSING_DEFAULTS.vignetteIntensity,
+  vignetteSoftness = POST_PROCESSING_DEFAULTS.vignetteSoftness,
   fogTexture,
   fogComputeResources,
   fogUniforms,
@@ -57,16 +72,16 @@ export function PostProcessingEffects({
 
       // Bloom
       const bloomPass = bloom(scenePassColor);
-      bloomPass.threshold.value = POST_PROCESSING.BLOOM_THRESHOLD;
-      bloomPass.strength.value = POST_PROCESSING.BLOOM_STRENGTH;
-      bloomPass.radius.value = POST_PROCESSING.BLOOM_RADIUS;
+      bloomPass.threshold.value = bloomThreshold;
+      bloomPass.strength.value = bloomStrength;
+      bloomPass.radius.value = bloomRadius;
 
       // Vignette: darken edges based on distance from screen center
       const vignetteFactor = clamp(
-        viewportUV.sub(0.5).length().mul(POST_PROCESSING.VIGNETTE_INTENSITY),
+        viewportUV.sub(0.5).length().mul(vignetteIntensity),
         0.0,
         1.0,
-      ).oneMinus().pow(POST_PROCESSING.VIGNETTE_SOFTNESS);
+      ).oneMinus().pow(vignetteSoftness);
 
       // Fog of war — two paths: GPU storage buffer or CPU DataTexture
       let fogFactor = float(1.0);
@@ -154,7 +169,7 @@ export function PostProcessingEffects({
       }
       pipelineRef.current = null;
     };
-  }, [renderer, scene, camera, fogTexture, fogComputeResources, fogUniforms]);
+  }, [renderer, scene, camera, bloomThreshold, bloomStrength, bloomRadius, vignetteIntensity, vignetteSoftness, fogTexture, fogComputeResources, fogUniforms]);
 
   // renderPriority=1 disables R3F auto-rendering; pipeline handles render + post
   useFrame(() => {

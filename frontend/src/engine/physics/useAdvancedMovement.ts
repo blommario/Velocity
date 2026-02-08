@@ -212,8 +212,14 @@ const _explosionDir = new Vector3();
 /** Max velocity delta from a single explosion — prevents tunneling through walls */
 const MAX_KNOCKBACK_DELTA = 400;
 
+/** Minimum upward velocity when grounded and hit by an explosion (ungrounds the player). */
+const EXPLOSION_MIN_UPLIFT = 120;
+
 /**
  * Apply explosion knockback to player.
+ * When `isGrounded` is true, ensures a minimum upward velocity so the player
+ * lifts off the ground — prevents ground friction from immediately eating
+ * horizontal knockback (standard Quake rocket-jump behavior).
  * Returns distance-based falloff (0–1) for damage calculation by the caller.
  */
 export function applyExplosionKnockback(
@@ -223,6 +229,7 @@ export function applyExplosionKnockback(
   radius: number,
   force: number,
   baseDamage: number,
+  isGrounded = false,
 ): number {
   _explosionDir.set(
     playerPos.x - explosionPos[0],
@@ -240,6 +247,11 @@ export function applyExplosionKnockback(
   velocity.x += _explosionDir.x * knockback;
   velocity.y += _explosionDir.y * knockback;
   velocity.z += _explosionDir.z * knockback;
+
+  // Ensure grounded players get lifted so friction doesn't kill horizontal knockback
+  if (isGrounded && velocity.y < EXPLOSION_MIN_UPLIFT) {
+    velocity.y = EXPLOSION_MIN_UPLIFT;
+  }
 
   return baseDamage * falloff;
 }

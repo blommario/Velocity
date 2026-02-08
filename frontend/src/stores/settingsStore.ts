@@ -10,7 +10,7 @@ export const DEFAULT_KEY_BINDINGS: Record<string, string> = {
   moveLeft: 'KeyA',
   moveRight: 'KeyD',
   jump: 'Space',
-  crouch: 'KeyC',
+  crouch: 'ShiftLeft',
   fireRocket: 'Mouse0',
   fireGrenade: 'Mouse2',
   grapple: 'KeyE',

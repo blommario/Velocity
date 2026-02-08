@@ -208,47 +208,49 @@ export function createFogComputeResources(
     const tMaxX = tMaxXInit.toVar();
     const tMaxZ = tMaxZInit.toVar();
 
-    // DDA loop with "done" flag (TSL has no break)
+    // DDA loop — uses loop counter override for early exit (TSL has no break)
     const blocked = uint(0).toVar();
+    const maxSteps = int(MAX_RAY_STEPS);
 
-    Loop({ start: int(0), end: int(MAX_RAY_STEPS), type: 'int', condition: '<' }, () => {
+    Loop({ start: int(0), end: maxSteps, type: 'int', condition: '<' }, ({ i }) => {
+      // Advance to next cell
+      If(tMaxX.lessThan(tMaxZ), () => {
+        curX.addAssign(stepX);
+        tMaxX.addAssign(tDeltaX);
+      }).Else(() => {
+        curZ.addAssign(stepZ);
+        tMaxZ.addAssign(tDeltaZ);
+      });
+
+      // Bounds check — exited grid
+      If(curX.lessThan(int(0)).or(curX.greaterThanEqual(gs.toInt()))
+        .or(curZ.lessThan(int(0))).or(curZ.greaterThanEqual(gs.toInt())), () => {
+        blocked.assign(uint(2));
+        i.assign(maxSteps); // force loop exit
+      });
+
       If(blocked.equal(uint(0)), () => {
-        // Advance to next cell
-        If(tMaxX.lessThan(tMaxZ), () => {
-          curX.addAssign(stepX);
-          tMaxX.addAssign(tDeltaX);
-        }).Else(() => {
-          curZ.addAssign(stepZ);
-          tMaxZ.addAssign(tDeltaZ);
-        });
-
-        // Bounds check
-        If(curX.lessThan(int(0)).or(curX.greaterThanEqual(gs.toInt()))
-          .or(curZ.lessThan(int(0))).or(curZ.greaterThanEqual(gs.toInt())), () => {
-          blocked.assign(uint(2)); // exited grid, not blocked
+        // Reached target cell? Done (not blocked)
+        If(curX.equal(cellX.toInt()).and(curZ.equal(cellZ.toInt())), () => {
+          blocked.assign(uint(2));
+          i.assign(maxSteps); // force loop exit
         });
 
         If(blocked.equal(uint(0)), () => {
-          // Reached target cell? Done (not blocked)
-          If(curX.equal(cellX.toInt()).and(curZ.equal(cellZ.toInt())), () => {
-            blocked.assign(uint(2)); // reached target, not blocked
-          });
+          // Interpolate ray height at current t
+          const t = min(tMaxX, tMaxZ);
+          const tNorm = t.div(rayLen).clamp(float(0.0), float(1.0));
+          // Ray Y: linear interp from viewerY toward ground (Y=0) along the ray
+          const rayY = uViewerY.mul(float(1.0).sub(tNorm));
 
-          If(blocked.equal(uint(0)), () => {
-            // Interpolate ray height at current t
-            const t = min(tMaxX, tMaxZ);
-            const tNorm = t.div(rayLen).clamp(float(0.0), float(1.0));
-            // Ray Y: linear interp from viewerY toward ground (Y=0) along the ray
-            const rayY = uViewerY.mul(float(1.0).sub(tNorm));
+          // Sample heightmap at current cell
+          const sampleIdx = curZ.toUint().mul(gs).add(curX.toUint());
+          const terrainY = heightmapBuffer.element(sampleIdx);
 
-            // Sample heightmap at current cell
-            const sampleIdx = curZ.toUint().mul(gs).add(curX.toUint());
-            const terrainY = heightmapBuffer.element(sampleIdx);
-
-            // If ray is below terrain → line of sight is blocked
-            If(rayY.lessThan(terrainY), () => {
-              blocked.assign(uint(1)); // blocked by geometry
-            });
+          // If ray is below terrain → line of sight is blocked
+          If(rayY.lessThan(terrainY), () => {
+            blocked.assign(uint(1));
+            i.assign(maxSteps); // force loop exit
           });
         });
       });

@@ -514,8 +514,10 @@ export function physicsTick(
         const damage = applyExplosionKnockback(
           velocity, _playerPos, _hitPos,
           PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, PHYSICS.ROCKET_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
+          refs.grounded.current,
         );
         if (damage > 0) {
+          refs.grounded.current = false;
           combat.takeDamage(damage);
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
@@ -531,8 +533,10 @@ export function physicsTick(
         const damage = applyExplosionKnockback(
           velocity, _playerPos, _gPos,
           PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
+          refs.grounded.current,
         );
         if (damage > 0) {
+          refs.grounded.current = false;
           combat.takeDamage(damage);
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
@@ -562,8 +566,10 @@ export function physicsTick(
           const damage = applyExplosionKnockback(
             velocity, _playerPos, _gPos,
             PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
+            refs.grounded.current,
           );
           if (damage > 0) {
+            refs.grounded.current = false;
             combat.takeDamage(damage);
             store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
           }

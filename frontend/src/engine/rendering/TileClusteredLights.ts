@@ -13,6 +13,7 @@
  * Engine-level: no game store imports.
  */
 
+import { Color } from 'three';
 import type { LightData } from './ClusteredLights';
 import type { SpatialGrid } from './SpatialGrid';
 
@@ -69,16 +70,14 @@ const _buffer: TileLightBuffer = {
 // Hex color → linear RGB (pre-allocated scratch)
 // ---------------------------------------------------------------------------
 
+const _scratchColor = new Color();
+
 function hexToLinear(hex: string, out: Float32Array, offset: number): void {
-  // Parse #rrggbb
-  const raw = parseInt(hex.charAt(0) === '#' ? hex.slice(1) : hex, 16);
-  // sRGB → linear (approximate gamma 2.2)
-  const r = ((raw >> 16) & 0xff) / 255;
-  const g = ((raw >> 8) & 0xff) / 255;
-  const b = (raw & 0xff) / 255;
-  out[offset] = r * r; // approximate sRGB→linear
-  out[offset + 1] = g * g;
-  out[offset + 2] = b * b;
+  // THREE.Color.set() handles sRGB→linear via ColorManagement
+  _scratchColor.set(hex);
+  out[offset] = _scratchColor.r;
+  out[offset + 1] = _scratchColor.g;
+  out[offset + 2] = _scratchColor.b;
 }
 
 // ---------------------------------------------------------------------------

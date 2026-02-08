@@ -169,7 +169,8 @@ function _flushLogQueue(): void {
 
   // Single set() call for all queued entries — avoids N separate Zustand updates
   useDevLogStore.setState((s) => {
-    let entries = s.entries;
+    // Copy once upfront to avoid O(N²) spreading per queue item
+    const entries = [...s.entries];
     let nextId = s.nextId;
     let sources = s.sources;
     const now = performance.now();
@@ -190,19 +191,18 @@ function _flushLogQueue(): void {
         last.message === q.message &&
         (now - last.timestamp) < ACCUMULATE_WINDOW_MS
       ) {
-        entries = [...entries];
         entries[entries.length - 1] = { ...last, count: last.count + 1, timestamp: now };
         continue;
       }
 
-      entries = [...entries, {
+      entries.push({
         id: nextId++,
         timestamp: now,
         level: q.level,
         source: q.source,
         message: q.message,
         count: 1,
-      }];
+      });
     }
 
     _logQueue.length = 0;

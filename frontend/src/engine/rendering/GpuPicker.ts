@@ -326,7 +326,7 @@ export class GpuPicker {
     // Convert screen coords to pixel coords (DPR-aware)
     const px = Math.round(screenX * pixelRatio);
     // Flip Y: screen Y is top-down, framebuffer Y is bottom-up
-    const py = Math.round(height - screenY * pixelRatio);
+    const py = height - 1 - Math.round(screenY * pixelRatio);
 
     if (px < 0 || px >= width || py < 0 || py >= height) return null;
 

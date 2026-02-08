@@ -7,6 +7,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 extend(THREE);
 
 // Pre-initialize Rapier WASM so subsequent init() from @react-three/rapier is a no-op.
+// Top-level await is safe here: target=esnext + Vite handles it correctly.
 // NOTE: rapier3d-compat 0.19 internally passes WASM bytes as a positional param to
 // wasm-bindgen's init, which logs a deprecation warning. This is upstream — not fixable here.
-RAPIER.init();
+await RAPIER.init();
