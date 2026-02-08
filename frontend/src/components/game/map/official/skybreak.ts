@@ -114,7 +114,7 @@ export const SKYBREAK: MapData = {
   ],
 
   settings: {
-    maxRocketAmmo: 5,
+    maxRocketAmmo: 10,
     maxGrenadeAmmo: 3,
     parTime: 180,
   },

@@ -82,7 +82,7 @@ export const CLIFFSIDE: MapData = {
   ],
 
   settings: {
-    maxRocketAmmo: 5,
+    maxRocketAmmo: 10,
     maxGrenadeAmmo: 0,
     parTime: 90,
   },

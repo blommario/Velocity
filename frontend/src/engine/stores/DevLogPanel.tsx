@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 import { useDevLogStore, type LogLevel, type LogEntry, type PerfMetrics, type FrameTimings } from './devLogStore';
-import { useExplosionStore } from '../effects/ExplosionEffect';
 
 // ── Constants ──
 
@@ -409,15 +408,6 @@ export function DevLogPanel() {
             onMouseLeave={(e) => { e.currentTarget.style.color = profilerVisible ? '#22d3ee' : 'rgba(255,255,255,0.3)'; }}
           >
             PROF
-          </button>
-          <button
-            style={{ ...styles.headerBtn, color: '#f97316' }}
-            onClick={() => useExplosionStore.getState().spawnExplosion([0, 52, -10], '#ff6600', 2.0)}
-            title="Debug: spawn explosion"
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#fb923c'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#f97316'; }}
-          >
-            BOOM
           </button>
           <button
             style={styles.headerBtn}

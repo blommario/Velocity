@@ -83,7 +83,7 @@ export const FIRST_STEPS: MapData = {
   ],
 
   settings: {
-    maxRocketAmmo: 5,
+    maxRocketAmmo: 10,
     maxGrenadeAmmo: 3,
     parTime: 30,
   },

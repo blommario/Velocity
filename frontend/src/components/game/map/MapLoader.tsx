@@ -53,7 +53,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       mapId,
     );
     useCombatStore.getState().resetCombat(
-      data.settings?.maxRocketAmmo ?? 5,
+      data.settings?.maxRocketAmmo ?? 10,
       data.settings?.maxGrenadeAmmo ?? 3,
     );
     devLog.success('Map', `Map loaded — spawn at [${data.spawnPoint.map(v => v.toFixed(0)).join(', ')}]`);

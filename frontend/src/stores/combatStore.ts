@@ -28,7 +28,7 @@ interface AmmoState {
 }
 
 const DEFAULT_AMMO: Record<WeaponType, AmmoState> = {
-  rocket:  { current: 5, max: 5 },
+  rocket:  { current: 10, max: 10 },
   grenade: { current: 3, max: 3 },
   sniper:  { current: PHYSICS.SNIPER_MAX_AMMO, max: PHYSICS.SNIPER_MAX_AMMO },
   assault: { current: PHYSICS.ASSAULT_MAX_AMMO, max: PHYSICS.ASSAULT_MAX_AMMO, magazine: PHYSICS.ASSAULT_MAG_SIZE, magSize: PHYSICS.ASSAULT_MAG_SIZE },
@@ -127,9 +127,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   health: PHYSICS.HEALTH_MAX,
   lastDamageTime: 0,
 
-  rocketAmmo: 5,
+  rocketAmmo: 10,
   grenadeAmmo: 3,
-  maxRocketAmmo: 5,
+  maxRocketAmmo: 10,
   maxGrenadeAmmo: 3,
   ammo: cloneAmmo(),
 
