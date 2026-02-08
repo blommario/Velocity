@@ -19,5 +19,16 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Förbjud 'any' helt — allt måste vara typat
+      '@typescript-eslint/no-explicit-any': 'error',
+
+      // Tillåt 'as Type' (behövs vid framework boundaries som R3F gl → WebGPURenderer)
+      // men förbjud type assertions i object literals (tvingar korrekt typning)
+      '@typescript-eslint/consistent-type-assertions': ['error', {
+        assertionStyle: 'as',
+        objectLiteralTypeAssertions: 'never',
+      }],
+    },
   },
 ])

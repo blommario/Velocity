@@ -11,6 +11,7 @@ import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from './PostProcessingEffects';
 import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer } from './effects';
+import { PerfMonitor } from './PerfMonitor';
 import { HudOverlay } from '../hud/HudOverlay';
 import { DevLogPanel } from '../hud/DevLogPanel';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -95,6 +96,7 @@ export function GameCanvas() {
         <GrappleBeam />
         <ExplosionManager />
         <CheckpointShimmer />
+        <PerfMonitor />
       </Canvas>
       <HudOverlay />
       <DevLogPanel />

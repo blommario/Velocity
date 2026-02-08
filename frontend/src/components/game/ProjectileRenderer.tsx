@@ -2,6 +2,7 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { SphereGeometry, MeshBasicMaterial, AdditiveBlending } from 'three';
 import { useCombatStore } from '../../stores/combatStore';
+import { devLog } from '../../stores/devLogStore';
 
 const ROCKET_COLOR = '#ff4400';
 const ROCKET_GLOW = '#ff8800';
@@ -70,7 +71,9 @@ function useSharedAssets() {
   }, []);
 
   useEffect(() => {
+    devLog.success('Projectile', 'Shared geometries & materials ready (pooled)');
     return () => {
+      devLog.info('Projectile', 'Disposing shared assets');
       assets.rocketCoreGeo.dispose();
       assets.rocketGlowGeo.dispose();
       assets.trailGeo.dispose();

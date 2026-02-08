@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MeshStandardMaterial, RepeatWrapping } from 'three/webgpu';
 import { loadTextureSet, type TextureSet } from '../services/assetManager';
+import { devLog } from '../stores/devLogStore';
 
 interface TexturedMaterialOptions {
   textureSet: string;
@@ -80,7 +81,7 @@ export function useTexturedMaterial(
         setMaterial(mat);
       })
       .catch((err) => {
-        console.warn(`[useTexturedMaterial] Failed to load ${options.textureSet}:`, err);
+        devLog.error('TextureMat', `Failed to load ${options.textureSet}: ${err instanceof Error ? err.message : String(err)}`);
       });
 
     return () => {

@@ -8,8 +8,9 @@ import {
   AdditiveBlending, SpriteNodeMaterial, BufferGeometry,
   InstancedBufferAttribute, Mesh as ThreeMesh, WebGPURenderer,
 } from 'three/webgpu';
-import type { UniformNode } from 'three/webgpu';
+import { Vector3 } from 'three';
 import { create } from 'zustand';
+import { devLog } from '../../../stores/devLogStore';
 
 const EXPLOSION = {
   PARTICLE_COUNT: 96,
@@ -53,22 +54,88 @@ export const useExplosionStore = create<ExplosionState>((set, get) => ({
   },
 }));
 
-/** A pre-allocated explosion slot with compiled shaders */
-interface ExplosionSlot {
-  mesh: ThreeMesh;
-  geometry: BufferGeometry;
-  material: SpriteNodeMaterial;
-  computeInit: ReturnType<typeof Fn>;
-  computeUpdate: ReturnType<typeof Fn>;
-  emitterPos: UniformNode<unknown>;
-  speed: UniformNode<unknown>;
-  colorR: UniformNode<unknown>;
-  colorG: UniformNode<unknown>;
-  colorB: UniformNode<unknown>;
-  timeAlive: number;
-  active: boolean;
-  computePending: boolean;
+/** Create a single explosion slot with its own buffers and pre-built shaders */
+function createSlot() {
+  const count = EXPLOSION.PARTICLE_COUNT;
+  const positionBuffer = instancedArray(count, 'vec3');
+  const velocityBuffer = instancedArray(count, 'vec3');
+  const lifeBuffer = instancedArray(count, 'float');
+
+  // Mutable uniforms — updated per-explosion without recompilation
+  const emitterPos = uniform(new Vector3(0, -1000, 0));
+  const speed = uniform<number>(EXPLOSION.SPEED);
+  const colorR = uniform(1.0);
+  const colorG = uniform(0.4);
+  const colorB = uniform(0.0);
+
+  const colorNode = vec3(colorR, colorG, colorB);
+
+  // Init: scatter particles from emitter
+  const computeInit = Fn(() => {
+    const idx = instanceIndex;
+    const seed = idx.toFloat().mul(0.789);
+    const rx = hash(seed).sub(0.5).mul(2);
+    const ry = hash(seed.add(1)).sub(0.5).mul(2);
+    const rz = hash(seed.add(2)).sub(0.5).mul(2);
+    const len = rx.mul(rx).add(ry.mul(ry)).add(rz.mul(rz)).sqrt().max(0.01);
+    positionBuffer.element(idx).assign(emitterPos);
+    velocityBuffer.element(idx).assign(vec3(
+      rx.div(len).mul(speed).mul(hash(seed.add(3)).mul(0.7).add(0.3)),
+      ry.div(len).mul(speed).mul(hash(seed.add(4)).mul(0.7).add(0.3)).add(float(4)),
+      rz.div(len).mul(speed).mul(hash(seed.add(5)).mul(0.7).add(0.3)),
+    ));
+    lifeBuffer.element(idx).assign(float(EXPLOSION.LIFE).mul(hash(seed.add(6)).mul(0.5).add(0.5)));
+  })().compute(count);
+
+  // Update: move + gravity + decay
+  const computeUpdate = Fn(() => {
+    const idx = instanceIndex;
+    const pos = positionBuffer.element(idx).toVar();
+    const vel = velocityBuffer.element(idx).toVar();
+    const life = lifeBuffer.element(idx).toVar();
+    life.subAssign(deltaTime);
+    vel.y.subAssign(float(EXPLOSION.GRAVITY).mul(deltaTime));
+    vel.mulAssign(float(1).sub(deltaTime.mul(2))); // drag
+    pos.addAssign(vel.mul(deltaTime));
+    positionBuffer.element(idx).assign(pos);
+    velocityBuffer.element(idx).assign(vel);
+    lifeBuffer.element(idx).assign(life);
+  })().compute(count);
+
+  const geometry = new BufferGeometry();
+  const posArray = new Float32Array(count * 3);
+  geometry.setAttribute('position', new InstancedBufferAttribute(posArray, 3));
+
+  const material = new SpriteNodeMaterial();
+  material.positionNode = positionBuffer.toAttribute();
+  material.colorNode = vec4(colorNode.mul(float(4)), lifeBuffer.toAttribute().div(EXPLOSION.LIFE).clamp(0, 1));
+  material.scaleNode = uniform(EXPLOSION.SPRITE_SIZE);
+  material.transparent = true;
+  material.blending = AdditiveBlending;
+  material.depthWrite = false;
+
+  const mesh = new ThreeMesh(geometry, material);
+  mesh.count = count;
+  mesh.frustumCulled = false;
+
+  return {
+    mesh,
+    geometry,
+    material,
+    computeInit,
+    computeUpdate,
+    emitterPos,
+    speed,
+    colorR,
+    colorG,
+    colorB,
+    timeAlive: 0,
+    active: false,
+    computePending: false,
+  };
 }
+
+type ExplosionSlot = ReturnType<typeof createSlot>;
 
 export function ExplosionManager() {
   const { gl, scene } = useThree();
@@ -90,11 +157,16 @@ export function ExplosionManager() {
 
     // Warm up shaders by running a dummy init on each slot
     // This forces WebGPU to compile the pipelines at load time
+    devLog.info('Explosion', `Pre-compiling ${EXPLOSION.POOL_SIZE} explosion slots (${EXPLOSION.PARTICLE_COUNT} particles each)`);
+    const warmupStart = performance.now();
     const warmupPromises = pool.map((slot) =>
       renderer.computeAsync(slot.computeInit),
     );
     Promise.all(warmupPromises).then(() => {
       readyRef.current = true;
+      devLog.success('Explosion', `Pool ready in ${(performance.now() - warmupStart).toFixed(0)}ms`);
+    }).catch((err) => {
+      devLog.error('Explosion', `Warmup failed: ${err instanceof Error ? err.message : String(err)}`);
     });
 
     poolRef.current = pool;
@@ -174,85 +246,4 @@ export function ExplosionManager() {
   });
 
   return null;
-}
-
-/** Create a single explosion slot with its own buffers and pre-built shaders */
-function createSlot(): ExplosionSlot {
-  const count = EXPLOSION.PARTICLE_COUNT;
-  const positionBuffer = instancedArray(count, 'vec3');
-  const velocityBuffer = instancedArray(count, 'vec3');
-  const lifeBuffer = instancedArray(count, 'float');
-
-  // Mutable uniforms — updated per-explosion without recompilation
-  const emitterPos = uniform(vec3(0, -1000, 0));
-  const speed = uniform(float(EXPLOSION.SPEED));
-  const colorR = uniform(float(1));
-  const colorG = uniform(float(0.4));
-  const colorB = uniform(float(0));
-
-  const colorNode = vec3(colorR, colorG, colorB);
-
-  // Init: scatter particles from emitter
-  const computeInit = Fn(() => {
-    const idx = instanceIndex;
-    const seed = idx.toFloat().mul(0.789);
-    const rx = hash(seed).sub(0.5).mul(2);
-    const ry = hash(seed.add(1)).sub(0.5).mul(2);
-    const rz = hash(seed.add(2)).sub(0.5).mul(2);
-    const len = rx.mul(rx).add(ry.mul(ry)).add(rz.mul(rz)).sqrt().max(0.01);
-    positionBuffer.element(idx).assign(emitterPos);
-    velocityBuffer.element(idx).assign(vec3(
-      rx.div(len).mul(speed).mul(hash(seed.add(3)).mul(0.7).add(0.3)),
-      ry.div(len).mul(speed).mul(hash(seed.add(4)).mul(0.7).add(0.3)).add(float(4)),
-      rz.div(len).mul(speed).mul(hash(seed.add(5)).mul(0.7).add(0.3)),
-    ));
-    lifeBuffer.element(idx).assign(float(EXPLOSION.LIFE).mul(hash(seed.add(6)).mul(0.5).add(0.5)));
-  })().compute(count);
-
-  // Update: move + gravity + decay
-  const computeUpdate = Fn(() => {
-    const idx = instanceIndex;
-    const pos = positionBuffer.element(idx).toVar();
-    const vel = velocityBuffer.element(idx).toVar();
-    const life = lifeBuffer.element(idx).toVar();
-    life.subAssign(deltaTime);
-    vel.y.subAssign(float(EXPLOSION.GRAVITY).mul(deltaTime));
-    vel.mulAssign(float(1).sub(deltaTime.mul(2))); // drag
-    pos.addAssign(vel.mul(deltaTime));
-    positionBuffer.element(idx).assign(pos);
-    velocityBuffer.element(idx).assign(vel);
-    lifeBuffer.element(idx).assign(life);
-  })().compute(count);
-
-  const geometry = new BufferGeometry();
-  const posArray = new Float32Array(count * 3);
-  geometry.setAttribute('position', new InstancedBufferAttribute(posArray, 3));
-
-  const material = new SpriteNodeMaterial();
-  material.positionNode = positionBuffer.toAttribute();
-  material.colorNode = vec4(colorNode.mul(float(4)), lifeBuffer.toAttribute().div(EXPLOSION.LIFE).clamp(0, 1));
-  material.scaleNode = uniform(EXPLOSION.SPRITE_SIZE);
-  material.transparent = true;
-  material.blending = AdditiveBlending;
-  material.depthWrite = false;
-
-  const mesh = new ThreeMesh(geometry, material);
-  mesh.count = count;
-  mesh.frustumCulled = false;
-
-  return {
-    mesh,
-    geometry,
-    material,
-    computeInit,
-    computeUpdate,
-    emitterPos,
-    speed,
-    colorR,
-    colorG,
-    colorB,
-    timeAlive: 0,
-    active: false,
-    computePending: false,
-  };
 }

@@ -428,6 +428,33 @@ interface MapData {
 
 ---
 
+## Dev Log & Debugging
+
+### Felsökningsprocess
+**All felsökning börjar i DEV LOG** — aldrig Chrome DevTools Console. DEV LOG visar:
+- **Alla runtime errors** och unhandled promise rejections (fångas automatiskt)
+- **`console.warn`/`console.error`** interceptas och visas i loggen
+- **FPS, frametime, max frametime** — realtid i perf-baren
+- **Minne (JS heap)** — Chrome-specifikt, visas i MB
+- **Draw calls, trianglar, geometrier, texturer** — från `gl.info`
+- **Filtrering per source** — klicka kategori-knappar (Physics, Combat, Renderer, etc.)
+- **Error/warn-badge** i headern visar antal
+
+### Arkitektur
+- **`devLogStore.ts`** — Zustand store med `push()`, `updatePerf()`, `setFilter()`, `installErrorCapture()`
+- **`devLog`** — Convenience-objekt: `devLog.info('Source', 'msg')`, `.success()`, `.warn()`, `.error()`, `.perf()`
+- **`PerfMonitor.tsx`** — Osynlig Canvas-komponent, mäter frametime varje frame, pushar till store 1x/sec
+- **`DevLogPanel.tsx`** — HUD-overlay med perf-bar + filter-bar + scrollbar logg
+- **`installErrorCapture()`** — Anropas i `main.tsx`, interceptar window errors + console.warn/error
+
+### Regler för nya komponenter
+- **Alla game-komponenter MÅSTE importera `devLog`** och logga vid mount, errors, och viktiga tillståndsändringar
+- **Använd ALDRIG `console.log/warn/error` direkt** — använd `devLog.info/warn/error('Source', msg)` istället
+- **Error-hantering i `.catch()`** ska alltid logga: `devLog.error('Source', \`msg: \${err instanceof Error ? err.message : String(err)}\`)`
+- **Source-namn** ska vara korta, unika per komponent: `Physics`, `Combat`, `Renderer`, `Fog`, `PostFX`, `Explosion`, `Projectile`, `Map`, etc.
+
+---
+
 ## Known Issues & Debugging Notes
 
 ### 🟡 R3F `<color>` Element Inkompatibelt med WebGPURenderer

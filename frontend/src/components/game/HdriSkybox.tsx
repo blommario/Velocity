@@ -3,6 +3,7 @@ import { useThree } from '@react-three/fiber';
 import { PMREMGenerator } from 'three/webgpu';
 import type { DataTexture, WebGPURenderer } from 'three/webgpu';
 import { loadHDRI } from '../../services/assetManager';
+import { devLog } from '../../stores/devLogStore';
 
 interface HdriSkyboxProps {
   /** HDRI filename in /assets/hdri/ (e.g. "satara_night_2k.hdr") */
@@ -33,7 +34,7 @@ export function HdriSkybox({ filename }: HdriSkyboxProps) {
         pmrem.dispose();
       })
       .catch((err) => {
-        console.warn(`[HdriSkybox] Failed to load ${filename}:`, err);
+        devLog.error('HdriSkybox', `Failed to load ${filename}: ${err instanceof Error ? err.message : String(err)}`);
       });
 
     return () => {
