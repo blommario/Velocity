@@ -1,18 +1,24 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
-import { Object3D, InstancedMesh, Euler } from 'three';
+import { Object3D, InstancedMesh, Euler, BoxGeometry, CylinderGeometry } from 'three';
+import { useFrame } from '@react-three/fiber';
 import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
 import { batchStaticColliders } from '../../../engine/physics/colliderBatch';
 import { useSpatialCulling } from '../../../engine/rendering/useSpatialCulling';
+import { splitByLod, LOD_GEOMETRY, LOD_THRESHOLDS } from '../../../engine/rendering/LodManager';
 import type { MapBlock } from './types';
 
-/** Block count threshold for enabling spatial culling */
+/** Block count threshold for enabling spatial culling + LOD */
 const CULLING_THRESHOLD = 500;
 
 const CULLING_CONFIG = {
-  viewRadius: 200,
+  /** Must match or exceed LOD_THRESHOLDS.HIDDEN + HYSTERESIS so LOD controls visibility */
+  viewRadius: LOD_THRESHOLDS.HIDDEN + LOD_THRESHOLDS.HYSTERESIS,
   cellSize: 32,
 } as const;
+
+/** How often to recalculate LOD splits (seconds) */
+const LOD_UPDATE_INTERVAL = 0.25;
 
 interface BlockGroup {
   key: string;
@@ -64,6 +70,11 @@ function groupBlocks(blocks: MapBlock[]): BlockGroup[] {
 
 const _blockEuler = new Euler();
 
+// Shared geometries — created once, reused across all block groups
+const _boxGeometry = new BoxGeometry(1, 1, 1);
+const _cylinderGeometryFull = new CylinderGeometry(0.5, 0.5, 1, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL);
+const _cylinderGeometrySimple = new CylinderGeometry(0.5, 0.5, 1, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE);
+
 function useInstanceMatrix(blocks: MapBlock[]) {
   const meshRef = useRef<InstancedMesh>(null);
   const dummy = useMemo(() => new Object3D(), []);
@@ -90,9 +101,26 @@ function useInstanceMatrix(blocks: MapBlock[]) {
   return meshRef;
 }
 
-function TexturedBlockGroup({ group }: { group: BlockGroup }) {
+// ── Visual block group renderers ──
+
+function getGeometry(shape: MapBlock['shape'], cylinderSegments: number) {
+  if (shape === 'cylinder') {
+    return cylinderSegments >= LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL
+      ? _cylinderGeometryFull
+      : _cylinderGeometrySimple;
+  }
+  return _boxGeometry;
+}
+
+interface BlockGroupProps {
+  group: BlockGroup;
+  cylinderSegments: number;
+}
+
+function TexturedBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
   const scale = group.textureScale ?? [1, 1];
+  const geometry = getGeometry(group.shape, cylinderSegments);
 
   const material = useTexturedMaterial(
     group.textureSet
@@ -107,20 +135,14 @@ function TexturedBlockGroup({ group }: { group: BlockGroup }) {
   );
 
   if (!material) {
-    // Fallback to flat color while loading
     return (
       <instancedMesh
         ref={meshRef}
-        args={[undefined, undefined, group.blocks.length]}
+        args={[geometry, undefined, group.blocks.length]}
         castShadow
         receiveShadow
         frustumCulled
       >
-        {group.shape === 'cylinder' ? (
-          <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
-        ) : (
-          <boxGeometry args={[1, 1, 1]} />
-        )}
         <meshStandardMaterial color={group.color} />
       </instancedMesh>
     );
@@ -129,37 +151,26 @@ function TexturedBlockGroup({ group }: { group: BlockGroup }) {
   return (
     <instancedMesh
       ref={meshRef}
-      args={[undefined, undefined, group.blocks.length]}
+      args={[geometry, material, group.blocks.length]}
       castShadow
       receiveShadow
       frustumCulled
-      material={material}
-    >
-      {group.shape === 'cylinder' ? (
-        <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
-      ) : (
-        <boxGeometry args={[1, 1, 1]} />
-      )}
-    </instancedMesh>
+    />
   );
 }
 
-function FlatBlockGroup({ group }: { group: BlockGroup }) {
+function FlatBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
+  const geometry = getGeometry(group.shape, cylinderSegments);
 
   return (
     <instancedMesh
       ref={meshRef}
-      args={[undefined, undefined, group.blocks.length]}
+      args={[geometry, undefined, group.blocks.length]}
       castShadow
       receiveShadow
       frustumCulled
     >
-      {group.shape === 'cylinder' ? (
-        <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
-      ) : (
-        <boxGeometry args={[1, 1, 1]} />
-      )}
       <meshStandardMaterial
         color={group.color}
         emissive={group.emissive}
@@ -171,29 +182,41 @@ function FlatBlockGroup({ group }: { group: BlockGroup }) {
   );
 }
 
+function renderGroups(groups: BlockGroup[], cylinderSegments: number) {
+  return groups.map((group) =>
+    group.textureSet ? (
+      <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} />
+    ) : (
+      <FlatBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} />
+    ),
+  );
+}
+
+// ── Main component ──
+
 interface InstancedBlocksProps {
   blocks: MapBlock[];
 }
 
 export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
-  const useCulling = blocks.length >= CULLING_THRESHOLD;
+  const useLod = blocks.length >= CULLING_THRESHOLD;
   const { grid, activeCells } = useSpatialCulling<number>(
-    useCulling ? CULLING_CONFIG : { viewRadius: Infinity, cellSize: CULLING_CONFIG.cellSize },
+    useLod ? CULLING_CONFIG : { viewRadius: Infinity, cellSize: CULLING_CONFIG.cellSize },
   );
 
   // Populate grid with block indices (once per blocks change)
   useMemo(() => {
     grid.clear();
-    if (!useCulling) return;
+    if (!useLod) return;
     for (let i = 0; i < blocks.length; i++) {
       const pos = blocks[i].position;
       grid.insert(pos[0], pos[2], i);
     }
-  }, [blocks, grid, useCulling]);
+  }, [blocks, grid, useLod]);
 
-  // Filter visible blocks — O(active cells × items/cell), NOT O(total blocks)
+  // Filter visible blocks — O(active cells × items/cell)
   const visibleBlocks = useMemo(() => {
-    if (!useCulling || activeCells.size === 0) return blocks;
+    if (!useLod || activeCells.size === 0) return blocks;
 
     const visible: MapBlock[] = [];
     activeCells.forEach((key) => {
@@ -203,25 +226,44 @@ export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
       }
     });
     return visible;
-  }, [blocks, activeCells, grid, useCulling]);
+  }, [blocks, activeCells, grid, useLod]);
 
-  const groups = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
+  // LOD split: camera position sampled at ~4Hz
+  const lodTimerRef = useRef(0);
+  const [lodSplit, setLodSplit] = useState<{ near: MapBlock[]; far: MapBlock[] }>({
+    near: visibleBlocks,
+    far: [],
+  });
 
-  // Physics colliders always include ALL blocks (Rapier needs full collision)
+  useFrame(({ camera }, delta) => {
+    if (!useLod) return;
+    lodTimerRef.current += delta;
+    if (lodTimerRef.current < LOD_UPDATE_INTERVAL) return;
+    lodTimerRef.current = 0;
+
+    const [near, far] = splitByLod(visibleBlocks, camera.position.x, camera.position.z);
+    setLodSplit({ near, far });
+  });
+
+  // When not using LOD, or on first render before useFrame fires
+  const nearBlocks = useLod ? lodSplit.near : visibleBlocks;
+  const farBlocks = useLod ? lodSplit.far : [];
+
+  const nearGroups = useMemo(() => groupBlocks(nearBlocks), [nearBlocks]);
+  const farGroups = useMemo(() => groupBlocks(farBlocks), [farBlocks]);
+
+  // Physics colliders always include ALL blocks
   const colliderGroups = useMemo(() => batchStaticColliders(blocks), [blocks]);
 
   return (
     <group>
-      {/* Visual instanced meshes (culled when 500+ blocks) */}
-      {groups.map((group) =>
-        group.textureSet ? (
-          <TexturedBlockGroup key={group.key} group={group} />
-        ) : (
-          <FlatBlockGroup key={group.key} group={group} />
-        ),
-      )}
+      {/* Near: full-detail geometry */}
+      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL)}
 
-      {/* Physics colliders — batched into compound rigid bodies (1 per shape type) */}
+      {/* Far: simplified geometry */}
+      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE)}
+
+      {/* Physics colliders — batched compound rigid bodies */}
       {colliderGroups.map((group) => (
         <RigidBody key={group.shape} type="fixed" colliders={false}>
           {group.colliders.map((col, i) =>

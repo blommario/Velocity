@@ -88,14 +88,14 @@
 - ✅ `engine/rendering/useSpatialCulling.ts` — React-hook, returnerar aktiva celler baserat på kameraposition
 - ✅ `components/game/map/InstancedBlocks.tsx` — Filtrera synliga block per aktiv cell (vid 500+ block)
 
-### G5 — LOD (Level of Detail)
+### G5 — LOD (Level of Detail) ✅
 *Avståndbaserat geometribyte: nära=full detail, medel=förenklad, långt=dölj.*
 
 **Förutsättning:** G4
 
-- 🔲 `engine/rendering/LodManager.ts` — Trösklar (FULL_DETAIL: 100, SIMPLIFIED: 250, HIDDEN: 500) och hjälpfunktioner
-- 🔲 `components/game/map/InstancedBlocks.tsx` — Dubbla InstancedMesh per grupp (nära/fjärran)
-- 🔲 `components/game/map/ModelBlock.tsx` — Avståndbaserad laddning/urladdning
+- ✅ `engine/rendering/LodManager.ts` — Trösklar (FULL_DETAIL: 100, SIMPLIFIED: 250, HIDDEN: 500) och hjälpfunktioner
+- ✅ `components/game/map/InstancedBlocks.tsx` — Dubbla InstancedMesh per grupp (nära/fjärran)
+- ✅ `components/game/map/ModelBlock.tsx` — Avståndbaserad laddning/urladdning
 
 ---
 
@@ -120,13 +120,13 @@
 - 🔲 `engine/rendering/GpuPicker.ts` — Pick render target, ID-tilldelning, avläsning via `readRenderTargetPixelsAsync`
 - 🔲 `engine/rendering/usePickable.ts` — Hook för att registrera mesh som pickable (max 16.7M objekt, 24-bit)
 
-### H3 — SurfRamp Instancing
+### H3 — SurfRamp Instancing ✅
 *Batcha surf ramps till InstancedMesh. Samma mönster som InstancedBlocks.*
 
 **Förutsättning:** G1 (collider-merging mönster)
 
-- 🔲 `components/game/map/InstancedSurfRamps.tsx` — Gruppera ramps per färg, instansad wedge-geometri
-- 🔲 `components/game/map/MapLoader.tsx` — Ersätt per-ramp `BlockRenderer` med `InstancedSurfRamps`
+- ✅ `components/game/map/InstancedSurfRamps.tsx` — Gruppera ramps per färg, instansad wedge-geometri
+- ✅ `components/game/map/MapLoader.tsx` — Ersätt per-ramp `BlockRenderer` med `InstancedSurfRamps`
 
 ### H4 — Snap-to-Grid ✅
 *Rena matematikfunktioner för grid-snapping. Inga beroenden.*

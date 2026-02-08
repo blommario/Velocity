@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import type { Group } from 'three/webgpu';
 import { loadModel } from '../../../services/assetManager';
+import { distanceSqXZ, LOD_THRESHOLDS } from '../../../engine/rendering/LodManager';
 import { devLog } from '../../../engine/stores/devLogStore';
 import type { MapModel } from './types';
+
+/** How often to check distance for LOD visibility (seconds) */
+const LOD_CHECK_INTERVAL = 0.5;
 
 interface ModelBlockProps {
   model: MapModel;
@@ -12,7 +16,9 @@ interface ModelBlockProps {
 
 export function ModelBlock({ model }: ModelBlockProps) {
   const [scene, setScene] = useState<Group | null>(null);
+  const [visible, setVisible] = useState(true);
   const groupRef = useRef<Group>(null);
+  const lodTimerRef = useRef(0);
   const { invalidate } = useThree();
 
   useEffect(() => {
@@ -35,7 +41,21 @@ export function ModelBlock({ model }: ModelBlockProps) {
     };
   }, [model.modelUrl, invalidate]);
 
-  if (!scene) return null;
+  // Distance-based visibility at ~2Hz
+  useFrame(({ camera }, delta) => {
+    lodTimerRef.current += delta;
+    if (lodTimerRef.current < LOD_CHECK_INTERVAL) return;
+    lodTimerRef.current = 0;
+
+    const dSq = distanceSqXZ(
+      model.position[0], model.position[2],
+      camera.position.x, camera.position.z,
+    );
+    const shouldShow = dSq <= LOD_THRESHOLDS.HIDDEN ** 2;
+    if (shouldShow !== visible) setVisible(shouldShow);
+  });
+
+  if (!scene || !visible) return null;
 
   const position = model.position;
   const rotation = model.rotation ?? [0, 0, 0];

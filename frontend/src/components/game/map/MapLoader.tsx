@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
+import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { StartZone } from '../zones/StartZone';
@@ -16,13 +16,14 @@ import { ProceduralSkybox } from '../ProceduralSkybox';
 import { HdriSkybox } from '../HdriSkybox';
 import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
 import { InstancedBlocks } from './InstancedBlocks';
+import { InstancedSurfRamps } from './InstancedSurfRamps';
 import { ModelBlock } from './ModelBlock';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
 import { resetPool } from '../physics/projectilePool';
 import { clearAssetCache } from '../../../services/assetManager';
-import type { MapData, MapBlock, MovingPlatformData, Vec3 } from './types';
+import type { MapData, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {
   ambientIntensity: 0.4,
@@ -183,19 +184,10 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         <GrapplePoint key={`gp-${i}`} position={gp.position} />
       ))}
 
-      {/* Surf ramps */}
-      {data.surfRamps?.map((sr, i) => (
-        <BlockRenderer
-          key={`surf-${i}`}
-          block={{
-            shape: 'ramp',
-            position: sr.position,
-            size: sr.size,
-            rotation: sr.rotation,
-            color: sr.color ?? '#6688aa',
-          }}
-        />
-      ))}
+      {/* Surf ramps (instanced) */}
+      {data.surfRamps && data.surfRamps.length > 0 && (
+        <InstancedSurfRamps ramps={data.surfRamps} />
+      )}
 
       {/* Moving platforms */}
       {data.movingPlatforms?.map((mp, i) => (
@@ -240,45 +232,6 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       {/* Grid for orientation */}
       <gridHelper args={[400, 80, '#333', '#222']} position={[0, 0.01, 0]} />
     </group>
-  );
-}
-
-// ── Block Renderer ──
-
-function BlockRenderer({ block }: { block: MapBlock }) {
-  const rot = block.rotation ?? [0, 0, 0];
-  const halfSize: Vec3 = [block.size[0] / 2, block.size[1] / 2, block.size[2] / 2];
-
-  return (
-    <RigidBody type="fixed" colliders={false}>
-      {block.shape === 'cylinder' ? (
-        <CylinderCollider
-          args={[halfSize[1], halfSize[0]]}
-          position={block.position}
-          rotation={rot}
-        />
-      ) : (
-        <CuboidCollider
-          args={halfSize}
-          position={block.position}
-          rotation={rot}
-        />
-      )}
-      <mesh position={block.position} rotation={rot} castShadow receiveShadow>
-        {block.shape === 'cylinder' ? (
-          <cylinderGeometry args={[halfSize[0], halfSize[0], block.size[1], 16]} />
-        ) : (
-          <boxGeometry args={block.size} />
-        )}
-        <meshStandardMaterial
-          color={block.color}
-          emissive={block.emissive ?? '#000000'}
-          emissiveIntensity={block.emissiveIntensity ?? 0}
-          transparent={block.transparent ?? false}
-          opacity={block.opacity ?? 1}
-        />
-      </mesh>
-    </RigidBody>
   );
 }
 
