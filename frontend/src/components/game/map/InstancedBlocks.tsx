@@ -7,6 +7,8 @@ import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
 import { batchStaticColliders } from '../../../engine/physics/colliderBatch';
 import { useSpatialCulling } from '../../../engine/rendering/useSpatialCulling';
 import { splitByLod, LOD_GEOMETRY, LOD_THRESHOLDS } from '../../../engine/rendering/LodManager';
+import { applyTileLighting, removeTileLighting } from '../../../engine/rendering/lightMaterial';
+import type { TileLightingNode } from '../../../engine/rendering/tileLightingNode';
 import type { MapBlock } from './types';
 
 /** Block count threshold for enabling spatial culling + LOD */
@@ -117,24 +119,33 @@ interface BlockGroupProps {
   group: BlockGroup;
   cylinderSegments: number;
   lightsNode?: LightsNode;
+  tileLightingNode?: TileLightingNode;
 }
 
-/** Apply lightsNode to an InstancedMesh's material after mount. */
-function useLightsNode(
+/** Apply lightsNode or tileLightingNode to an InstancedMesh's material after mount. */
+function useLightingBinding(
   meshRef: React.RefObject<InstancedMesh | null>,
   lightsNode?: LightsNode,
+  tileLightingNode?: TileLightingNode,
 ) {
   useEffect(() => {
     const mesh = meshRef.current;
-    if (!mesh || !lightsNode) return;
-    const mat = mesh.material as MeshStandardMaterial & { lightsNode?: LightsNode | null };
-    if (mat && 'lightsNode' in mat) {
-      mat.lightsNode = lightsNode;
+    if (!mesh) return;
+    const mat = mesh.material as MeshStandardMaterial;
+
+    if (tileLightingNode) {
+      applyTileLighting(mat, tileLightingNode);
+      return () => { removeTileLighting(mat); };
+    } else if (lightsNode) {
+      const nodeMat = mat as MeshStandardMaterial & { lightsNode?: LightsNode | null };
+      if ('lightsNode' in nodeMat) {
+        nodeMat.lightsNode = lightsNode;
+      }
     }
-  }, [meshRef, lightsNode]);
+  }, [meshRef, lightsNode, tileLightingNode]);
 }
 
-function TexturedBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupProps) {
+function TexturedBlockGroup({ group, cylinderSegments, lightsNode, tileLightingNode }: BlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
   const scale = group.textureScale ?? [1, 1];
   const geometry = getGeometry(group.shape, cylinderSegments);
@@ -151,7 +162,7 @@ function TexturedBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupP
       : null,
   );
 
-  useLightsNode(meshRef, lightsNode);
+  useLightingBinding(meshRef, lightsNode, tileLightingNode);
 
   if (!material) {
     return (
@@ -178,11 +189,11 @@ function TexturedBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupP
   );
 }
 
-function FlatBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupProps) {
+function FlatBlockGroup({ group, cylinderSegments, lightsNode, tileLightingNode }: BlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
   const geometry = getGeometry(group.shape, cylinderSegments);
 
-  useLightsNode(meshRef, lightsNode);
+  useLightingBinding(meshRef, lightsNode, tileLightingNode);
 
   return (
     <instancedMesh
@@ -203,12 +214,17 @@ function FlatBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupProps
   );
 }
 
-function renderGroups(groups: BlockGroup[], cylinderSegments: number, lightsNode?: LightsNode) {
+function renderGroups(
+  groups: BlockGroup[],
+  cylinderSegments: number,
+  lightsNode?: LightsNode,
+  tileLightingNode?: TileLightingNode,
+) {
   return groups.map((group) =>
     group.textureSet ? (
-      <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} />
+      <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} tileLightingNode={tileLightingNode} />
     ) : (
-      <FlatBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} />
+      <FlatBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} tileLightingNode={tileLightingNode} />
     ),
   );
 }
@@ -218,9 +234,10 @@ function renderGroups(groups: BlockGroup[], cylinderSegments: number, lightsNode
 interface InstancedBlocksProps {
   blocks: MapBlock[];
   lightsNode?: LightsNode;
+  tileLightingNode?: TileLightingNode;
 }
 
-export function InstancedBlocks({ blocks, lightsNode }: InstancedBlocksProps) {
+export function InstancedBlocks({ blocks, lightsNode, tileLightingNode }: InstancedBlocksProps) {
   const useLod = blocks.length >= CULLING_THRESHOLD;
   const { grid, activeCells } = useSpatialCulling<number>(
     useLod ? CULLING_CONFIG : { viewRadius: Infinity, cellSize: CULLING_CONFIG.cellSize },
@@ -280,10 +297,10 @@ export function InstancedBlocks({ blocks, lightsNode }: InstancedBlocksProps) {
   return (
     <group>
       {/* Near: full-detail geometry */}
-      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL, lightsNode)}
+      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL, lightsNode, tileLightingNode)}
 
       {/* Far: simplified geometry */}
-      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE, lightsNode)}
+      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE, lightsNode, tileLightingNode)}
 
       {/* Physics colliders — batched compound rigid bodies */}
       {colliderGroups.map((group) => (

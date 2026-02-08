@@ -19,4 +19,22 @@ export {
   useClusteredLighting,
   type UseClusteredLightingProps, type ClusteredLightingResult,
 } from './useClusteredLighting';
-export { applyClusteredLighting, removeClusteredLighting } from './lightMaterial';
+export { applyClusteredLighting, removeClusteredLighting, applyTileLighting, removeTileLighting } from './lightMaterial';
+export {
+  TILE_CONFIG, buildLightBuffer, tileGridSize,
+  type TileLightBuffer,
+} from './TileClusteredLights';
+export {
+  createTileBinningResources,
+  type TileBinningResources, type TileBinningUniforms,
+} from './tileBinning';
+export {
+  createTileLightingNode,
+  createTileDebugNode,
+  type TileLightingNode,
+  type TileDebugNode,
+} from './tileLightingNode';
+export {
+  useTileClusteredLighting,
+  type UseTileClusteredLightingProps, type TileClusteredLightingResult,
+} from './useTileClusteredLighting';

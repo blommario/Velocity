@@ -16,6 +16,7 @@ import { ProceduralSkybox } from '../ProceduralSkybox';
 import { HdriSkybox } from '../HdriSkybox';
 import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
 import { useClusteredLighting, type LightData } from '../../../engine/rendering';
+import { useTileClusteredLighting } from '../../../engine/rendering';
 import { InstancedBlocks } from './InstancedBlocks';
 import { InstancedSurfRamps } from './InstancedSurfRamps';
 import { ModelBlock } from './ModelBlock';
@@ -110,12 +111,20 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
     }));
   }, [lightSprites]);
 
+  // Steg 1: PointLight pool (used when < 64 lights)
   const { lightsNode } = useClusteredLighting({ lights: clusterLightData });
+
+  // Steg 2: Tile-clustered GPU compute (used when >= 64 lights)
+  const { tileLightingNode, isTileClustered } = useTileClusteredLighting({ lights: clusterLightData });
 
   return (
     <group>
       {/* Blocks (static geometry — instanced for performance) */}
-      <InstancedBlocks blocks={data.blocks} lightsNode={lightsNode} />
+      <InstancedBlocks
+        blocks={data.blocks}
+        lightsNode={isTileClustered ? undefined : lightsNode}
+        tileLightingNode={isTileClustered ? tileLightingNode : undefined}
+      />
 
       {/* glTF models */}
       {data.models?.map((model, i) => (

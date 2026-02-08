@@ -149,7 +149,13 @@
 - ✅ `engine/rendering/useClusteredLighting.ts` — React hook med PointLight pool (8 st, castShadow=false) + LightsNode, uppdaterar ~4Hz
 - ✅ `engine/rendering/lightMaterial.ts` — Helper för att applicera/ta bort lightsNode på materials
 - ✅ Integration: MapLoader → useClusteredLighting → InstancedBlocks med lightsNode per material-grupp
-- 🔲 Steg 2 (framtida): Full clustered shading med screen-space tiles för 500+ ljus
+- ✅ Steg 2: Full clustered shading med screen-space tiles för 500+ ljus
+  - `TileClusteredLights.ts` — SpatialGrid CPU pre-filter, packed Float32Array buffers
+  - `tileBinning.ts` — GPU compute: project lights → screen tiles, atomicAdd binning
+  - `tileLightingNode.ts` — Custom TSL fragment node: Frostbite PBR attenuation per tile
+  - `useTileClusteredLighting.ts` — React hook: CPU→GPU upload ~4Hz, compute dispatch
+  - Auto-fallback: <64 lights → Steg 1 PointLight pool, ≥64 → tile clustering
+  - 512 max lights, 20×12 tiles (64px), 32 lights/tile cap
 
 ### I2 — Line of Sight / Fog of War ✅
 *CPU-baserad fog-of-war med 2D visibility-textur. Tre states: HIDDEN, PREVIOUSLY_SEEN, VISIBLE.*
