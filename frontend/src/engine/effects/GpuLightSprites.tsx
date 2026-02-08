@@ -65,7 +65,6 @@ export function GpuLightSprites({ lights }: GpuLightSpritesProps) {
 
     const container = new Group();
     container.name = 'GpuLightSprites';
-    scene.add(container);
     containerRef.current = container;
 
     // ── Static CPU arrays (written once, never updated per-frame) ──
@@ -99,59 +98,71 @@ export function GpuLightSprites({ lights }: GpuLightSpritesProps) {
     const scaleAttr = new InstancedBufferAttribute(scaleData, 1);
     const phaseAttr = new InstancedBufferAttribute(phaseData, 1);
 
-    // ── TSL nodes ──
-    const posNode = instancedDynamicBufferAttribute(posAttr, 'vec3');
-    const colorNode = instancedDynamicBufferAttribute(colorAttr, 'vec4');
-    const scaleNode = instancedDynamicBufferAttribute(scaleAttr, 'float');
-    const phaseNode = instancedDynamicBufferAttribute(phaseAttr, 'float');
+    let geometry: BufferGeometry | null = null;
+    let material: SpriteNodeMaterial | null = null;
 
-    // Time uniform — single value updated once per frame
-    const timeU = uniform(0);
-    timeUniformRef.current = timeU;
+    try {
+      // ── TSL nodes ──
+      const posNode = instancedDynamicBufferAttribute(posAttr, 'vec3');
+      const colorNode = instancedDynamicBufferAttribute(colorAttr, 'vec4');
+      const scaleNode = instancedDynamicBufferAttribute(scaleAttr, 'float');
+      const phaseNode = instancedDynamicBufferAttribute(phaseAttr, 'float');
 
-    // ── GPU pulse computation ──
-    // sin(time * speed + phase) → [−1,1] → [0,1] → [PULSE_MIN, PULSE_MAX]
-    // pulseFlag (colorNode.w): 1.0 = animated, 0.0 = static (factor stays 1.0)
-    const pulseFlag = colorNode.w;
-    const sineWave = sin(timeU.mul(float(GPU_LIGHT.PULSE_SPEED)).add(phaseNode));
-    const normalized = sineWave.add(float(1.0)).mul(float(0.5)); // [0,1]
-    const pulseFactor = float(GPU_LIGHT.PULSE_MIN).add(
-      normalized.mul(float(GPU_LIGHT.PULSE_MAX - GPU_LIGHT.PULSE_MIN)),
-    );
-    // Mix: static lights get factor=1.0, pulsing lights get pulseFactor
-    const factor = pulseFlag.mul(pulseFactor).add(
-      float(1.0).sub(pulseFlag),
-    );
+      // Time uniform — single value updated once per frame
+      const timeU = uniform(0);
+      timeUniformRef.current = timeU;
 
-    // ── Geometry ──
-    const geometry = new BufferGeometry();
-    geometry.setAttribute('position', posAttr);
+      // ── GPU pulse computation ──
+      // sin(time * speed + phase) → [−1,1] → [0,1] → [PULSE_MIN, PULSE_MAX]
+      // pulseFlag (colorNode.w): 1.0 = animated, 0.0 = static (factor stays 1.0)
+      const pulseFlag = colorNode.w;
+      const sineWave = sin(timeU.mul(float(GPU_LIGHT.PULSE_SPEED)).add(phaseNode));
+      const normalized = sineWave.add(float(1.0)).mul(float(0.5)); // [0,1]
+      const pulseFactor = float(GPU_LIGHT.PULSE_MIN).add(
+        normalized.mul(float(GPU_LIGHT.PULSE_MAX - GPU_LIGHT.PULSE_MIN)),
+      );
+      // Mix: static lights get factor=1.0, pulsing lights get pulseFactor
+      const factor = pulseFlag.mul(pulseFactor).add(
+        float(1.0).sub(pulseFlag),
+      );
 
-    // ── Material — emissive × 6.0 for bloom, pulse computed on GPU ──
-    const material = new SpriteNodeMaterial();
-    material.positionNode = posNode;
-    material.colorNode = vec4(
-      colorNode.xyz.mul(float(GPU_LIGHT.EMISSIVE_MULT)).mul(factor),
-      float(1.0),
-    );
-    material.scaleNode = scaleNode.mul(
-      float(0.9).add(factor.mul(float(0.1))),
-    );
-    material.transparent = true;
-    material.blending = AdditiveBlending;
-    material.depthWrite = false;
+      // ── Geometry ──
+      geometry = new BufferGeometry();
+      geometry.setAttribute('position', posAttr);
 
-    const mesh = new ThreeMesh(geometry, material);
-    mesh.count = count;
-    mesh.frustumCulled = false;
-    container.add(mesh);
+      // ── Material — emissive × 6.0 for bloom, pulse computed on GPU ──
+      material = new SpriteNodeMaterial();
+      material.positionNode = posNode;
+      material.colorNode = vec4(
+        colorNode.xyz.mul(float(GPU_LIGHT.EMISSIVE_MULT)).mul(factor),
+        float(1.0),
+      );
+      material.scaleNode = scaleNode.mul(
+        float(0.9).add(factor.mul(float(0.1))),
+      );
+      material.transparent = true;
+      material.blending = AdditiveBlending;
+      material.depthWrite = false;
 
-    devLog.success('Lighting', `GPU light sprites ready: ${count} lights (1 draw call, GPU pulse)`);
+      const mesh = new ThreeMesh(geometry, material);
+      mesh.count = count;
+      mesh.frustumCulled = false;
+      container.add(mesh);
+      scene.add(container);
+
+      devLog.success('Lighting', `GPU light sprites ready: ${count} lights (1 draw call, GPU pulse)`);
+    } catch (err) {
+      devLog.error('Lighting', `GPU light sprites failed to create: ${err}`);
+      geometry?.dispose();
+      material?.dispose();
+      containerRef.current = null;
+      return;
+    }
 
     return () => {
       scene.remove(container);
-      geometry.dispose();
-      material.dispose();
+      geometry?.dispose();
+      material?.dispose();
       containerRef.current = null;
       timeUniformRef.current = null;
       devLog.info('Lighting', 'GPU light sprites disposed');

@@ -62,8 +62,11 @@ export function useTileClusteredLighting({
   const renderer = gl as unknown as WebGPURenderer;
   const updateInterval = config?.updateInterval ?? CLUSTERED_DEFAULTS.updateInterval;
 
+  // Guard: tile clustering requires WebGPU renderer with compute support
+  const isWebGPU = 'compute' in renderer && typeof renderer.compute === 'function';
+
   // Determine if tile clustering should be active
-  const isTileClustered = lightData.length >= TILE_CLUSTERING_THRESHOLD;
+  const isTileClustered = isWebGPU && lightData.length >= TILE_CLUSTERING_THRESHOLD;
 
   // Build spatial grid from light positions (rebuilt when lights change)
   const grid = useMemo(() => {
@@ -87,8 +90,17 @@ export function useTileClusteredLighting({
   const lightingNodeRef = useRef<TileLightingNode | null>(null);
   const debugNodeRef = useRef<TileDebugNode | null>(null);
 
+  // readyRef MUST be defined before useMemo so it can be reset synchronously
+  // when resources are recreated (e.g. on resize). This prevents useFrame from
+  // dispatching compute on uncompiled pipelines in the gap between useMemo and useEffect.
+  const readyRef = useRef(false);
+
   const resources = useMemo(() => {
     if (!isTileClustered) return null;
+
+    // Immediately mark not-ready — new resources need warmup before dispatch
+    readyRef.current = false;
+
     const res = createTileBinningResources(maxTiles);
     resourcesRef.current = res;
 
@@ -101,18 +113,31 @@ export function useTileClusteredLighting({
     return res;
   }, [isTileClustered, maxTiles, cols, rows]);
 
-  // Async warmup: compile compute pipelines on mount
+  // Async warmup: compile compute pipelines — readyRef gates useFrame dispatch.
+  // Also serves as cleanup for old GPU resources when resources change (e.g. resize).
   useEffect(() => {
-    if (!resources) return;
+    if (!resources) {
+      readyRef.current = false;
+      return;
+    }
     const warmup = async () => {
       try {
         await renderer.computeAsync(resources.computeClear);
+        readyRef.current = true;
         devLog.success('Lighting', 'Tile binning compute pipelines compiled');
       } catch (err) {
         devLog.error('Lighting', `Tile binning warmup failed: ${err}`);
       }
     };
     warmup();
+
+    // Cleanup: mark not-ready and dispose GPU buffers when resources are replaced
+    return () => {
+      readyRef.current = false;
+      // Storage buffers from attributeArray/instancedArray are managed by Three.js
+      // and will be garbage-collected when no longer referenced.
+      devLog.info('Lighting', 'Tile clustering resources released');
+    };
   }, [renderer, resources]);
 
   // Refs for per-frame data
@@ -122,7 +147,7 @@ export function useTileClusteredLighting({
 
   // Per-frame: data upload at ~4Hz, view matrix + compute binning EVERY frame
   useFrame(({ camera }, delta) => {
-    if (!resources || !isTileClustered) return;
+    if (!resources || !isTileClustered || !readyRef.current) return;
 
     // 1. Data upload (positions/colors) — slow path, ~4Hz
     timerRef.current += delta;

@@ -68,8 +68,11 @@ export function useFogOfWar({
   const { gl } = useThree();
   const renderer = gl as unknown as WebGPURenderer;
 
+  // Guard: GPU path requires WebGPU renderer with compute support
+  const isWebGPU = 'compute' in renderer && typeof renderer.compute === 'function';
+
   const merged = useMemo(() => ({ ...FOG_DEFAULTS, ...config }), [config]);
-  const isGpuPath = enabled && !!merged.heightmapEnabled && !!blocks && blocks.length > 0;
+  const isGpuPath = isWebGPU && enabled && !!merged.heightmapEnabled && !!blocks && blocks.length > 0;
 
   // ── CPU path refs ──
   const gridRef = useRef<FogOfWarGrid | null>(null);
@@ -78,6 +81,7 @@ export function useFogOfWar({
 
   // ── GPU path refs ──
   const gpuResourcesRef = useRef<FogComputeResources | null>(null);
+  const gpuReadyRef = useRef(false);
 
   // ── Shared refs ──
   const timerRef = useRef(0);
@@ -130,9 +134,11 @@ export function useFogOfWar({
   useEffect(() => {
     if (!isGpuPath || !blocks) {
       gpuResourcesRef.current = null;
+      gpuReadyRef.current = false;
       return;
     }
 
+    gpuReadyRef.current = false;
     const hmConfig = fogConfigToHeightmapConfig(merged);
     const heightmapData = buildHeightmap(blocks, hmConfig);
     const resources = createFogComputeResources(merged, heightmapData);
@@ -150,10 +156,11 @@ export function useFogOfWar({
 
     devLog.success('FogOfWar', `GPU path: ${merged.gridSize}×${merged.gridSize} ray march (${resources.totalCells} cells)`);
 
-    // Async warmup: compile compute pipeline
+    // Async warmup: compile compute pipeline — gpuReadyRef gates useFrame dispatch
     const warmup = async () => {
       try {
         await renderer.computeAsync(resources.computeRayMarch);
+        gpuReadyRef.current = true;
         devLog.success('FogOfWar', 'Compute pipeline compiled');
       } catch (err) {
         devLog.error('FogOfWar', `Compute warmup failed: ${err}`);
@@ -163,6 +170,7 @@ export function useFogOfWar({
 
     return () => {
       gpuResourcesRef.current = null;
+      gpuReadyRef.current = false;
       gridRef.current = null;
       uniformsRef.current = null;
     };
@@ -181,7 +189,7 @@ export function useFogOfWar({
     if (isGpuPath) {
       // GPU path: update uniforms + dispatch compute
       const resources = gpuResourcesRef.current;
-      if (!resources) return;
+      if (!resources || !gpuReadyRef.current) return;
 
       resources.uniforms.viewerX.value = vx;
       resources.uniforms.viewerY.value = vy;
