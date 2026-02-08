@@ -76,6 +76,12 @@ interface SettingsState {
   hudScale: number;
   hudOpacity: number;
 
+  // RTS Camera
+  rtsPanSpeed: number;
+  rtsZoomSpeed: number;
+  rtsRotateSpeed: number;
+  rtsEdgeScrollEnabled: boolean;
+
   // Dev Tweaks (session only, not persisted)
   devSpeedMultiplier: number;
   devGravityMultiplier: number;
@@ -108,6 +114,10 @@ interface SettingsState {
   setShowTrackProgress: (b: boolean) => void;
   setHudScale: (s: number) => void;
   setHudOpacity: (o: number) => void;
+  setRtsPanSpeed: (v: number) => void;
+  setRtsZoomSpeed: (v: number) => void;
+  setRtsRotateSpeed: (v: number) => void;
+  setRtsEdgeScrollEnabled: (b: boolean) => void;
   setKeyBinding: (action: string, key: string) => void;
   resetKeyBindings: () => void;
   resetAll: () => void;
@@ -136,6 +146,10 @@ const DEFAULT_STATE = {
   showTrackProgress: true,
   hudScale: 1.0,
   hudOpacity: 1.0,
+  rtsPanSpeed: 40,
+  rtsZoomSpeed: 0.1,
+  rtsRotateSpeed: 2,
+  rtsEdgeScrollEnabled: true,
   keyBindings: { ...DEFAULT_KEY_BINDINGS },
 };
 
@@ -170,6 +184,10 @@ export const useSettingsStore = create<SettingsState>()(
       setShowTrackProgress: (showTrackProgress) => set({ showTrackProgress }),
       setHudScale: (hudScale) => set({ hudScale }),
       setHudOpacity: (hudOpacity) => set({ hudOpacity }),
+      setRtsPanSpeed: (rtsPanSpeed) => set({ rtsPanSpeed }),
+      setRtsZoomSpeed: (rtsZoomSpeed) => set({ rtsZoomSpeed }),
+      setRtsRotateSpeed: (rtsRotateSpeed) => set({ rtsRotateSpeed }),
+      setRtsEdgeScrollEnabled: (rtsEdgeScrollEnabled) => set({ rtsEdgeScrollEnabled }),
       setKeyBinding: (action, key) => set((s) => ({
         keyBindings: { ...s.keyBindings, [action]: key },
       })),
@@ -201,6 +219,10 @@ export const useSettingsStore = create<SettingsState>()(
         showTrackProgress: state.showTrackProgress,
         hudScale: state.hudScale,
         hudOpacity: state.hudOpacity,
+        rtsPanSpeed: state.rtsPanSpeed,
+        rtsZoomSpeed: state.rtsZoomSpeed,
+        rtsRotateSpeed: state.rtsRotateSpeed,
+        rtsEdgeScrollEnabled: state.rtsEdgeScrollEnabled,
         keyBindings: state.keyBindings,
       }),
     }

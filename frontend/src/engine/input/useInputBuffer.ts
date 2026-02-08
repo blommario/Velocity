@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { InputState } from '../types/physics';
+import { getNormalizedWheelDelta } from './inputUtils';
 
 type BooleanInputKey = keyof Pick<InputState,
   'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload'
@@ -82,7 +83,7 @@ export function useInputBuffer() {
 
     const onWheel = (e: WheelEvent) => {
       if (document.pointerLockElement) {
-        input.scrollDelta += e.deltaY;
+        input.scrollDelta += getNormalizedWheelDelta(e);
       }
     };
 

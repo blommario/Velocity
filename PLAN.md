@@ -104,13 +104,13 @@
 
 **Förutsättning:** Ingen (kan köras parallellt med G)
 
-### H1 — RTS-kamera (Engine-Level)
+### H1 — RTS-kamera (Engine-Level) ✅
 *Top-down/vinklad kamera med pan (WASD/middle-drag), rotation (right-drag/Q/E), zoom (scroll). Ingen pointer lock. Orbitar runt fokuspunkt på markplanet.*
 
-- 🔲 `engine/input/useRtsCamera.ts` — Hook med config-props (minZoom, maxZoom, panSpeed, rotateSpeed, bounds, groundPlaneY)
-- 🔲 `engine/input/useRtsInput.ts` — Input utan pointer lock (edge-scroll, drag-pan, drag-rotate, click-select)
-- 🔲 `stores/settingsStore.ts` — Lägg till RTS-inställningar (panSpeed, zoomSpeed, edgeScrollEnabled)
-- 🔲 Game-komponent som växlar FPS/RTS-kamera baserat på lägesflagga
+- ✅ `engine/input/useRtsCamera.ts` — Hook med config-props (minZoom, maxZoom, panSpeed, rotateSpeed, bounds, groundPlaneY)
+- ✅ `engine/input/useRtsInput.ts` — Input utan pointer lock (edge-scroll, drag-pan, drag-rotate, click-select)
+- ✅ `stores/settingsStore.ts` — Lägg till RTS-inställningar (panSpeed, zoomSpeed, edgeScrollEnabled)
+- ✅ `components/game/RtsCameraController.tsx` — Game-komponent som läser settings och aktiverar RTS-kamera
 
 ### H2 — GPU Picking
 *Selektera 3D-objekt via GPU color picking. 1×1 pixel render target, unik färg-ID per objekt, icke-blockerande avläsning.*
