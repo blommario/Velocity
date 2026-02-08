@@ -6,3 +6,8 @@ export {
   LOD_THRESHOLDS, LOD_GEOMETRY, getLodLevel, distanceSqXZ, splitByLod,
   type LodLevel,
 } from './LodManager';
+export { GpuPicker, PICK_LAYER, type PickableEntry, type PickResult } from './GpuPicker';
+export {
+  useGpuPicking, usePickable, usePickableInstances,
+  type OnPickCallback, type UseGpuPickingConfig,
+} from './usePickable';

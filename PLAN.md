@@ -112,13 +112,13 @@
 - ✅ `stores/settingsStore.ts` — Lägg till RTS-inställningar (panSpeed, zoomSpeed, edgeScrollEnabled)
 - ✅ `components/game/RtsCameraController.tsx` — Game-komponent som läser settings och aktiverar RTS-kamera
 
-### H2 — GPU Picking
+### H2 — GPU Picking ✅
 *Selektera 3D-objekt via GPU color picking. 1×1 pixel render target, unik färg-ID per objekt, icke-blockerande avläsning.*
 
 **Förutsättning:** H1 (kräver musklick utan pointer lock)
 
-- 🔲 `engine/rendering/GpuPicker.ts` — Pick render target, ID-tilldelning, avläsning via `readRenderTargetPixelsAsync`
-- 🔲 `engine/rendering/usePickable.ts` — Hook för att registrera mesh som pickable (max 16.7M objekt, 24-bit)
+- ✅ `engine/rendering/GpuPicker.ts` — Pick render target, ID-tilldelning, avläsning via `readRenderTargetPixelsAsync`
+- ✅ `engine/rendering/usePickable.ts` — Hook för att registrera mesh som pickable (max 16.7M objekt, 24-bit)
 
 ### H3 — SurfRamp Instancing ✅
 *Batcha surf ramps till InstancedMesh. Samma mönster som InstancedBlocks.*
