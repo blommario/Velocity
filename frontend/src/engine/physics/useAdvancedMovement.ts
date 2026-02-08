@@ -5,6 +5,7 @@ const _wallNormal = new Vector3();
 const _wallRight = new Vector3();
 const _grappleDir = new Vector3();
 const _surfNormal = new Vector3();
+const _gravityVec = new Vector3();
 
 // ── Wall Running ──
 
@@ -136,11 +137,11 @@ export function applySurfPhysics(
   _surfNormal.set(normalX, normalY, normalZ).normalize();
 
   // Project gravity along the surface (gravity component parallel to surface)
-  const gravityVec = new Vector3(0, -PHYSICS.GRAVITY * dt, 0);
-  const normalComponent = gravityVec.dot(_surfNormal);
-  velocity.x += gravityVec.x - normalComponent * _surfNormal.x;
-  velocity.y += gravityVec.y - normalComponent * _surfNormal.y;
-  velocity.z += gravityVec.z - normalComponent * _surfNormal.z;
+  _gravityVec.set(0, -PHYSICS.GRAVITY * dt, 0);
+  const normalComponent = _gravityVec.dot(_surfNormal);
+  velocity.x += _gravityVec.x - normalComponent * _surfNormal.x;
+  velocity.y += _gravityVec.y - normalComponent * _surfNormal.y;
+  velocity.z += _gravityVec.z - normalComponent * _surfNormal.z;
 
   // Keep player on surface by removing velocity component into surface
   const velIntoSurface = velocity.dot(_surfNormal);

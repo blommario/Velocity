@@ -96,6 +96,10 @@ export function applyAirAcceleration(
 /**
  * Compute the wish direction from input and yaw angle.
  * Returns a normalized horizontal direction vector.
+ *
+ * WARNING: Returns a shared module-level Vector3 reference (_wishDir).
+ * The value is overwritten on every call. Use .clone() or .copy() if
+ * you need to persist the result beyond the current tick.
  */
 export function getWishDir(
   forward: boolean,

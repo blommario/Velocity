@@ -7,10 +7,10 @@ import {
   applyAirAcceleration,
   getWishDir,
   getHorizontalSpeed,
-} from '../../../engine/physics/useMovement';
-import { PHYSICS } from './constants';
+} from './useMovement';
+import { ENGINE_PHYSICS } from './constants';
 
-const dt = PHYSICS.TICK_DELTA;
+const dt = ENGINE_PHYSICS.TICK_DELTA;
 
 describe('applyFriction', () => {
   it('snaps near-zero velocity to zero', () => {
@@ -53,14 +53,14 @@ describe('applyGroundAcceleration', () => {
   });
 
   it('does not exceed max ground speed', () => {
-    const vel = new Vector3(PHYSICS.GROUND_MAX_SPEED, 0, 0);
+    const vel = new Vector3(ENGINE_PHYSICS.GROUND_MAX_SPEED, 0, 0);
     const wishDir = new Vector3(1, 0, 0);
     applyGroundAcceleration(vel, wishDir, dt);
-    expect(vel.x).toBe(PHYSICS.GROUND_MAX_SPEED);
+    expect(vel.x).toBe(ENGINE_PHYSICS.GROUND_MAX_SPEED);
   });
 
   it('does not accelerate against wish direction', () => {
-    const vel = new Vector3(PHYSICS.GROUND_MAX_SPEED + 100, 0, 0);
+    const vel = new Vector3(ENGINE_PHYSICS.GROUND_MAX_SPEED + 100, 0, 0);
     const wishDir = new Vector3(1, 0, 0);
     const before = vel.x;
     applyGroundAcceleration(vel, wishDir, dt);
@@ -85,11 +85,11 @@ describe('applyAirAcceleration', () => {
       applyAirAcceleration(vel, wishDir, dt);
     }
     // Forward-only air accel converges to AIR_SPEED_CAP
-    expect(vel.x).toBeCloseTo(PHYSICS.AIR_SPEED_CAP, 0);
+    expect(vel.x).toBeCloseTo(ENGINE_PHYSICS.AIR_SPEED_CAP, 0);
   });
 
   it('gains speed via strafe acceleration beyond AIR_SPEED_CAP', () => {
-    const vel = new Vector3(PHYSICS.AIR_SPEED_CAP, 0, 0);
+    const vel = new Vector3(ENGINE_PHYSICS.AIR_SPEED_CAP, 0, 0);
 
     // Strafe perpendicular to current velocity — this is how players gain speed in Quake
     for (let i = 0; i < 100; i++) {
@@ -97,7 +97,7 @@ describe('applyAirAcceleration', () => {
       applyAirAcceleration(vel, wishDir, dt);
     }
     // Total speed should exceed AIR_SPEED_CAP via strafe acceleration
-    expect(getHorizontalSpeed(vel)).toBeGreaterThan(PHYSICS.AIR_SPEED_CAP);
+    expect(getHorizontalSpeed(vel)).toBeGreaterThan(ENGINE_PHYSICS.AIR_SPEED_CAP);
   });
 
   it('allows strafe jumping to exceed ground max speed', () => {
@@ -133,10 +133,10 @@ describe('getWishDir', () => {
     const dir0 = getWishDir(true, false, false, false, 0).clone();
     const dir90 = getWishDir(true, false, false, false, Math.PI / 2).clone();
     // At yaw=0, forward → (0, 0, -1)
-    // At yaw=π/2, forward → (1, 0, 0)
-    // dir90.x should equal -dir0.z (rotation by 90 degrees)
-    expect(dir90.x).toBeCloseTo(-dir0.z, 3);
-    expect(dir90.z).toBeCloseTo(dir0.x, 3);
+    // At yaw=π/2, forward → (-1, 0, 0)
+    // Three.js Y rotation: x = fz*sin(yaw), z = fz*cos(yaw) for fz=-1
+    expect(dir90.x).toBeCloseTo(dir0.z, 3);
+    expect(dir90.z).toBeCloseTo(-dir0.x, 3);
   });
 });
 
@@ -178,7 +178,7 @@ describe('strafe jump speed gain', () => {
     const vel = new Vector3(350, 0, 0);
     const speedBefore = getHorizontalSpeed(vel);
     // Jump sets vy but does NOT apply friction on the jump tick
-    vel.y = PHYSICS.JUMP_FORCE;
+    vel.y = ENGINE_PHYSICS.JUMP_FORCE;
     expect(getHorizontalSpeed(vel)).toBe(speedBefore);
   });
 });
@@ -192,7 +192,7 @@ describe('bhop momentum preservation', () => {
     // Land: clamp vy, then immediately jump (skip friction)
     vel.y = 0; // grounded
     // bhop: instant jump on same tick → no friction applied
-    vel.y = PHYSICS.JUMP_FORCE;
+    vel.y = ENGINE_PHYSICS.JUMP_FORCE;
 
     // Horizontal speed should be preserved
     expect(getHorizontalSpeed(vel)).toBe(speedBefore);
