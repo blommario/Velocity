@@ -3,7 +3,6 @@ import { useThree } from '@react-three/fiber';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import type { Group } from 'three/webgpu';
 import { loadModel } from '../../../services/assetManager';
-import { disposeSceneGraph } from '../../../engine/rendering/dispose';
 import { devLog } from '../../../engine/stores/devLogStore';
 import type { MapModel } from './types';
 
@@ -14,7 +13,6 @@ interface ModelBlockProps {
 export function ModelBlock({ model }: ModelBlockProps) {
   const [scene, setScene] = useState<Group | null>(null);
   const groupRef = useRef<Group>(null);
-  const sceneRef = useRef<Group | null>(null);
   const { invalidate } = useThree();
 
   useEffect(() => {
@@ -23,7 +21,6 @@ export function ModelBlock({ model }: ModelBlockProps) {
     loadModel(model.modelUrl)
       .then((loaded) => {
         if (disposed) return;
-        sceneRef.current = loaded;
         setScene(loaded);
         invalidate();
       })
@@ -33,10 +30,8 @@ export function ModelBlock({ model }: ModelBlockProps) {
 
     return () => {
       disposed = true;
-      if (sceneRef.current) {
-        disposeSceneGraph(sceneRef.current);
-        sceneRef.current = null;
-      }
+      // Geometry/material dispose handled centrally by clearAssetCache() on map change.
+      // Clone shares buffers with cached original — disposing here would corrupt the cache.
     };
   }, [model.modelUrl, invalidate]);
 
