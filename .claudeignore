@@ -1,0 +1,30 @@
+# ── Docs som inte behövs i AI-context ──
+RESOURCES.md
+DESIGN.md
+
+# ── Assets (binärer, texturer, modeller, kartor) ──
+frontend/public/assets/
+frontend/public/maps/
+
+# ── Dependencies ──
+frontend/node_modules/
+backend/**/bin/
+backend/**/obj/
+
+# ── Build output ──
+frontend/dist/
+
+# ── Database ──
+backend/**/*.db
+backend/**/*.db-shm
+backend/**/*.db-wal
+
+# ── Lock files ──
+frontend/package-lock.json
+
+# ── IDE / OS ──
+.vs/
+.vscode/
+*.suo
+*.user
+Thumbs.db
