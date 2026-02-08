@@ -1,1 +1,1 @@
-export { PostProcessingEffects } from './PostProcessingEffects';
+export { PostProcessingEffects, type PostProcessingProps } from './PostProcessingEffects';

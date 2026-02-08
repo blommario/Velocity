@@ -7,6 +7,7 @@ import type {
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
 } from '../../../engine/types/map';
+import type { FogOfWarConfig } from '../../../engine/effects/FogOfWar';
 
 // Re-export all engine map types for backward compatibility
 export type {
@@ -54,4 +55,6 @@ export interface MapData {
   skybox?: SkyboxType;
   lighting?: AmbientLighting;
   backgroundColor?: Color;
+  /** Optional fog-of-war configuration. Omit to disable. */
+  fogOfWar?: Partial<FogOfWarConfig>;
 }

@@ -151,14 +151,16 @@
 - ✅ Integration: MapLoader → useClusteredLighting → InstancedBlocks med lightsNode per material-grupp
 - 🔲 Steg 2 (framtida): Full clustered shading med screen-space tiles för 500+ ljus
 
-### I2 — Line of Sight / Fog of War
-*Compute shader fog-of-war med 2D visibility-textur. Tre states: HIDDEN, PREVIOUSLY_SEEN, VISIBLE.*
+### I2 — Line of Sight / Fog of War ✅
+*CPU-baserad fog-of-war med 2D visibility-textur. Tre states: HIDDEN, PREVIOUSLY_SEEN, VISIBLE.*
 
 **Förutsättning:** G4, I1
 
-- 🔲 `engine/effects/FogOfWar.ts` — Compute shader + 512×512 visibility textur
-- 🔲 `engine/core/PostProcessingEffects.tsx` — Fog-of-war som post-processing pass (valfritt)
-- 🔲 Enkel version: avståndskontroll. Avancerad: ray march mot heightmap för line-of-sight
+- ✅ `engine/effects/FogOfWar.ts` — CPU visibility grid (Uint8Array 128×128), avståndbaserad reveal med fade-zone
+- ✅ `engine/effects/useFogOfWar.ts` — React hook: FogOfWarGrid → DataTexture (R8), ~4Hz uppdatering
+- ✅ `engine/core/PostProcessingEffects.tsx` — FoW TSL post-processing pass med depth-baserad world reconstruction (valfritt via props)
+- ✅ Integration: GameCanvas `ScenePostProcessing` → kameraposition → FoW → PostFX pipeline
+- 🔲 Steg 2 (framtida): Ray march mot heightmap för line-of-sight, compute shader för stora grids
 
 ### I3 — Physical Dice ✅
 *Rapier dynamic bodies som tärningar (d4–d20). Procedurella polyeder-geometrier. Resultatavläsning via face-normal vs world-up vid settling.*

@@ -7,6 +7,7 @@ import { PlayerController } from './PlayerController';
 import { TestMap } from './TestMap';
 import { MapLoader } from './map/MapLoader';
 import { ScreenShake } from '../../engine/effects/ScreenShake';
+import { useFogOfWar } from '../../engine/effects/useFogOfWar';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from '../../engine/core/PostProcessingEffects';
@@ -19,6 +20,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '../../engine/stores/devLogStore';
 import { setMaxAnisotropy } from '../../services/assetManager';
+import type { FogOfWarConfig } from '../../engine/effects/FogOfWar';
 
 const FOV_SCALING = {
   BASE: 90,
@@ -27,6 +29,36 @@ const FOV_SCALING = {
   SPEED_FULL: 800,
   LERP_SPEED: 5,
 } as const;
+
+// Pre-allocated view position tuple (mutated in-place, no GC)
+const _fogViewPos: [number, number, number] = [0, 0, 0];
+
+/** Wraps PostProcessingEffects with optional fog-of-war driven by camera position. */
+function ScenePostProcessing({ fogConfig }: { fogConfig?: Partial<FogOfWarConfig> }) {
+  const { camera } = useThree();
+  const camPosRef = useRef(_fogViewPos);
+
+  // Update pre-allocated tuple from camera each frame (before useFogOfWar reads it)
+  useFrame(() => {
+    camPosRef.current[0] = camera.position.x;
+    camPosRef.current[1] = camera.position.y;
+    camPosRef.current[2] = camera.position.z;
+  });
+
+  const enabled = fogConfig !== undefined;
+  const { fogTexture, fogUniforms } = useFogOfWar({
+    enabled,
+    config: fogConfig,
+    viewPosition: camPosRef.current,
+  });
+
+  return (
+    <PostProcessingEffects
+      fogTexture={fogTexture}
+      fogUniforms={fogUniforms}
+    />
+  );
+}
 
 function DynamicFov() {
   const { camera } = useThree();
@@ -83,7 +115,7 @@ export function GameCanvas() {
           getIntensity={() => useGameStore.getState().shakeIntensity}
           onDecayed={() => useGameStore.getState().clearShake()}
         />
-        <PostProcessingEffects />
+        <ScenePostProcessing fogConfig={mapData?.fogOfWar} />
         <Physics
           timeStep={PHYSICS.TICK_DELTA}
           gravity={[0, 0, 0]}

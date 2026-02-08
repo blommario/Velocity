@@ -5,3 +5,11 @@ export { GpuLightSprites, type LightSpriteData } from './GpuLightSprites';
 export { ScreenShake, type ScreenShakeProps } from './ScreenShake';
 export { PhysicsDice, type PhysicsDiceProps, type DieRollRequest, type DieResult } from './PhysicsDice';
 export { getDieGeometry, disposeDieGeometries, DIE_TYPES, type DieType, type DieGeometryData } from './diceGeometry';
+export {
+  FogOfWarGrid, FOG_DEFAULTS, VisibilityState,
+  type FogOfWarConfig, type VisibilityValue,
+} from './FogOfWar';
+export {
+  useFogOfWar,
+  type UseFogOfWarProps, type FogOfWarResult, type FogOfWarUniforms,
+} from './useFogOfWar';
