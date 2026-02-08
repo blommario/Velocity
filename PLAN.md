@@ -140,13 +140,15 @@
 
 **Förutsättning:** Fas G (GPU performance foundation) + Fas H (RTS camera + GPU picking)
 
-### I1 — Clustered TSL Lighting (100+ ljus)
+### I1 — Clustered TSL Lighting (100+ ljus) ✅
 *TSL fragment shader med N närmaste ljus per objekt (steg 1: capped 8-16). Möjliggör hundratals facklor/magiska ljus.*
 
 **Förutsättning:** G3, G4
 
-- 🔲 `engine/rendering/ClusteredLights.ts` — Ljusbuffert + compute shader för binning
-- 🔲 `engine/rendering/lightMaterial.ts` — TSL material-nod som läser ljusbuffert
+- ✅ `engine/rendering/ClusteredLights.ts` — `selectNearestLights()` med XZ-distans, brute-force sort (O(N) selection)
+- ✅ `engine/rendering/useClusteredLighting.ts` — React hook med PointLight pool (8 st, castShadow=false) + LightsNode, uppdaterar ~4Hz
+- ✅ `engine/rendering/lightMaterial.ts` — Helper för att applicera/ta bort lightsNode på materials
+- ✅ Integration: MapLoader → useClusteredLighting → InstancedBlocks med lightsNode per material-grupp
 - 🔲 Steg 2 (framtida): Full clustered shading med screen-space tiles för 500+ ljus
 
 ### I2 — Line of Sight / Fog of War

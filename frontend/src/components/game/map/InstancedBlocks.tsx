@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import { Object3D, InstancedMesh, Euler, BoxGeometry, CylinderGeometry } from 'three';
+import type { LightsNode, MeshStandardMaterial } from 'three/webgpu';
 import { useFrame } from '@react-three/fiber';
 import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
 import { batchStaticColliders } from '../../../engine/physics/colliderBatch';
@@ -115,9 +116,25 @@ function getGeometry(shape: MapBlock['shape'], cylinderSegments: number) {
 interface BlockGroupProps {
   group: BlockGroup;
   cylinderSegments: number;
+  lightsNode?: LightsNode;
 }
 
-function TexturedBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
+/** Apply lightsNode to an InstancedMesh's material after mount. */
+function useLightsNode(
+  meshRef: React.RefObject<InstancedMesh | null>,
+  lightsNode?: LightsNode,
+) {
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh || !lightsNode) return;
+    const mat = mesh.material as MeshStandardMaterial & { lightsNode?: LightsNode | null };
+    if (mat && 'lightsNode' in mat) {
+      mat.lightsNode = lightsNode;
+    }
+  }, [meshRef, lightsNode]);
+}
+
+function TexturedBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
   const scale = group.textureScale ?? [1, 1];
   const geometry = getGeometry(group.shape, cylinderSegments);
@@ -133,6 +150,8 @@ function TexturedBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
         }
       : null,
   );
+
+  useLightsNode(meshRef, lightsNode);
 
   if (!material) {
     return (
@@ -159,9 +178,11 @@ function TexturedBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
   );
 }
 
-function FlatBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
+function FlatBlockGroup({ group, cylinderSegments, lightsNode }: BlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
   const geometry = getGeometry(group.shape, cylinderSegments);
+
+  useLightsNode(meshRef, lightsNode);
 
   return (
     <instancedMesh
@@ -182,12 +203,12 @@ function FlatBlockGroup({ group, cylinderSegments }: BlockGroupProps) {
   );
 }
 
-function renderGroups(groups: BlockGroup[], cylinderSegments: number) {
+function renderGroups(groups: BlockGroup[], cylinderSegments: number, lightsNode?: LightsNode) {
   return groups.map((group) =>
     group.textureSet ? (
-      <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} />
+      <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} />
     ) : (
-      <FlatBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} />
+      <FlatBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} />
     ),
   );
 }
@@ -196,9 +217,10 @@ function renderGroups(groups: BlockGroup[], cylinderSegments: number) {
 
 interface InstancedBlocksProps {
   blocks: MapBlock[];
+  lightsNode?: LightsNode;
 }
 
-export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
+export function InstancedBlocks({ blocks, lightsNode }: InstancedBlocksProps) {
   const useLod = blocks.length >= CULLING_THRESHOLD;
   const { grid, activeCells } = useSpatialCulling<number>(
     useLod ? CULLING_CONFIG : { viewRadius: Infinity, cellSize: CULLING_CONFIG.cellSize },
@@ -258,10 +280,10 @@ export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
   return (
     <group>
       {/* Near: full-detail geometry */}
-      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL)}
+      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL, lightsNode)}
 
       {/* Far: simplified geometry */}
-      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE)}
+      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE, lightsNode)}
 
       {/* Physics colliders — batched compound rigid bodies */}
       {colliderGroups.map((group) => (

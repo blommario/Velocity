@@ -11,3 +11,12 @@ export {
   useGpuPicking, usePickable, usePickableInstances,
   type OnPickCallback, type UseGpuPickingConfig,
 } from './usePickable';
+export {
+  selectNearestLights, CLUSTERED_DEFAULTS,
+  type LightData, type ClusteredLightsConfig,
+} from './ClusteredLights';
+export {
+  useClusteredLighting,
+  type UseClusteredLightingProps, type ClusteredLightingResult,
+} from './useClusteredLighting';
+export { applyClusteredLighting, removeClusteredLighting } from './lightMaterial';

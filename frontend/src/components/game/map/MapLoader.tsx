@@ -15,6 +15,7 @@ import { AtmosphericFog } from '../AtmosphericFog';
 import { ProceduralSkybox } from '../ProceduralSkybox';
 import { HdriSkybox } from '../HdriSkybox';
 import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
+import { useClusteredLighting, type LightData } from '../../../engine/rendering';
 import { InstancedBlocks } from './InstancedBlocks';
 import { InstancedSurfRamps } from './InstancedSurfRamps';
 import { ModelBlock } from './ModelBlock';
@@ -98,10 +99,23 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
     return sprites;
   }, [data.boostPads, data.speedGates, data.grapplePoints]);
 
+  // Convert sprite data → LightData for clustered PBR lighting
+  const clusterLightData = useMemo((): LightData[] => {
+    return lightSprites.map((s) => ({
+      position: s.position,
+      color: s.color,
+      intensity: 2.0,
+      distance: 30,
+      decay: 2,
+    }));
+  }, [lightSprites]);
+
+  const { lightsNode } = useClusteredLighting({ lights: clusterLightData });
+
   return (
     <group>
       {/* Blocks (static geometry — instanced for performance) */}
-      <InstancedBlocks blocks={data.blocks} />
+      <InstancedBlocks blocks={data.blocks} lightsNode={lightsNode} />
 
       {/* glTF models */}
       {data.models?.map((model, i) => (
