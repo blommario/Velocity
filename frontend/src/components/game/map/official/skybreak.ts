@@ -48,7 +48,7 @@ export const SKYBREAK: MapData = {
     { shape: 'box', position: [8, 3, -28], size: [1.5, 6, 24], color: '#3d4f5f', textureSet: 'scifi-wall-013/Sci-Fi_Wall_013', textureScale: [4, 2] },
 
     // Corridor floor — raised metal grating
-    { shape: 'box', position: [0, -0.1, -28], size: [15, 0.2, 24], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [4, 6] },
+    { shape: 'box', position: [0, -0.1, -28], size: [15, 0.2, 24], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [4, 6] },
 
     // Accent light strips on corridor walls (orange tactical lighting)
     { shape: 'box', position: [-7.2, 1.5, -28], size: [0.08, 0.3, 24], color: '#ff6600', emissive: '#ff6600', emissiveIntensity: 2.5 },
@@ -67,9 +67,6 @@ export const SKYBREAK: MapData = {
     // ═══════════════════════════════════════════════════════
     // SECTION 3: OPEN ARENA — Wide courtyard with scattered cover
     // ═══════════════════════════════════════════════════════
-
-    // Arena floor accent — subtle grid overlay
-    { shape: 'box', position: [0, 0.01, -62], size: [50, 0.02, 30], color: '#3a4a5a', emissive: '#334455', emissiveIntensity: 0.3, transparent: true, opacity: 0.4 },
 
     // Central pillar — tall concrete column
     { shape: 'box', position: [0, 3, -62], size: [3, 6, 3], color: '#505050', textureSet: 'concrete-034', textureScale: [1, 2] },
@@ -97,10 +94,10 @@ export const SKYBREAK: MapData = {
     // ═══════════════════════════════════════════════════════
 
     // Ramp up from arena to walkway (left side) — top at Y=3
-    { shape: 'box', position: [-30, 1.5, -70], size: [8, 0.3, 12], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [2, 3], rotation: [0.25, 0, 0] },
+    { shape: 'box', position: [-30, 1.5, -70], size: [8, 0.3, 12], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [2, 3], rotation: [0.25, 0, 0] },
 
     // Elevated walkway — metal grating at Y=3
-    { shape: 'box', position: [-30, 3, -82], size: [10, 0.3, 12], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [2, 3] },
+    { shape: 'box', position: [-30, 3, -82], size: [10, 0.3, 12], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [2, 3] },
 
     // Walkway support pillars
     { shape: 'box', position: [-34, 1.5, -78], size: [0.6, 3, 0.6], color: '#3a3a3a', textureSet: 'metal-009', textureScale: [1, 2] },
@@ -113,16 +110,16 @@ export const SKYBREAK: MapData = {
     { shape: 'box', position: [-25, 4, -82], size: [0.15, 1.5, 12], color: '#556677', textureSet: 'scifi-metal-mesh-002/Sci-fi_Metal_Mesh_002', textureScale: [1, 3] },
 
     // Walkway continues right — connecting bridge at Y=3
-    { shape: 'box', position: [-12, 3, -88], size: [26, 0.3, 5], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [6, 1] },
+    { shape: 'box', position: [-12, 3, -88], size: [26, 0.3, 5], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [6, 1] },
     // Bridge railing
     { shape: 'box', position: [-12, 4, -85.5], size: [26, 1.5, 0.15], color: '#556677', textureSet: 'scifi-metal-mesh-002/Sci-fi_Metal_Mesh_002', textureScale: [6, 1] },
     { shape: 'box', position: [-12, 4, -90.5], size: [26, 1.5, 0.15], color: '#556677', textureSet: 'scifi-metal-mesh-002/Sci-fi_Metal_Mesh_002', textureScale: [6, 1] },
 
     // Right walkway platform at Y=3
-    { shape: 'box', position: [8, 3, -88], size: [12, 0.3, 10], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [3, 2] },
+    { shape: 'box', position: [8, 3, -88], size: [12, 0.3, 10], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [3, 2] },
 
     // Drop-down ramp from right walkway back to ground
-    { shape: 'box', position: [18, 1.5, -88], size: [8, 0.3, 8], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [2, 2], rotation: [0, 0, -0.35] },
+    { shape: 'box', position: [18, 1.5, -88], size: [8, 0.3, 8], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [2, 2], rotation: [0, 0, -0.35] },
 
     // ═══════════════════════════════════════════════════════
     // SECTION 5: BACK COMPOUND — Tight corridors & wall-run channels
@@ -138,7 +135,7 @@ export const SKYBREAK: MapData = {
     // Corridor ceiling
     { shape: 'box', position: [-19, 4.1, -105], size: [5, 0.3, 20], color: '#3a3a3a', textureSet: 'metal-009', textureScale: [2, 5] },
     // Corridor floor
-    { shape: 'box', position: [-19, -0.05, -105], size: [5, 0.1, 20], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [1, 5] },
+    { shape: 'box', position: [-19, -0.05, -105], size: [5, 0.1, 20], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [1, 5] },
 
     // Corridor interior light strips
     { shape: 'box', position: [-21.5, 3.8, -105], size: [0.08, 0.15, 20], color: '#ff4400', emissive: '#ff4400', emissiveIntensity: 2.0 },
@@ -151,7 +148,7 @@ export const SKYBREAK: MapData = {
     { shape: 'box', position: [22, 2, -105], size: [1, 4, 20], color: '#3d4f5f', textureSet: 'scifi-wall-013/Sci-Fi_Wall_013', textureScale: [3, 1] },
     // Right corridor ceiling & floor
     { shape: 'box', position: [19, 4.1, -105], size: [5, 0.3, 20], color: '#3a3a3a', textureSet: 'metal-009', textureScale: [2, 5] },
-    { shape: 'box', position: [19, -0.05, -105], size: [5, 0.1, 20], color: '#5a6a7a', textureSet: 'metal-grill-024/Metal_Grill_024', textureScale: [1, 5] },
+    { shape: 'box', position: [19, -0.05, -105], size: [5, 0.1, 20], color: '#5a6a7a', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [1, 5] },
     // Right corridor light strips
     { shape: 'box', position: [16.5, 3.8, -105], size: [0.08, 0.15, 20], color: '#ff4400', emissive: '#ff4400', emissiveIntensity: 2.0 },
     { shape: 'box', position: [21.5, 3.8, -105], size: [0.08, 0.15, 20], color: '#ff4400', emissive: '#ff4400', emissiveIntensity: 2.0 },
@@ -170,9 +167,6 @@ export const SKYBREAK: MapData = {
 
     // Victory pedestal — raised center
     { shape: 'box', position: [0, 0.5, -132], size: [12, 1, 8], color: '#667788', textureSet: 'scifi-metal-panel-005/Sci_fi_Metal_Panel_005', textureScale: [2, 1] },
-
-    // Victory glow accent
-    { shape: 'box', position: [0, 1.02, -132], size: [11, 0.04, 7], color: '#44aaff', emissive: '#44aaff', emissiveIntensity: 1.5, transparent: true, opacity: 0.35 },
 
     // Decorative pillars flanking finish
     { shape: 'box', position: [-8, 3, -132], size: [1.5, 6, 1.5], color: '#4a5a6a', textureSet: 'scifi-wall-013/Sci-Fi_Wall_013', textureScale: [1, 2] },
