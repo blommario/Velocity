@@ -48,6 +48,10 @@ const _fireDir = new Vector3();
 // Reusable Ray to avoid per-tick allocations (Rapier Ray origin/dir are mutable)
 const _reusableRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 
+// Pre-allocated tuples for explosion positions — zero GC at 128Hz
+const _hitPos: [number, number, number] = [0, 0, 0];
+const _gPos: [number, number, number] = [0, 0, 0];
+
 let lastHudUpdate = 0;
 let lastDevLogUpdate = 0;
 const DEV_LOG_INTERVAL = 2000; // log physics state every 2s
@@ -503,12 +507,11 @@ export function physicsTick(
       const hit = rapierWorld.castRay(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
 
       if (hit) {
-        const hx = p.posX + dirX * hit.timeOfImpact;
-        const hy = p.posY + dirY * hit.timeOfImpact;
-        const hz = p.posZ + dirZ * hit.timeOfImpact;
-        const hitPos: [number, number, number] = [hx, hy, hz];
+        _hitPos[0] = p.posX + dirX * hit.timeOfImpact;
+        _hitPos[1] = p.posY + dirY * hit.timeOfImpact;
+        _hitPos[2] = p.posZ + dirZ * hit.timeOfImpact;
         const damage = applyExplosionKnockback(
-          velocity, _playerPos, hitPos,
+          velocity, _playerPos, _hitPos,
           PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, PHYSICS.ROCKET_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
         );
         if (damage > 0) {
@@ -516,16 +519,16 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
-        useExplosionStore.getState().spawnExplosion(hitPos, '#ff6600', 2.0);
+        useExplosionStore.getState().spawnExplosion(_hitPos, '#ff6600', 2.0);
         deactivateAt(i);
-        devLog.info('Combat', `Rocket exploded at [${hx.toFixed(1)}, ${hy.toFixed(1)}, ${hz.toFixed(1)}] dmg=${damage.toFixed(0)}`);
+        devLog.info('Combat', `Rocket exploded at [${_hitPos[0].toFixed(1)}, ${_hitPos[1].toFixed(1)}, ${_hitPos[2].toFixed(1)}] dmg=${damage.toFixed(0)}`);
       }
     } else if (p.type === 'grenade') {
       // Grenade fuse check
       if (age >= PHYSICS.GRENADE_FUSE_TIME) {
-        const gPos: [number, number, number] = [p.posX, p.posY, p.posZ];
+        _gPos[0] = p.posX; _gPos[1] = p.posY; _gPos[2] = p.posZ;
         const damage = applyExplosionKnockback(
-          velocity, _playerPos, gPos,
+          velocity, _playerPos, _gPos,
           PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
         );
         if (damage > 0) {
@@ -533,7 +536,7 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
-        useExplosionStore.getState().spawnExplosion(gPos, '#22c55e', 1.0);
+        useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 1.0);
         deactivateAt(i);
         continue;
       }
@@ -554,9 +557,9 @@ export function physicsTick(
 
       if (hit) {
         if (p.bounces >= 1) {
-          const gPos: [number, number, number] = [p.posX, p.posY, p.posZ];
+          _gPos[0] = p.posX; _gPos[1] = p.posY; _gPos[2] = p.posZ;
           const damage = applyExplosionKnockback(
-            velocity, _playerPos, gPos,
+            velocity, _playerPos, _gPos,
             PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
           );
           if (damage > 0) {
@@ -564,7 +567,7 @@ export function physicsTick(
             store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
           }
           audioManager.play(SOUNDS.GRENADE_EXPLODE);
-          useExplosionStore.getState().spawnExplosion(gPos, '#22c55e', 1.0);
+          useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 1.0);
           deactivateAt(i);
         } else {
           // Reflect velocity off surface normal — mutate in-place, zero GC
