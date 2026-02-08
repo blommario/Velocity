@@ -3,7 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import { PostProcessing, WebGPURenderer, ACESFilmicToneMapping, SRGBColorSpace } from 'three/webgpu';
 import { pass, renderOutput, viewportUV, clamp } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
-import { devLog } from '../stores/devLogStore';
+import { devLog, frameTiming } from '../stores/devLogStore';
 
 const POST_PROCESSING = {
   BLOOM_THRESHOLD: 0.8,
@@ -52,15 +52,14 @@ export function PostProcessingEffects() {
 
   // renderPriority=1 disables R3F auto-rendering; pipeline handles render + post
   useFrame(() => {
-    // Reset info counters so PerfMonitor reads per-frame values (not accumulated)
-    renderer.info?.reset();
-
+    frameTiming.begin('Render');
     const pipeline = pipelineRef.current;
     if (pipeline) {
       pipeline.render();
     } else {
       renderer.render(scene, camera);
     }
+    frameTiming.end('Render');
   }, 1);
 
   return null;

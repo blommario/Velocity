@@ -12,7 +12,7 @@ import { PHYSICS, DEG2RAD } from './physics/constants';
 import { useInputBuffer } from '../../engine/input/useInputBuffer';
 import { physicsTick } from './physics/usePhysicsTick';
 import { useGameStore } from '../../stores/gameStore';
-import { devLog } from '../../engine/stores/devLogStore';
+import { devLog, frameTiming } from '../../engine/stores/devLogStore';
 
 export function PlayerController() {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
@@ -51,6 +51,7 @@ export function PlayerController() {
 
   // Physics tick — runs at 128Hz
   useBeforePhysicsStep(() => {
+    frameTiming.begin('Physics');
     physicsTick(
       {
         rigidBody: rigidBodyRef,
@@ -72,6 +73,7 @@ export function PlayerController() {
       consumeMouseDelta,
       world,
     );
+    frameTiming.end('Physics');
   });
 
   const spawnPos = useGameStore((s) => s.lastCheckpointPos) ?? [0, 3, 0];

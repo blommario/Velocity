@@ -23,6 +23,11 @@ export interface PerfMetrics {
   textures: number;
 }
 
+/** Per-system frame timing (ms) — written each frame, snapshotted 1x/sec for display */
+export interface FrameTimings {
+  [system: string]: number;
+}
+
 const MAX_ENTRIES = 500;
 
 /** Window in ms within which identical messages get accumulated instead of duplicated */
@@ -47,11 +52,17 @@ interface DevLogState {
   filter: string | null;
   /** Performance metrics updated every second */
   perf: PerfMetrics;
+  /** Per-system frame timing snapshot (ms) — updated 1x/sec */
+  timings: FrameTimings;
+  /** Whether the profiler bar is visible */
+  profilerVisible: boolean;
   /** Collected unique source names for filter dropdown */
   sources: string[];
   push: (level: LogLevel, source: string, message: string) => void;
   updatePerf: (metrics: Partial<PerfMetrics>) => void;
+  updateTimings: (timings: FrameTimings) => void;
   setFilter: (source: string | null) => void;
+  toggleProfiler: () => void;
   toggle: () => void;
   clear: () => void;
 }
@@ -62,6 +73,8 @@ export const useDevLogStore = create<DevLogState>((set) => ({
   visible: true,
   filter: null,
   perf: PERF_DEFAULTS,
+  timings: {},
+  profilerVisible: false,
   sources: [],
 
   push: (level, source, message) => set((s) => {
@@ -98,10 +111,35 @@ export const useDevLogStore = create<DevLogState>((set) => ({
     perf: { ...s.perf, ...metrics },
   })),
 
+  updateTimings: (timings) => set({ timings }),
+
   setFilter: (source) => set({ filter: source }),
+  toggleProfiler: () => set((s) => ({ profilerVisible: !s.profilerVisible })),
   toggle: () => set((s) => ({ visible: !s.visible })),
   clear: () => set({ entries: [], nextId: 1 }),
 }));
+
+// ── Frame timing collector ──
+// Systems call frameTiming.begin/end each frame. PerfMonitor snapshots 1x/sec.
+
+const _starts: Record<string, number> = {};
+const _accum: Record<string, number> = {};
+
+export const frameTiming = {
+  begin(system: string): void {
+    _starts[system] = performance.now();
+  },
+  end(system: string): void {
+    const start = _starts[system];
+    if (start !== undefined) {
+      _accum[system] = (performance.now() - start);
+    }
+  },
+  /** Called by PerfMonitor once per second — returns snapshot and keeps current values */
+  snapshot(): FrameTimings {
+    return { ..._accum };
+  },
+};
 
 // ── Convenience API ──
 

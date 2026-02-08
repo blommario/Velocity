@@ -2,7 +2,7 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { SphereGeometry, MeshBasicMaterial, AdditiveBlending } from 'three';
 import { useCombatStore } from '../../stores/combatStore';
-import { devLog } from '../../engine/stores/devLogStore';
+import { devLog, frameTiming } from '../../engine/stores/devLogStore';
 
 const ROCKET_COLOR = '#ff4400';
 const ROCKET_GLOW = '#ff8800';
@@ -94,6 +94,7 @@ export function ProjectileRenderer() {
   const assets = useSharedAssets();
 
   useFrame((_, delta) => {
+    frameTiming.begin('Projectiles');
     const trails = trailsRef.current;
     const activeIds = new Set(projectiles.map((p) => p.id));
 
@@ -118,6 +119,7 @@ export function ProjectileRenderer() {
       }
       for (const pt of trail.points) pt.age += delta;
     }
+    frameTiming.end('Projectiles');
   });
 
   return (

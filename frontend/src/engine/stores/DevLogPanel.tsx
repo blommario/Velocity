@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import { useDevLogStore, type LogLevel, type LogEntry, type PerfMetrics } from './devLogStore';
+import { useDevLogStore, type LogLevel, type LogEntry, type PerfMetrics, type FrameTimings } from './devLogStore';
+import { useExplosionStore } from '../effects/ExplosionEffect';
 
 // ── Constants ──
 
@@ -220,6 +221,81 @@ function PerfBar({ perf }: { perf: PerfMetrics }) {
   );
 }
 
+const TIMING_COLORS: Record<string, string> = {
+  Physics: '#f97316',
+  Render: '#60a5fa',
+  Explosions: '#f87171',
+  Particles: '#a78bfa',
+};
+
+const DEFAULT_TIMING_COLOR = '#6b7280';
+
+function getTimingColor(system: string): string {
+  return TIMING_COLORS[system] ?? DEFAULT_TIMING_COLOR;
+}
+
+function ProfilerBar({ timings, frametime }: { timings: FrameTimings; frametime: number }) {
+  const entries = Object.entries(timings).filter(([, ms]) => ms > 0);
+  if (entries.length === 0) return null;
+
+  // Sort by ms descending
+  entries.sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, ms]) => sum + ms, 0);
+
+  return (
+    <div style={{
+      padding: '4px 10px',
+      background: 'rgba(10,10,16,0.95)',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+    }}>
+      {/* Stacked bar */}
+      <div style={{
+        display: 'flex',
+        height: 6,
+        borderRadius: 3,
+        overflow: 'hidden',
+        background: 'rgba(255,255,255,0.04)',
+        marginBottom: 3,
+      }}>
+        {entries.map(([system, ms]) => (
+          <div
+            key={system}
+            style={{
+              width: `${Math.max((ms / Math.max(frametime, 1)) * 100, 1)}%`,
+              background: getTimingColor(system),
+              opacity: 0.8,
+            }}
+            title={`${system}: ${ms.toFixed(2)}ms`}
+          />
+        ))}
+      </div>
+      {/* Labels */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {entries.map(([system, ms]) => (
+          <span
+            key={system}
+            style={{
+              fontSize: 9,
+              color: getTimingColor(system),
+              cursor: 'pointer',
+            }}
+            onClick={() => {
+              const text = `${system}: ${ms.toFixed(2)}ms`;
+              navigator.clipboard.writeText(text);
+            }}
+            title="Click to copy"
+          >
+            {system}:{ms.toFixed(1)}ms
+          </span>
+        ))}
+        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+          total:{total.toFixed(1)}ms
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function FilterBar({ sources, activeFilter, onFilter }: {
   sources: string[];
   activeFilter: string | null;
@@ -273,6 +349,8 @@ export function DevLogPanel() {
   const visible = useDevLogStore((s) => s.visible);
   const filter = useDevLogStore((s) => s.filter);
   const perf = useDevLogStore((s) => s.perf);
+  const timings = useDevLogStore((s) => s.timings);
+  const profilerVisible = useDevLogStore((s) => s.profilerVisible);
   const sources = useDevLogStore((s) => s.sources);
 
   const setFilter = useCallback((s: string | null) => {
@@ -324,6 +402,24 @@ export function DevLogPanel() {
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button
+            style={{ ...styles.headerBtn, color: profilerVisible ? '#22d3ee' : 'rgba(255,255,255,0.3)' }}
+            onClick={() => useDevLogStore.getState().toggleProfiler()}
+            title="Toggle frame profiler"
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = profilerVisible ? '#22d3ee' : 'rgba(255,255,255,0.3)'; }}
+          >
+            PROF
+          </button>
+          <button
+            style={{ ...styles.headerBtn, color: '#f97316' }}
+            onClick={() => useExplosionStore.getState().spawnExplosion([0, 52, -10], '#ff6600', 2.0)}
+            title="Debug: spawn explosion"
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fb923c'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#f97316'; }}
+          >
+            BOOM
+          </button>
+          <button
             style={styles.headerBtn}
             onClick={handleCopyAll}
             title="Copy all to clipboard"
@@ -355,6 +451,9 @@ export function DevLogPanel() {
 
       {/* Perf bar */}
       <PerfBar perf={perf} />
+
+      {/* Frame profiler — togglable */}
+      {profilerVisible && <ProfilerBar timings={timings} frametime={perf.frametime} />}
 
       {/* Filter bar */}
       <FilterBar sources={sources} activeFilter={filter} onFilter={setFilter} />

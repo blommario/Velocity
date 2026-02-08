@@ -10,7 +10,7 @@ import {
 } from 'three/webgpu';
 import { Vector3 } from 'three';
 import { create } from 'zustand';
-import { devLog } from '../stores/devLogStore';
+import { devLog, frameTiming } from '../stores/devLogStore';
 
 const EXPLOSION = {
   PARTICLE_COUNT: 96,
@@ -131,7 +131,6 @@ function createSlot() {
     colorB,
     timeAlive: 0,
     active: false,
-    computePending: false,
   };
 }
 
@@ -184,47 +183,46 @@ export function ExplosionManager() {
 
   useFrame((_, delta) => {
     if (!readyRef.current) return;
+    frameTiming.begin('Explosions');
     const pool = poolRef.current;
 
     // Consume new explosion requests
     const requests = useExplosionStore.getState().consumeRequests();
-    for (const req of requests) {
-      // Find an inactive slot, or recycle the oldest active one
-      let slot = pool.find((s) => !s.active);
-      if (!slot) {
-        let oldest: ExplosionSlot | null = null;
-        for (const s of pool) {
-          if (!oldest || s.timeAlive > oldest.timeAlive) oldest = s;
+    if (requests.length > 0) {
+      const t0 = performance.now();
+      for (const req of requests) {
+        // Find an inactive slot, or recycle the oldest active one
+        let slot = pool.find((s) => !s.active);
+        if (!slot) {
+          let oldest: ExplosionSlot | null = null;
+          for (const s of pool) {
+            if (!oldest || s.timeAlive > oldest.timeAlive) oldest = s;
+          }
+          slot = oldest!;
         }
-        slot = oldest!;
+
+        // Configure slot for this explosion
+        const r = parseInt(req.color.slice(1, 3), 16) / 255;
+        const g = parseInt(req.color.slice(3, 5), 16) / 255;
+        const b = parseInt(req.color.slice(5, 7), 16) / 255;
+
+        slot.emitterPos.value.set(req.position[0], req.position[1], req.position[2]);
+        slot.speed.value = EXPLOSION.SPEED * req.scale;
+        slot.colorR.value = r;
+        slot.colorG.value = g;
+        slot.colorB.value = b;
+        slot.timeAlive = 0;
+        slot.active = true;
+        slot.mesh.visible = true;
+        slot.mesh.scale.setScalar(req.scale);
+
+        // Synchronous compute — pipeline already compiled at warmup
+        renderer.compute(slot.computeInit);
       }
-
-      // Configure slot for this explosion
-      const r = parseInt(req.color.slice(1, 3), 16) / 255;
-      const g = parseInt(req.color.slice(3, 5), 16) / 255;
-      const b = parseInt(req.color.slice(5, 7), 16) / 255;
-
-      slot.emitterPos.value.set(req.position[0], req.position[1], req.position[2]);
-      slot.speed.value = EXPLOSION.SPEED * req.scale;
-      slot.colorR.value = r;
-      slot.colorG.value = g;
-      slot.colorB.value = b;
-      slot.timeAlive = 0;
-      slot.active = true;
-      slot.mesh.visible = true;
-      slot.mesh.scale.setScalar(req.scale);
-
-      // Re-init particles (no shader recompilation — same pipeline, new uniforms)
-      if (!slot.computePending) {
-        slot.computePending = true;
-        renderer.computeAsync(slot.computeInit).then(
-          () => { slot.computePending = false; },
-          () => { slot.computePending = false; },
-        );
-      }
+      devLog.info('Explosion', `Spawned ${requests.length} in ${(performance.now() - t0).toFixed(1)}ms`);
     }
 
-    // Update active slots
+    // Update active slots via synchronous compute
     for (const slot of pool) {
       if (!slot.active) continue;
 
@@ -235,14 +233,9 @@ export function ExplosionManager() {
         continue;
       }
 
-      if (!slot.computePending) {
-        slot.computePending = true;
-        renderer.computeAsync(slot.computeUpdate).then(
-          () => { slot.computePending = false; },
-          () => { slot.computePending = false; },
-        );
-      }
+      renderer.compute(slot.computeUpdate);
     }
+    frameTiming.end('Explosions');
   });
 
   return null;

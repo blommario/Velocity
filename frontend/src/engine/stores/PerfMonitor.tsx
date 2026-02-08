@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { WebGPURenderer } from 'three/webgpu';
-import { useDevLogStore } from './devLogStore';
+import { useDevLogStore, frameTiming } from './devLogStore';
 
 const PERF = {
   /** How often to update the store (ms) */
@@ -21,6 +21,7 @@ export function PerfMonitor() {
   const lastUpdateRef = useRef(0);
   const lastFrameRef = useRef(performance.now());
 
+  // Priority 2: runs AFTER PostProcessingEffects (priority 1) so we read fresh per-frame values
   useFrame(() => {
     const now = performance.now();
     const dt = now - lastFrameRef.current;
@@ -47,21 +48,24 @@ export function PerfMonitor() {
     const mem = (performance as PerformanceWithMemory).memory;
     const memoryMB = mem ? Math.round(mem.usedJSHeapSize / 1024 / 1024) : 0;
 
-    // Renderer info (reset happens in PostProcessingEffects before each render)
+    // Renderer info — use per-frame counters (drawCalls/frameCalls/triangles),
+    // NOT lifetime counters (calls). autoReset=true handles clearing each frame.
     const info = (gl as unknown as WebGPURenderer).info;
     const render = info?.render;
 
-    useDevLogStore.getState().updatePerf({
+    const store = useDevLogStore.getState();
+    store.updatePerf({
       fps: Math.round(fps),
       frametime: Math.round(avg * 10) / 10,
       frametimeMax: Math.round(max * 10) / 10,
       memoryMB,
-      drawCalls: render?.calls ?? 0,
+      drawCalls: render?.drawCalls ?? 0,
       triangles: render?.triangles ?? 0,
       geometries: info?.memory?.geometries ?? 0,
       textures: info?.memory?.textures ?? 0,
     });
-  });
+    store.updateTimings(frameTiming.snapshot());
+  }, 2);
 
   return null;
 }
