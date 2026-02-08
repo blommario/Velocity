@@ -81,12 +81,12 @@
 - ✅ `components/game/map/MapLoader.tsx` — Ersätt `<EmissivePointLight>` med `<GpuLightSprites>`
 - ✅ Deprecera `components/game/DynamicPointLights.tsx`
 
-### G4 — Spatial Partitioning (Grid Cells)
+### G4 — Spatial Partitioning (Grid Cells) ✅
 *Dela upp kartan i 2D-celler (XZ-plan). Foundation för LOD, fog-of-war, stora världar.*
 
-- 🔲 `engine/rendering/SpatialGrid.ts` — Ren datastruktur: `insert()`, `querySphere()`, `getCellsInRadius()`
-- 🔲 `engine/rendering/useSpatialCulling.ts` — React-hook, returnerar aktiva celler baserat på kameraposition
-- 🔲 `components/game/map/InstancedBlocks.tsx` — Filtrera synliga block per aktiv cell (vid 500+ block)
+- ✅ `engine/rendering/SpatialGrid.ts` — Ren datastruktur: `insert()`, `querySphere()`, `getCellsInRadius()`
+- ✅ `engine/rendering/useSpatialCulling.ts` — React-hook, returnerar aktiva celler baserat på kameraposition
+- ✅ `components/game/map/InstancedBlocks.tsx` — Filtrera synliga block per aktiv cell (vid 500+ block)
 
 ### G5 — LOD (Level of Detail)
 *Avståndbaserat geometribyte: nära=full detail, medel=förenklad, långt=dölj.*

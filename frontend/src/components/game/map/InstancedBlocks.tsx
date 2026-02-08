@@ -3,7 +3,16 @@ import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier
 import { Object3D, InstancedMesh, Euler } from 'three';
 import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
 import { batchStaticColliders } from '../../../engine/physics/colliderBatch';
+import { useSpatialCulling } from '../../../engine/rendering/useSpatialCulling';
 import type { MapBlock } from './types';
+
+/** Block count threshold for enabling spatial culling */
+const CULLING_THRESHOLD = 500;
+
+const CULLING_CONFIG = {
+  viewRadius: 200,
+  cellSize: 32,
+} as const;
 
 interface BlockGroup {
   key: string;
@@ -167,12 +176,43 @@ interface InstancedBlocksProps {
 }
 
 export function InstancedBlocks({ blocks }: InstancedBlocksProps) {
-  const groups = useMemo(() => groupBlocks(blocks), [blocks]);
+  const useCulling = blocks.length >= CULLING_THRESHOLD;
+  const { grid, activeCells } = useSpatialCulling<number>(
+    useCulling ? CULLING_CONFIG : { viewRadius: Infinity, cellSize: CULLING_CONFIG.cellSize },
+  );
+
+  // Populate grid with block indices (once per blocks change)
+  useMemo(() => {
+    grid.clear();
+    if (!useCulling) return;
+    for (let i = 0; i < blocks.length; i++) {
+      const pos = blocks[i].position;
+      grid.insert(pos[0], pos[2], i);
+    }
+  }, [blocks, grid, useCulling]);
+
+  // Filter visible blocks — O(active cells × items/cell), NOT O(total blocks)
+  const visibleBlocks = useMemo(() => {
+    if (!useCulling || activeCells.size === 0) return blocks;
+
+    const visible: MapBlock[] = [];
+    activeCells.forEach((key) => {
+      const indices = grid.getCellByKey(key);
+      for (const idx of indices) {
+        visible.push(blocks[idx]);
+      }
+    });
+    return visible;
+  }, [blocks, activeCells, grid, useCulling]);
+
+  const groups = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
+
+  // Physics colliders always include ALL blocks (Rapier needs full collision)
   const colliderGroups = useMemo(() => batchStaticColliders(blocks), [blocks]);
 
   return (
     <group>
-      {/* Visual instanced meshes */}
+      {/* Visual instanced meshes (culled when 500+ blocks) */}
       {groups.map((group) =>
         group.textureSet ? (
           <TexturedBlockGroup key={group.key} group={group} />
