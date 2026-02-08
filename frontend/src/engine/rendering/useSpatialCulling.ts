@@ -46,6 +46,9 @@ export function useSpatialCulling<T>(config?: Partial<SpatialCullingConfig>) {
   const grid = gridRef.current;
 
   useFrame(({ camera }, delta) => {
+    // Infinite viewRadius means "show everything" — skip spatial query entirely
+    if (!isFinite(viewRadius)) return;
+
     timerRef.current += delta;
     if (timerRef.current < CULLING_UPDATE_INTERVAL) return;
     timerRef.current = 0;

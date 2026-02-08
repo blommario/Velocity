@@ -6,6 +6,8 @@ import { MathUtils, PerspectiveCamera } from 'three';
 import { PlayerController } from './PlayerController';
 import { TestMap } from './TestMap';
 import { MapLoader } from './map/MapLoader';
+import { ScreenShake } from '../../engine/effects/ScreenShake';
+import { useFogOfWar } from '../../engine/effects/useFogOfWar';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from '../../engine/core/PostProcessingEffects';
@@ -13,14 +15,13 @@ import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer } from './
 import { PerfMonitor } from '../../engine/stores/PerfMonitor';
 import { HudOverlay } from '../hud/HudOverlay';
 import { DevLogPanel } from '../../engine/stores/DevLogPanel';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useGameStore } from '../../stores/gameStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '../../engine/stores/devLogStore';
 import { setMaxAnisotropy } from '../../services/assetManager';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { useGameStore } from '../../stores/gameStore';
-
-// BISECT: prevent tree-shaking — MapLoader imported but NOT rendered
-console.log('[BISECT] MapLoader imported:', typeof MapLoader);
+import type { FogOfWarConfig } from '../../engine/effects/FogOfWar';
+import type { MapBlock } from '../../engine/types/map';
 
 const FOV_SCALING = {
   BASE: 90,
@@ -30,16 +31,39 @@ const FOV_SCALING = {
   LERP_SPEED: 5,
 } as const;
 
-/** BISECT: Wrapper without fog — test if the wrapper itself causes re-mount */
-function ScenePostProcessingMinimal() {
-  const { camera } = useThree();
+// Pre-allocated view position tuple (mutated in-place, no GC)
+const _fogViewPos: [number, number, number] = [0, 0, 0];
 
+/** Wraps PostProcessingEffects with optional fog-of-war driven by camera position. */
+function ScenePostProcessing({ fogConfig, blocks }: {
+  fogConfig?: Partial<FogOfWarConfig>;
+  blocks?: ReadonlyArray<MapBlock>;
+}) {
+  const { camera } = useThree();
+  const camPosRef = useRef(_fogViewPos);
+
+  // Update pre-allocated tuple from camera each frame (before useFogOfWar reads it)
   useFrame(() => {
-    // just reading camera position like the real wrapper does
-    void camera.position.x;
+    camPosRef.current[0] = camera.position.x;
+    camPosRef.current[1] = camera.position.y;
+    camPosRef.current[2] = camera.position.z;
   });
 
-  return <PostProcessingEffects />;
+  const enabled = fogConfig !== undefined;
+  const { fogTexture, fogComputeResources, fogUniforms } = useFogOfWar({
+    enabled,
+    config: fogConfig,
+    viewPosition: camPosRef.current,
+    blocks,
+  });
+
+  return (
+    <PostProcessingEffects
+      fogTexture={fogTexture}
+      fogComputeResources={fogComputeResources}
+      fogUniforms={fogUniforms}
+    />
+  );
 }
 
 function DynamicFov() {
@@ -82,6 +106,7 @@ export function GameCanvas() {
           });
           await renderer.init();
 
+          // Monitor GPU device loss (OOM, driver crash, TDR, etc.)
           const device = renderer.backend.device as GPUDevice | undefined;
           if (device?.lost) {
             device.lost.then((info) => {
@@ -93,7 +118,7 @@ export function GameCanvas() {
 
           const aniso = renderer.getMaxAnisotropy();
           setMaxAnisotropy(aniso);
-          devLog.success('Renderer', 'WebGPU initialized (bisect: minimal wrapper)');
+          devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name}, anisotropy=${aniso})`);
           return renderer;
         }}
         camera={{ fov, near: 0.1, far: 1000 }}
@@ -103,7 +128,11 @@ export function GameCanvas() {
         }}
       >
         <DynamicFov />
-        <ScenePostProcessingMinimal />
+        <ScreenShake
+          getIntensity={() => useGameStore.getState().shakeIntensity}
+          onDecayed={() => useGameStore.getState().clearShake()}
+        />
+        <ScenePostProcessing fogConfig={mapData?.fogOfWar} blocks={mapData?.blocks} />
         <Physics
           timeStep={PHYSICS.TICK_DELTA}
           gravity={[0, 0, 0]}

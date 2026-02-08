@@ -31,25 +31,8 @@ export function PerfMonitor() {
     }
   }
 
-  // ── Frame diagnostics: log total frame time for first N frames ──
-  const diagCountRef = useRef(0);
-  const diagPrevRef = useRef(0);
-  const DIAG_FRAMES = 10;
-
   // Priority 2: runs AFTER PostProcessingEffects (priority 1) so we read fresh per-frame values
   useFrame(() => {
-    // Measure total frame-to-frame time
-    const nowDiag = performance.now();
-    if (diagCountRef.current > 0 && diagCountRef.current <= DIAG_FRAMES) {
-      const totalFrame = nowDiag - diagPrevRef.current;
-      const renderMs = frameTiming.snapshot()['Render'] ?? 0;
-      const physicsMs = frameTiming.snapshot()['Physics'] ?? 0;
-      const msg = `Frame total=${totalFrame.toFixed(0)}ms, render=${renderMs.toFixed(0)}ms, physics=${physicsMs.toFixed(0)}ms, other=${(totalFrame - renderMs - physicsMs).toFixed(0)}ms`;
-      console.warn(`[PERF-DIAG] ${msg}`);
-    }
-    diagPrevRef.current = nowDiag;
-    diagCountRef.current++;
-
     // Reset per-frame timing accumulators (before any system writes this frame)
     frameTiming.resetFrame();
 

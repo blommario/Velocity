@@ -117,13 +117,16 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
   // Steg 2: Tile-clustered GPU compute (used when >= 64 lights)
   const { tileLightingNode, isTileClustered } = useTileClusteredLighting({ lights: clusterLightData });
 
+  // Only bind lightsNode when the map actually has point lights
+  const hasLights = clusterLightData.length > 0;
+
   return (
     <group>
       {/* Blocks (static geometry — instanced for performance) */}
       <InstancedBlocks
         blocks={data.blocks}
-        lightsNode={isTileClustered ? undefined : lightsNode}
-        tileLightingNode={isTileClustered ? tileLightingNode : undefined}
+        lightsNode={hasLights && !isTileClustered ? lightsNode : undefined}
+        tileLightingNode={hasLights && isTileClustered && tileLightingNode ? tileLightingNode : undefined}
       />
 
       {/* glTF models */}
