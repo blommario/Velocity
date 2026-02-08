@@ -6,7 +6,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 // Must be called before any <Canvas> renders.
 extend(THREE);
 
-// Pre-initialize Rapier WASM with correct object syntax.
-// @react-three/rapier calls init() with deprecated positional params — by
-// initializing first, its subsequent init() becomes a no-op (wasm cached).
+// Pre-initialize Rapier WASM so subsequent init() from @react-three/rapier is a no-op.
+// KNOWN ISSUE: rapier3d-compat's own init() uses deprecated positional WASM params internally.
+// This warning cannot be fixed without a rapier package update.
 RAPIER.init({});

@@ -12,7 +12,7 @@ import type {
 } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 // ── Types ──
@@ -54,7 +54,7 @@ const loadingHdri = new Map<string, Promise<DataTexture>>();
 let gltfLoader: GLTFLoader | null = null;
 let fbxLoader: FBXLoader | null = null;
 let textureLoader: TextureLoader | null = null;
-let rgbeLoader: RGBELoader | null = null;
+let hdrLoader: HDRLoader | null = null;
 let dracoLoader: DRACOLoader | null = null;
 
 function getGLTFLoader(): GLTFLoader {
@@ -82,11 +82,11 @@ function getTextureLoader(): TextureLoader {
   return textureLoader;
 }
 
-function getRGBELoader(): RGBELoader {
-  if (!rgbeLoader) {
-    rgbeLoader = new RGBELoader();
+function getHDRLoader(): HDRLoader {
+  if (!hdrLoader) {
+    hdrLoader = new HDRLoader();
   }
-  return rgbeLoader;
+  return hdrLoader;
 }
 
 // ── Model Loading ──
@@ -266,7 +266,7 @@ export function loadHDRI(
 
   const url = `${HDRI_PATH}/${name}`;
   const promise = new Promise<DataTexture>((resolve, reject) => {
-    getRGBELoader().load(
+    getHDRLoader().load(
       url,
       (texture) => {
         texture.mapping = EquirectangularReflectionMapping;

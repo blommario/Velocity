@@ -52,6 +52,9 @@ export function PostProcessingEffects() {
 
   // renderPriority=1 disables R3F auto-rendering; pipeline handles render + post
   useFrame(() => {
+    // Reset info counters so PerfMonitor reads per-frame values (not accumulated)
+    renderer.info?.reset();
+
     const pipeline = pipelineRef.current;
     if (pipeline) {
       pipeline.render();

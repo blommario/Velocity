@@ -47,7 +47,7 @@ export function PerfMonitor() {
     const mem = (performance as PerformanceWithMemory).memory;
     const memoryMB = mem ? Math.round(mem.usedJSHeapSize / 1024 / 1024) : 0;
 
-    // Renderer info
+    // Renderer info (reset happens in PostProcessingEffects before each render)
     const info = (gl as unknown as WebGPURenderer).info;
     const render = info?.render;
 

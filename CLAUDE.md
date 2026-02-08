@@ -58,6 +58,12 @@ Plan.md                     ← Implementation plan (12 faser med beroenden)
 - **Frontend:** Use `as const` objects co-located with or near the consuming code (e.g., `SPEED_METER`, `DEFAULT_KEY_BINDINGS`, `MAP_DIFFICULTIES`).
 - This also applies to CSS classes when used in conditional logic.
 
+### No Warning/Error Suppression
+- **Warnings and errors MUST NEVER be suppressed** (e.g., wrapping `console.warn`, `#pragma warning disable`, try/catch-swallow).
+- Every warning/error must be **fixed at the root cause**.
+- If a warning comes from a **third-party package** and cannot be fixed without an upstream update, **ask the user how to proceed** instead of suppressing it.
+- Acceptable responses to unfixable warnings: document as a known issue (code comment), upgrade the package, or find an alternative — but NEVER silence the warning.
+
 ### Backend Architecture (C# 14 / .NET 10)
 - **Inga Dto-suffix:** Använd aldrig ordet "Dto". Namnge efter roll: `[Action][Entity]Request` (t.ex. `CreateMapRequest`) eller `[Entity]Response` (t.ex. `MapResponse`).
 - **Records som Contracts:** Använd `public record` med Primary Constructors för alla Request/Response-objekt. Dessa ligger i `Contracts/`.
