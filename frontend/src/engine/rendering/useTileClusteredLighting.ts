@@ -162,14 +162,18 @@ export function useTileClusteredLighting({
           TILE_CONFIG.PRE_FILTER_RADIUS,
         );
 
+        // Clamp to buffer capacity to prevent RangeError if buildLightBuffer
+        // ever returns more lights than the GPU buffers were allocated for.
+        const safeCount = Math.min(buf.lightCount, TILE_CONFIG.MAX_LIGHTS);
+
         const posArray = resources.lightPositions.value.array as Float32Array;
         const colArray = resources.lightColors.value.array as Float32Array;
-        posArray.set(buf.lightPositions.subarray(0, buf.lightCount * 4));
-        colArray.set(buf.lightColors.subarray(0, buf.lightCount * 4));
+        posArray.set(buf.lightPositions.subarray(0, safeCount * 4));
+        colArray.set(buf.lightColors.subarray(0, safeCount * 4));
         resources.lightPositions.value.needsUpdate = true;
         resources.lightColors.value.needsUpdate = true;
 
-        resources.uniforms.lightCount.value = buf.lightCount;
+        resources.uniforms.lightCount.value = safeCount;
         devLog.info('Lighting', `Tile upload: ${buf.lightCount}/${data.length} lights (pre-filter r=${TILE_CONFIG.PRE_FILTER_RADIUS}), grid ${cols}×${rows}`);
       }
     }
