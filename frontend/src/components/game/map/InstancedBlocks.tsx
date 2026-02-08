@@ -74,6 +74,7 @@ function useInstanceMatrix(blocks: MapBlock[]) {
       mesh.setMatrixAt(i, dummy.matrix);
     }
     mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
   }, [blocks, dummy]);
 
   return meshRef;
@@ -103,7 +104,7 @@ function TexturedBlockGroup({ group }: { group: BlockGroup }) {
         args={[undefined, undefined, group.blocks.length]}
         castShadow
         receiveShadow
-        frustumCulled={false}
+        frustumCulled
       >
         {group.shape === 'cylinder' ? (
           <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
@@ -121,7 +122,7 @@ function TexturedBlockGroup({ group }: { group: BlockGroup }) {
       args={[undefined, undefined, group.blocks.length]}
       castShadow
       receiveShadow
-      frustumCulled={false}
+      frustumCulled
       material={material}
     >
       {group.shape === 'cylinder' ? (
@@ -142,7 +143,7 @@ function FlatBlockGroup({ group }: { group: BlockGroup }) {
       args={[undefined, undefined, group.blocks.length]}
       castShadow
       receiveShadow
-      frustumCulled={false}
+      frustumCulled
     >
       {group.shape === 'cylinder' ? (
         <cylinderGeometry args={[0.5, 0.5, 1, 16]} />

@@ -1,7 +1,6 @@
 import type { WeaponType } from '../physics/types';
 
-// Re-export all engine map types for backward compatibility
-export type {
+import type {
   Vec3, Color, BlockShape, MapBlock, MapModel,
   CheckpointData, FinishZoneData, KillZoneData,
   BoostPadData, LaunchPadData, SpeedGateData,
@@ -9,13 +8,14 @@ export type {
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
 } from '../../../engine/types/map';
 
-import type {
-  Vec3, MapBlock, MapModel,
+// Re-export all engine map types for backward compatibility
+export type {
+  Vec3, Color, BlockShape, MapBlock, MapModel,
   CheckpointData, FinishZoneData, KillZoneData,
   BoostPadData, LaunchPadData, SpeedGateData,
   GrapplePointData, SurfRampData, MovingPlatformData,
-  SkyboxType, AmbientLighting, Color,
-} from '../../../engine/types/map';
+  ProceduralSkyboxType, SkyboxType, AmbientLighting,
+};
 
 // ── Game-specific types ──
 

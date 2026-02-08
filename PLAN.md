@@ -239,6 +239,18 @@
 
 ---
 
+## Optimering — Framtida TODO
+
+*Identifierade under code review. Låg prioritet men viktiga vid skalning.*
+
+- 🔲 **Collider-merging** — Slå ihop statiska blocks colliders till en enda `RigidBody type="fixed"` med multipla `CuboidCollider` inuti. Minskar Rapier-öar och förbättrar broad-phase. Kräver arkitekturändring i InstancedBlocks.
+- 🔲 **SurfRamp instancing** — Rendera surfRamps via InstancedMesh istället för individuella meshes. Låg prio med 2-5 ramper per bana, men viktigt om framtida banor har fler.
+- 🔲 **ModelBlock dispose** — Lägg till fullständig Three.js-dispose (geometry + material via `scene.traverse`) i ModelBlock cleanup. Viktigt vid frekvent map-switching för att undvika GPU-minnesläckor.
+- 🔲 **LOD (Level of Detail)** — System för att dölja/förenkla avlägsna block. Behövs först vid mycket stora banor (1000+ block).
+- 🔲 **DynamicPointLights → TSL emissive** — Migrera per-light `useFrame` pulsering till TSL shader-noder i materialet. Nuvarande lösning skalar inte till 100+ ljus.
+
+---
+
 ## Parkerat (framtida faser)
 
 Dessa faser är **inte borttagna**, bara parkerade tills kärnan är klar:
