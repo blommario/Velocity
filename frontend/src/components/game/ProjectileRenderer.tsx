@@ -2,7 +2,7 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { SphereGeometry, MeshBasicMaterial, AdditiveBlending } from 'three';
 import { useCombatStore } from '../../stores/combatStore';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../../engine/stores/devLogStore';
 
 const ROCKET_COLOR = '#ff4400';
 const ROCKET_GLOW = '#ff8800';

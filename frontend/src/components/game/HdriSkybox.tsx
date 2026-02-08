@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber';
 import { PMREMGenerator } from 'three/webgpu';
 import type { DataTexture, WebGPURenderer } from 'three/webgpu';
 import { loadHDRI } from '../../services/assetManager';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../../engine/stores/devLogStore';
 
 interface HdriSkyboxProps {
   /** HDRI filename in /assets/hdri/ (e.g. "satara_night_2k.hdr") */

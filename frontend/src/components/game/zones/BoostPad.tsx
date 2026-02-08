@@ -1,7 +1,7 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '../../../stores/combatStore';
-import { GpuParticles } from '../particles/GpuParticles';
+import { GpuParticles } from '../../../engine/effects/GpuParticles';
 
 const BOOST_PARTICLES = {
   COUNT: 200,

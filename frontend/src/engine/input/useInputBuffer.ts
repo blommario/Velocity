@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { InputState } from './types';
+import type { InputState } from '../types/physics';
 
 type BooleanInputKey = keyof Pick<InputState,
   'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload'

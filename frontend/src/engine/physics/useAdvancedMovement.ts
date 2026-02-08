@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { PHYSICS, DEG2RAD } from './constants';
+import { ENGINE_PHYSICS as PHYSICS, DEG2RAD } from './constants';
 
 const _wallNormal = new Vector3();
 const _wallRight = new Vector3();
@@ -205,7 +205,7 @@ const _explosionDir = new Vector3();
 
 /**
  * Apply explosion knockback to player.
- * Returns damage dealt.
+ * Returns distance-based falloff (0–1) for damage calculation by the caller.
  */
 export function applyExplosionKnockback(
   velocity: Vector3,
@@ -213,7 +213,7 @@ export function applyExplosionKnockback(
   explosionPos: [number, number, number],
   radius: number,
   force: number,
-  isSelf: boolean,
+  baseDamage: number,
 ): number {
   _explosionDir.set(
     playerPos.x - explosionPos[0],
@@ -231,10 +231,6 @@ export function applyExplosionKnockback(
   velocity.x += _explosionDir.x * knockback;
   velocity.y += _explosionDir.y * knockback;
   velocity.z += _explosionDir.z * knockback;
-
-  const baseDamage = isSelf
-    ? PHYSICS.ROCKET_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT
-    : PHYSICS.ROCKET_DAMAGE;
 
   return baseDamage * falloff;
 }

@@ -19,7 +19,7 @@ import { InstancedBlocks } from './InstancedBlocks';
 import { ModelBlock } from './ModelBlock';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
-import { devLog } from '../../../stores/devLogStore';
+import { devLog } from '../../../engine/stores/devLogStore';
 import type { MapData, MapBlock, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {

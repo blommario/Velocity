@@ -10,7 +10,7 @@ import {
 } from 'three/webgpu';
 import { Vector3 } from 'three';
 import { create } from 'zustand';
-import { devLog } from '../../../stores/devLogStore';
+import { devLog } from '../stores/devLogStore';
 
 const EXPLOSION = {
   PARTICLE_COUNT: 96,

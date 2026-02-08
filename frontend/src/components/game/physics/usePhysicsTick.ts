@@ -11,7 +11,7 @@ import {
   applyAirAcceleration,
   getWishDir,
   getHorizontalSpeed,
-} from './useMovement';
+} from '../../../engine/physics/useMovement';
 import {
   applyGrappleSwing,
   applyExplosionKnockback,
@@ -21,14 +21,14 @@ import {
   type WallRunState,
   updateWallRun,
   wallJump,
-} from './useAdvancedMovement';
+} from '../../../engine/physics/useAdvancedMovement';
 import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { useReplayStore } from '../../../stores/replayStore';
-import { audioManager, SOUNDS } from '../../../systems/AudioManager';
-import { useExplosionStore } from '../effects/ExplosionEffect';
-import { devLog } from '../../../stores/devLogStore';
+import { audioManager, SOUNDS } from '../../../engine/audio/AudioManager';
+import { useExplosionStore } from '../../../engine/effects/ExplosionEffect';
+import { devLog } from '../../../engine/stores/devLogStore';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
@@ -497,7 +497,7 @@ export function physicsTick(
         ];
         const damage = applyExplosionKnockback(
           velocity, _playerPos, hitPos,
-          PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, true,
+          PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, PHYSICS.ROCKET_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
         );
         if (damage > 0) {
           combat.takeDamage(damage);
@@ -513,7 +513,7 @@ export function physicsTick(
       if (age >= PHYSICS.GRENADE_FUSE_TIME) {
         const damage = applyExplosionKnockback(
           velocity, _playerPos, p.position,
-          PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, true,
+          PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
         );
         if (damage > 0) {
           combat.takeDamage(damage);
@@ -546,7 +546,7 @@ export function physicsTick(
           // Explode on second bounce
           const damage = applyExplosionKnockback(
             velocity, _playerPos, p.position,
-            PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, true,
+            PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
           );
           if (damage > 0) {
             combat.takeDamage(damage);

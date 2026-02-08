@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { MathUtils } from 'three';
-import { useGameStore } from '../../stores/gameStore';
 
 const SCREEN_SHAKE = {
   DECAY: 8,
@@ -9,18 +8,25 @@ const SCREEN_SHAKE = {
   FREQUENCY: 25,
 } as const;
 
+export interface ScreenShakeProps {
+  /** Return current shake intensity (0–1). Called every frame. */
+  getIntensity: () => number;
+  /** Called when shake fully decays to zero. */
+  onDecayed: () => void;
+}
+
 /**
- * Reads `shakeIntensity` from gameStore and applies camera offset.
- * Intensity is set externally (e.g. by explosions in Phase 7).
+ * Generic screen-shake component. Reads intensity via props (no game-store coupling).
+ * Intensity is set externally (e.g. by explosions).
  * Decays exponentially each frame.
  */
-export function ScreenShake() {
+export function ScreenShake({ getIntensity, onDecayed }: ScreenShakeProps) {
   const { camera } = useThree();
   const intensityRef = useRef(0);
   const timeRef = useRef(0);
 
   useFrame((_, delta) => {
-    const storeIntensity = useGameStore.getState().shakeIntensity;
+    const storeIntensity = getIntensity();
     if (storeIntensity > intensityRef.current) {
       intensityRef.current = storeIntensity;
     }
@@ -40,7 +46,7 @@ export function ScreenShake() {
     intensityRef.current = MathUtils.lerp(intensityRef.current, 0, 1 - Math.exp(-SCREEN_SHAKE.DECAY * delta));
 
     if (intensityRef.current < 0.001) {
-      useGameStore.getState().clearShake();
+      onDecayed();
     }
   });
 

@@ -7,7 +7,7 @@ import {
   applyAirAcceleration,
   getWishDir,
   getHorizontalSpeed,
-} from './useMovement';
+} from '../../../engine/physics/useMovement';
 import { PHYSICS } from './constants';
 
 const dt = PHYSICS.TICK_DELTA;

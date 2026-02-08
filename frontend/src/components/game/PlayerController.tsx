@@ -9,10 +9,10 @@ import {
 } from '@react-three/rapier';
 import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
 import { PHYSICS, DEG2RAD } from './physics/constants';
-import { useInputBuffer } from './physics/useInputBuffer';
+import { useInputBuffer } from '../../engine/input/useInputBuffer';
 import { physicsTick } from './physics/usePhysicsTick';
 import { useGameStore } from '../../stores/gameStore';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../../engine/stores/devLogStore';
 
 export function PlayerController() {
   const rigidBodyRef = useRef<RapierRigidBody>(null);

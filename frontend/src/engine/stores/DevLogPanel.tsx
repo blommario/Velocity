@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useDevLogStore, type LogLevel, type PerfMetrics } from '../../stores/devLogStore';
+import { useDevLogStore, type LogLevel, type PerfMetrics } from './devLogStore';
 
 const LOG_COLORS: Record<LogLevel, string> = {
   info: 'text-blue-400',

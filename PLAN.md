@@ -194,6 +194,21 @@
 
 ---
 
+## Engine Extraction ✅
+*Extraherat generisk, återanvändbar engine-kod till `src/engine/` — ren separation från spelspecifik kod.*
+
+- ✅ Core — `setup-webgpu.ts`, `PostProcessingEffects.tsx` → `engine/core/`
+- ✅ Physics — `useMovement.ts`, `useAdvancedMovement.ts`, `ENGINE_PHYSICS` konstanter → `engine/physics/`
+- ✅ Input — `useInputBuffer.ts` → `engine/input/`
+- ✅ Audio — `AudioManager.ts` → `engine/audio/`
+- ✅ Effects — `GpuParticles.tsx`, `ExplosionEffect.tsx`, `ScreenShake.tsx` (prop-injected) → `engine/effects/`
+- ✅ Stores — `devLogStore.ts`, `PerfMonitor.tsx`, `DevLogPanel.tsx` → `engine/stores/`
+- ✅ Types — `InputState`, `MovementState`, map-typer (`MapBlock`, `Vec3`, etc.) → `engine/types/`
+- ✅ Barrel exports — `engine/index.ts` + per-modul index
+- ✅ CLAUDE.md uppdaterad med engine/game boundary-regler
+
+---
+
 ## Beroendeöversikt
 
 ```

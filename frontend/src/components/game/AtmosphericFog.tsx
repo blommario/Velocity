@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { fog, rangeFogFactor, color as tslColor, positionWorld, float } from 'three/tsl';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../../engine/stores/devLogStore';
 
 const FOG_DEFAULTS = {
   HEIGHT_FADE_START: -10,

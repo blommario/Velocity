@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { PHYSICS } from './constants';
+import { ENGINE_PHYSICS as PHYSICS } from './constants';
 
 const _wishDir = new Vector3();
 

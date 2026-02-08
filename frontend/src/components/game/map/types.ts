@@ -1,75 +1,23 @@
 import type { WeaponType } from '../physics/types';
 
-// ── Primitives ──
-export type Vec3 = [number, number, number];
-export type Color = string; // hex color e.g. "#ff0000"
+// Re-export all engine map types for backward compatibility
+export type {
+  Vec3, Color, BlockShape, MapBlock, MapModel,
+  CheckpointData, FinishZoneData, KillZoneData,
+  BoostPadData, LaunchPadData, SpeedGateData,
+  GrapplePointData, SurfRampData, MovingPlatformData,
+  ProceduralSkyboxType, SkyboxType, AmbientLighting,
+} from '../../../engine/types/map';
 
-// ── Block types ──
-export type BlockShape = 'box' | 'ramp' | 'cylinder' | 'wedge';
+import type {
+  Vec3, MapBlock, MapModel,
+  CheckpointData, FinishZoneData, KillZoneData,
+  BoostPadData, LaunchPadData, SpeedGateData,
+  GrapplePointData, SurfRampData, MovingPlatformData,
+  SkyboxType, AmbientLighting, Color,
+} from '../../../engine/types/map';
 
-export interface MapBlock {
-  shape: BlockShape;
-  position: Vec3;
-  size: Vec3;            // [width, height, depth]
-  rotation?: Vec3;       // euler angles in radians, default [0,0,0]
-  color: Color;
-  emissive?: Color;
-  emissiveIntensity?: number;
-  transparent?: boolean;
-  opacity?: number;
-  textureSet?: string;   // texture set prefix in /assets/textures/ (e.g. "sci-fi-panel-01")
-  textureScale?: [number, number];  // UV repeat [x, y], default [1,1]
-}
-
-// ── Model props (glTF placed in map) ──
-export interface MapModel {
-  modelUrl: string;       // path relative to /assets/models/ (e.g. "corridor-01.glb")
-  position: Vec3;
-  rotation?: Vec3;        // euler angles in radians
-  scale?: Vec3;           // default [1,1,1]
-  collider?: 'trimesh' | 'hull' | 'none';  // physics collider type
-}
-
-// ── Game objects ──
-export interface CheckpointData {
-  position: Vec3;
-  size: Vec3;
-  index: number;
-}
-
-export interface FinishZoneData {
-  position: Vec3;
-  size: Vec3;
-}
-
-export interface KillZoneData {
-  position: Vec3;
-  size: Vec3;
-}
-
-export interface BoostPadData {
-  position: Vec3;
-  direction: Vec3;       // normalized
-  speed?: number;
-  size?: Vec3;
-  color?: Color;
-}
-
-export interface LaunchPadData {
-  position: Vec3;
-  direction: Vec3;       // normalized direction + angle
-  speed?: number;
-  size?: Vec3;
-  color?: Color;
-}
-
-export interface SpeedGateData {
-  position: Vec3;
-  size?: Vec3;
-  multiplier?: number;
-  minSpeed?: number;
-  color?: Color;
-}
+// ── Game-specific types ──
 
 export interface AmmoPickupData {
   position: Vec3;
@@ -78,44 +26,6 @@ export interface AmmoPickupData {
   respawnTime?: number;
 }
 
-export interface GrapplePointData {
-  position: Vec3;
-}
-
-export interface SurfRampData {
-  position: Vec3;
-  size: Vec3;
-  rotation: Vec3;        // must result in 30-60 degree surface
-  color?: Color;
-}
-
-export interface MovingPlatformData {
-  size: Vec3;
-  waypoints: Vec3[];     // positions to move between
-  speed: number;         // units per second
-  color?: Color;
-  pauseTime?: number;    // seconds to pause at each waypoint
-}
-
-// ── Lighting & Environment ──
-export type ProceduralSkyboxType = 'day' | 'sunset' | 'night' | 'neon' | 'sky';
-export type SkyboxType = ProceduralSkyboxType | `hdri:${string}`;
-
-export interface AmbientLighting {
-  ambientIntensity: number;
-  ambientColor?: Color;
-  directionalIntensity: number;
-  directionalColor?: Color;
-  directionalPosition?: Vec3;
-  hemisphereGround?: Color;
-  hemisphereSky?: Color;
-  hemisphereIntensity?: number;
-  fogColor?: Color;
-  fogNear?: number;
-  fogFar?: number;
-}
-
-// ── Map Settings ──
 export interface MapSettings {
   gravityOverride?: number;     // override default 800
   maxRocketAmmo?: number;       // default 5
@@ -124,7 +34,7 @@ export interface MapSettings {
   parTime?: number;             // par time in seconds
 }
 
-// ── Top-level MapData ──
+// ── Top-level MapData (Velocity-specific) ──
 export interface MapData {
   spawnPoint: Vec3;
   spawnDirection: Vec3;

@@ -16,7 +16,7 @@ import { ProceduralSkybox } from './ProceduralSkybox';
 import { EmissivePointLight } from './DynamicPointLights';
 import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../../engine/stores/devLogStore';
 
 const TOTAL_CHECKPOINTS = 3;
 const SPAWN_POINT: [number, number, number] = [0, 2, 0];

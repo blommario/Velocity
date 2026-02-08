@@ -1,6 +1,6 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
-import { audioManager, SOUNDS } from '../../../systems/AudioManager';
+import { audioManager, SOUNDS } from '../../../engine/audio/AudioManager';
 
 const CHECKPOINT_COLOR = '#ffaa00';
 const CHECKPOINT_OPACITY = 0.2;

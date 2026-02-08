@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { WebGPURenderer } from 'three/webgpu';
-import { useDevLogStore } from '../../stores/devLogStore';
+import { useDevLogStore } from './devLogStore';
 
 const PERF = {
   /** How often to update the store (ms) */

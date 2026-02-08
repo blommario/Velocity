@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MeshStandardMaterial, RepeatWrapping } from 'three/webgpu';
 import { loadTextureSet, type TextureSet } from '../services/assetManager';
-import { devLog } from '../stores/devLogStore';
+import { devLog } from '../engine/stores/devLogStore';
 
 interface TexturedMaterialOptions {
   textureSet: string;

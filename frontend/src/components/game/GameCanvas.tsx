@@ -6,18 +6,18 @@ import { MathUtils, PerspectiveCamera } from 'three';
 import { PlayerController } from './PlayerController';
 import { TestMap } from './TestMap';
 import { MapLoader } from './map/MapLoader';
-import { ScreenShake } from './ScreenShake';
+import { ScreenShake } from '../../engine/effects/ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
-import { PostProcessingEffects } from './PostProcessingEffects';
+import { PostProcessingEffects } from '../../engine/core/PostProcessingEffects';
 import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer } from './effects';
-import { PerfMonitor } from './PerfMonitor';
+import { PerfMonitor } from '../../engine/stores/PerfMonitor';
 import { HudOverlay } from '../hud/HudOverlay';
-import { DevLogPanel } from '../hud/DevLogPanel';
+import { DevLogPanel } from '../../engine/stores/DevLogPanel';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
 import { PHYSICS } from './physics/constants';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../../engine/stores/devLogStore';
 
 const FOV_SCALING = {
   BASE: 90,
@@ -76,7 +76,10 @@ export function GameCanvas() {
         }}
       >
         <DynamicFov />
-        <ScreenShake />
+        <ScreenShake
+          getIntensity={() => useGameStore.getState().shakeIntensity}
+          onDecayed={() => useGameStore.getState().clearShake()}
+        />
         <PostProcessingEffects />
         <Physics
           timeStep={PHYSICS.TICK_DELTA}

@@ -18,10 +18,20 @@ backend/
   Velocity.Tests/           ← xUnit backend tests
 frontend/
   src/
-    components/game/        ← Game renderer, PlayerController, TestMap
-    components/game/physics/ ← Quake movement (useMovement, useInputBuffer, constants)
+    engine/                 ← Generic reusable engine (see Engine Architecture below)
+      core/                 ← WebGPU setup, PostProcessing pipeline
+      physics/              ← Quake movement math, constants, advanced movement
+      input/                ← Input buffer, pointer lock
+      audio/                ← AudioManager (Web Audio synth engine)
+      effects/              ← GPU particles, explosions, screen shake
+      rendering/            ← (reserved for engine-level rendering utils)
+      hud/                  ← (reserved for engine-level HUD components)
+      stores/               ← DevLog store, PerfMonitor, DevLogPanel
+      types/                ← InputState, MovementState, MapBlock, Vec3, etc.
+    components/game/        ← Velocity-specific: PlayerController, TestMap, zones
+    components/game/physics/ ← Game physics tick, game constants (weapons, health)
     components/hud/         ← SpeedMeter, Timer, Crosshair, HudOverlay
-    stores/                 ← Zustand (gameStore, settingsStore)
+    stores/                 ← Zustand (gameStore, settingsStore, combatStore)
     services/               ← API client (fetch wrapper, no external deps)
 Plan.md                     ← Implementation plan (12 faser med beroenden)
 ```
@@ -78,6 +88,16 @@ Plan.md                     ← Implementation plan (12 faser med beroenden)
 - **Batched Zustand Updates:** Relaterade state-ändringar MÅSTE göras i ett enda `set()`-anrop via en dedikerad action (t.ex. `updateHud({ speed, position, grounded })`), inte flera separata `set()`-anrop.
 - **Lookup Tables for Bindings:** Tangentbindningar och liknande mappningar MÅSTE vara `Record<string, T>`-objekt — aldrig duplicerade switch/if-kedjor. Exempel: `DEFAULT_KEY_BINDINGS: Record<string, keyof InputState>`.
 - **Extracted Constants:** UI-thresholds, färgvärden, och display-gränser MÅSTE definieras som `as const`-objekt nära komponenten (t.ex. `SPEED_METER.THRESHOLDS`, `HUD_UPDATE_HZ`).
+
+### Engine / Game Boundary
+- **`src/engine/`** = generic, reusable across game projects. MUST NOT import from `components/game/`, `stores/gameStore`, `stores/combatStore`, `stores/replayStore`, `stores/raceStore`, or `stores/authStore`.
+- **`src/components/game/`** = Velocity-specific. MAY import from `engine/`.
+- **One-way dependency:** Engine never imports game code. Game extends engine.
+- **New code placement:** Generic rendering, physics, input, audio, effects → `engine/`. Velocity-specific gameplay, weapons, maps, HUD → `components/game/` or `stores/`.
+- **Engine components use prop injection** instead of game store reads (e.g., `ScreenShake` accepts `getIntensity` + `onDecayed` props).
+- **Constants split:** `engine/physics/constants.ts` has `ENGINE_PHYSICS`. Game's `physics/constants.ts` spreads `ENGINE_PHYSICS` + adds weapon/health constants as `PHYSICS`.
+- **Types split:** `engine/types/` has `InputState`, `MovementState`, `MapBlock`, `Vec3`, etc. Game's `physics/types.ts` and `map/types.ts` re-export engine types + add game-specific ones (`WeaponType`, `AmmoPickupData`, `MapData`).
+- **Allowed exception:** `settingsStore` may be imported by engine code (it contains engine-level settings like volume, sensitivity, particles toggle).
 
 ### Communication & Data
 - **SSE:** All SSE data must be JSON-serialized. Field names must be mapped from PascalCase to camelCase upon receipt.

@@ -3,8 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import { PostProcessing, WebGPURenderer, ACESFilmicToneMapping, SRGBColorSpace } from 'three/webgpu';
 import { pass, renderOutput, viewportUV, clamp } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { devLog } from '../../stores/devLogStore';
+import { devLog } from '../stores/devLogStore';
 
 const POST_PROCESSING = {
   BLOOM_THRESHOLD: 0.8,

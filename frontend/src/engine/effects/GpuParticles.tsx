@@ -8,8 +8,8 @@ import {
   AdditiveBlending, SpriteNodeMaterial, BufferGeometry,
   InstancedBufferAttribute, Mesh as ThreeMesh,
 } from 'three/webgpu';
-import { useSettingsStore } from '../../../stores/settingsStore';
-import { devLog } from '../../../stores/devLogStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { devLog } from '../stores/devLogStore';
 
 const PARTICLES = {
   SPRITE_SIZE: 0.15,

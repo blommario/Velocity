@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import type { Group } from 'three/webgpu';
 import { loadModel } from '../../../services/assetManager';
-import { devLog } from '../../../stores/devLogStore';
+import { devLog } from '../../../engine/stores/devLogStore';
 import type { MapModel } from './types';
 
 interface ModelBlockProps {
