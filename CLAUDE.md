@@ -105,6 +105,16 @@ Plan.md                     ← Implementation plan (12 faser med beroenden)
 - **Types split:** `engine/types/` has `InputState`, `MovementState`, `MapBlock`, `Vec3`, etc. Game's `physics/types.ts` and `map/types.ts` re-export engine types + add game-specific ones (`WeaponType`, `AmmoPickupData`, `MapData`).
 - **Allowed exception:** `settingsStore` may be imported by engine code (it contains engine-level settings like volume, sensitivity, particles toggle).
 
+### Performance — Hot Path Rules (128Hz Physics + 60Hz Render)
+- **ALDRIG Zustand `set()` med `.map()`/`.filter()`/spread i 128Hz-loopen.** Physics tick kör 128 ggr/sek — varje allokering skapar GC-tryck. Zustand `set()` bara för UI-relevanta ändringar (ammo-räknare, cooldowns). All high-frequency data (projektilpositioner, kollisionsresultat) hanteras i mutable pools utanför Zustand.
+- **Pre-allokerade tupler och vektorer.** Deklarera `const _hitPos: [number, number, number] = [0,0,0]` på modulnivå, mutera in-place: `_hitPos[0] = x`. ALDRIG `const pos = [x, y, z]` i en tick-loop. Samma gäller `Vector3` — återanvänd `_desiredTranslation`, `_correctedMovement` etc.
+- **Mutable object pools > Zustand arrays.** Projektiler, partiklar, och andra high-frequency entiteter använder pre-allokerade pooler (`projectilePool.ts` mönster): fast storlek, `active`-flagga, mutera fält direkt. ALDRIG `push()`/`filter()`/`splice()` vid 128Hz.
+- **Inga PointLights per entitet.** Varje PointLight = extra draw calls + shadow pass overhead. Använd emissive `SpriteNodeMaterial` med `color * 6.0` → bloom (threshold 0.8) ger samma glow-effekt utan extra draw calls.
+- **`instancedDynamicBufferAttribute` för CPU→GPU per-frame data.** ALDRIG `StorageInstancedBufferAttribute` + `storage()` + `needsUpdate` — detta orsakar GPU-stalls (pipeline rebuild). Använd `instancedDynamicBufferAttribute(attr, type)` från `three/tsl` som sätter `DynamicDrawUsage` och optimerar staging-transfers.
+- **Instansad rendering.** Samma geometri/material → 1 draw call via `InstancedMesh` eller `SpriteNodeMaterial`. Mål: <200 draw calls totalt. Referens: `InstancedBlocks` (karta), `GpuProjectiles` (skott + trails).
+- **Substep-cap.** `Math.min(MAX_SUBSTEPS, ...)` förhindrar spiral-of-death vid låga framerates. `MAX_SUBSTEPS = 4` = max 4 physics-steg per frame.
+- **HUD-throttling.** React HUD uppdateras max ~30Hz (`HUD_UPDATE_HZ`), INTE vid varje physics-tick (128Hz).
+
 ### Communication & Data
 - **SSE:** All SSE data must be JSON-serialized. Field names must be mapped from PascalCase to camelCase upon receipt.
 - **API Calls:** Use the plain fetch wrapper in `services/api.ts`. All responses must be strictly typed against the expected JSON structure.
@@ -175,6 +185,7 @@ cd frontend && npx vitest run      # Frontend Vitest tests
 - **PostProcessing:** Three.js native `PostProcessing` class + TSL nodes (bloom, vignette, ACES tonemapping)
 - **Fog:** TSL `scene.fogNode` with `fog()` + `rangeFogFactor()` for height-based atmospheric fog
 - **Particles:** GPU compute shaders via TSL `instancedArray` + `SpriteNodeMaterial`
+- **Projectiles:** GPU sprites via `instancedDynamicBufferAttribute` + `SpriteNodeMaterial` — 1 draw call for all projectiles + trails (engine: `GpuProjectiles`, game bridge: `ProjectileRenderer`)
 - **Instancing:** `InstancedBlocks` groups map blocks by visual properties for fewer draw calls
 - **Physics:** @react-three/rapier v2.2.0 — KinematicCharacterController at 128Hz
 - **State:** Zustand (gameStore, settingsStore)
@@ -188,6 +199,7 @@ cd frontend && npx vitest run      # Frontend Vitest tests
 - **Movement:** Quake air acceleration formula with no total velocity cap (air speed cap=30 per-tick only)
 - **Input:** Buffered between frames (keyboard booleans + accumulated mouse deltas)
 - **HUD:** Updated at ~30Hz (not 128Hz) to avoid excessive React re-renders
+- **Projectile pool:** Mutable pre-allocated pool (`projectilePool.ts`) — zero Zustand, zero GC. Physics tick mutates in-place, renderer reads directly. Only UI-relevant changes (ammo count) go through Zustand.
 - **Minimal API over Controllers:** Less boilerplate, endpoint groups for organization
 - **CQRS-like Handlers:** Endpoints are thin — all business logic in `Handlers/` (AuthHandlers, MapHandlers)
 - **Screen navigation:** Zustand state (`SCREENS` const) instead of React Router

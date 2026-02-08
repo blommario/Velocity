@@ -442,6 +442,59 @@ useExplosionStore.getState().spawnExplosion([x, y, z], '#ff4400', 1.5);
 
 ---
 
+#### `GpuProjectiles` + `useGpuProjectileSlots` — Component + Hook
+
+GPU-efficient projectile rendering with trails. Replaces per-projectile meshes + PointLights (80+ draw calls) with a single instanced `SpriteNodeMaterial` (1 draw call). Emissive colors (x6) trigger bloom glow automatically.
+
+```tsx
+// In your scene (mount once):
+<GpuProjectiles />
+```
+
+```typescript
+// In your game bridge (e.g. ProjectileRenderer):
+import { useGpuProjectileSlots } from 'engine/effects';
+
+function ProjectileBridge() {
+  const slots = useGpuProjectileSlots();
+
+  useFrame(() => {
+    // Write slot data from your game's projectile pool
+    for (let i = 0; i < activeCount; i++) {
+      slots[i].setActive(true);
+      slots[i].setPosition(x, y, z);
+      slots[i].setType(0); // 0=rocket, 1=grenade
+    }
+    // Deactivate unused slots
+    for (let i = activeCount; i < slots.length; i++) {
+      slots[i].setActive(false);
+    }
+  });
+
+  return <GpuProjectiles />;
+}
+```
+
+**Slot API (`GpuProjectileSlot`):**
+- `setActive(active: boolean)` — show/hide slot
+- `setPosition(x, y, z)` — set head position (trail shifts automatically)
+- `setType(type: number)` — 0 = rocket (orange), 1 = grenade (green)
+
+| Config | Default | Purpose |
+|--------|---------|---------|
+| `maxSlots` | 16 | Max simultaneous projectiles |
+| `trailLength` | 5 | Trail points per projectile |
+| `rocketColor` | `[1.0, 0.267, 0.0]` | RGB rocket color |
+| `grenadeColor` | `[0.267, 1.0, 0.0]` | RGB grenade color |
+| `spriteSize` | 0.35 | Head sprite size |
+| `trailSpriteSize` | 0.25 | Trail sprite size |
+
+**GPU pipeline:** CPU writes positions into `Float32Array` → `instancedDynamicBufferAttribute` (DynamicDrawUsage) → staging buffer transfer → `SpriteNodeMaterial` renders all sprites in 1 draw call. Trail shifting is done CPU-side (96 vec3 copies for 16 slots, negligible). Emissive multiply (6.0) exceeds bloom threshold (0.8) for automatic glow without PointLights.
+
+**Critical:** NEVER use `StorageInstancedBufferAttribute` + `storage()` + `needsUpdate` for per-frame CPU→GPU data. This causes GPU pipeline stalls. Always use `instancedDynamicBufferAttribute` from `three/tsl`.
+
+---
+
 #### `ScreenShake` — React component
 
 Prop-driven camera shake with exponential decay. No store dependency — the game layer passes its own shake source.
@@ -784,6 +837,46 @@ interface SettingsState {
 - `SpriteNodeMaterial` with additive blending
 - Compute shaders for init + update
 - No CPU readback — fully GPU-side simulation
+
+### GPU Projectiles
+
+- `instancedDynamicBufferAttribute` for CPU→GPU per-frame position/color/scale transfer
+- `SpriteNodeMaterial` with additive blending + emissive x6 (triggers bloom glow)
+- Trail shifting on CPU (trivial: 16 slots x 6 points = 96 vec3 copies)
+- 1 draw call for ALL projectiles + trails, regardless of count
+- NEVER use `StorageInstancedBufferAttribute` + `storage()` for per-frame writes — causes GPU stalls
+
+---
+
+## Performance Rules
+
+These rules are mandatory for all engine and game code running on the hot path (physics tick at 128Hz, render loop at 60Hz+).
+
+### Zero-Allocation Hot Path
+- **Pre-allocate all temporary data** at module level: `const _vec = new Vector3()`, `const _pos: [number,number,number] = [0,0,0]`
+- **NEVER create tuples, arrays, or objects inside tick loops.** Mutate pre-allocated values in-place.
+- **Mutable object pools** for entities (projectiles, particles): fixed-size array with `active` flag, direct field mutation. NEVER `push()`/`filter()`/`splice()` at 128Hz.
+- **Reusable Rapier Ray:** Single `const _ray = new Ray(...)` mutated per raycast, not `new Ray()` per tick.
+
+### Zustand in Physics Tick
+- **Zustand `set()` only for UI-relevant state:** ammo count, cooldowns, health. These are read by React components at ~30Hz.
+- **NEVER use `set()` with `.map()`/`.filter()`/spread** at 128Hz — creates intermediate arrays that pressure GC.
+- **Transient reads via `getState()`:** Physics tick reads store state via `useCombatStore.getState()` (no subscription), not selectors.
+
+### Draw Call Budget
+- Target: **<200 draw calls** per frame.
+- **Instanced rendering** for repeated geometry: `InstancedMesh`, `InstancedBlocks`, `SpriteNodeMaterial`.
+- **NEVER per-entity PointLights.** Use emissive materials (`color * 6.0`) + bloom (threshold 0.8) for glow effects. Each PointLight adds draw calls + potential shadow passes.
+- **GPU sprites** (`GpuProjectiles`, `GpuParticles`, `ExplosionManager`) render hundreds of particles in 1-2 draw calls.
+
+### CPU→GPU Data Transfer
+- **`instancedDynamicBufferAttribute(attr, type)`** from `three/tsl` for data that changes every frame. Sets `DynamicDrawUsage` which uses staging buffers for efficient uploads.
+- **NEVER `StorageInstancedBufferAttribute` + `storage()` + `needsUpdate`** for per-frame CPU writes. This causes GPU pipeline stalls and frame drops.
+- **`instancedArray` + compute shaders** for data that lives entirely on GPU (particles, explosions). No CPU readback needed.
+
+### Physics Substep Safety
+- **Cap substeps:** `Math.min(MAX_SUBSTEPS, Math.ceil(...))` prevents spiral-of-death when frame time spikes. `MAX_SUBSTEPS = 4`.
+- **HUD throttling:** React HUD at ~30Hz (`HUD_UPDATE_HZ`), not at every physics tick (128Hz).
 
 ---
 
