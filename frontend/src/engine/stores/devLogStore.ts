@@ -8,6 +8,8 @@ export interface LogEntry {
   level: LogLevel;
   source: string;
   message: string;
+  /** Number of times this exact message has been logged consecutively or repeatedly */
+  count: number;
 }
 
 export interface PerfMetrics {
@@ -21,7 +23,10 @@ export interface PerfMetrics {
   textures: number;
 }
 
-const MAX_ENTRIES = 200;
+const MAX_ENTRIES = 500;
+
+/** Window in ms within which identical messages get accumulated instead of duplicated */
+const ACCUMULATE_WINDOW_MS = 5000;
 
 const PERF_DEFAULTS: PerfMetrics = {
   fps: 0,
@@ -60,16 +65,32 @@ export const useDevLogStore = create<DevLogState>((set) => ({
   sources: [],
 
   push: (level, source, message) => set((s) => {
+    const now = performance.now();
+    const sources = s.sources.includes(source) ? s.sources : [...s.sources, source];
+
+    // Accumulate: if the last entry has the same level+source+message within window, bump count
+    const last = s.entries.length > 0 ? s.entries[s.entries.length - 1] : null;
+    if (
+      last &&
+      last.level === level &&
+      last.source === source &&
+      last.message === message &&
+      (now - last.timestamp) < ACCUMULATE_WINDOW_MS
+    ) {
+      const updated = [...s.entries];
+      updated[updated.length - 1] = { ...last, count: last.count + 1, timestamp: now };
+      return { entries: updated, sources };
+    }
+
     const entry: LogEntry = {
       id: s.nextId,
-      timestamp: performance.now(),
+      timestamp: now,
       level,
       source,
       message,
+      count: 1,
     };
     const entries = [...s.entries, entry].slice(-MAX_ENTRIES);
-    // Track unique sources
-    const sources = s.sources.includes(source) ? s.sources : [...s.sources, source];
     return { entries, nextId: s.nextId + 1, sources };
   }),
 
@@ -82,7 +103,7 @@ export const useDevLogStore = create<DevLogState>((set) => ({
   clear: () => set({ entries: [], nextId: 1 }),
 }));
 
-// ── Convenience API (import { devLog } from 'stores/devLogStore') ──
+// ── Convenience API ──
 
 export const devLog = {
   info: (source: string, message: string) =>

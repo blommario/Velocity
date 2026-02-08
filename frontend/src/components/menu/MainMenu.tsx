@@ -144,12 +144,14 @@ export function MainMenu() {
       <div className="shooting-star" style={{ top: '35%', animationDelay: '5s' }} />
       <div className="shooting-star" style={{ top: '65%', animationDelay: '12s' }} />
 
-      {/* Subtle grid overlay */}
+      {/* Sci-fi panel texture overlay */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.025]"
+        className="fixed inset-0 pointer-events-none opacity-[0.07]"
         style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
+          backgroundImage: 'url(/assets/textures/scifi-metal-panel-007/Sci_fi_Metal_Panel_007_basecolor.png)',
+          backgroundSize: '256px 256px',
+          backgroundRepeat: 'repeat',
+          filter: 'brightness(0.6)',
         }}
       />
 
@@ -231,43 +233,29 @@ export function MainMenu() {
         </div>
       </div>
 
-      {/* Content area — maps + hero character */}
-      <div className="relative z-10 flex-1 flex overflow-hidden">
-        {/* Map Grid */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 scrollbar-thin">
-          {tab === 'official' ? (
-            filteredOfficialMaps.length === 0 ? (
-              <EmptyState text="No maps match filter" />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredOfficialMaps.map((map) => (
-                  <OfficialMapCard key={map.id} map={map} onPlay={() => handlePlayOfficial(map)} />
-                ))}
-              </div>
-            )
-          ) : loading ? (
-            <LoadingState />
-          ) : communityMaps.length === 0 ? (
-            <EmptyState text="No community maps found" />
+      {/* Content area — map grid */}
+      <div className="relative z-10 flex-1 overflow-y-auto px-8 py-6 scrollbar-thin">
+        {tab === 'official' ? (
+          filteredOfficialMaps.length === 0 ? (
+            <EmptyState text="No maps match filter" />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {communityMaps.map((map) => (
-                <CommunityMapCard key={map.id} map={map} onPlay={() => handlePlayCommunity(map)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-w-6xl">
+              {filteredOfficialMaps.map((map) => (
+                <OfficialMapCard key={map.id} map={map} onPlay={() => handlePlayOfficial(map)} />
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Hero character */}
-        <div className="hidden xl:flex w-[380px] shrink-0 items-end justify-center relative pb-4 pr-4">
-          <div className="hero-glow" />
-          <img
-            src="/assets/ui/hero-character.png"
-            alt=""
-            className="hero-character relative h-[85%] w-auto object-contain select-none"
-            draggable={false}
-          />
-        </div>
+          )
+        ) : loading ? (
+          <LoadingState />
+        ) : communityMaps.length === 0 ? (
+          <EmptyState text="No community maps found" />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-w-6xl">
+            {communityMaps.map((map) => (
+              <CommunityMapCard key={map.id} map={map} onPlay={() => handlePlayCommunity(map)} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

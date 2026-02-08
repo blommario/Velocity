@@ -1,26 +1,21 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { useDevLogStore, type LogLevel, type PerfMetrics } from './devLogStore';
+import { useCallback, useMemo } from 'react';
+import { useDevLogStore, type LogLevel, type LogEntry, type PerfMetrics } from './devLogStore';
 
-const LOG_COLORS: Record<LogLevel, string> = {
-  info: 'text-blue-400',
-  success: 'text-green-400',
-  warn: 'text-yellow-400',
-  error: 'text-red-400',
-  perf: 'text-cyan-400',
-} as const;
-
-const LOG_ICONS: Record<LogLevel, string> = {
-  info: '\u25CF',
-  success: '\u2714',
-  warn: '\u26A0',
-  error: '\u2716',
-  perf: '\u23F1',
-} as const;
+// ── Constants ──
 
 const PANEL = {
-  MAX_VISIBLE: 24,
-  WIDTH: 'w-96',
+  MAX_VISIBLE: 20,
 } as const;
+
+const LEVEL_CONFIG: Record<LogLevel, { icon: string; color: string; bg: string; label: string }> = {
+  info:    { icon: '\u25CF', color: '#60a5fa', bg: 'rgba(96,165,250,0.08)',  label: 'INF' },
+  success: { icon: '\u2714', color: '#4ade80', bg: 'rgba(74,222,128,0.08)',  label: 'OK'  },
+  warn:    { icon: '\u26A0', color: '#facc15', bg: 'rgba(250,204,21,0.08)',  label: 'WRN' },
+  error:   { icon: '\u2716', color: '#f87171', bg: 'rgba(248,113,113,0.08)', label: 'ERR' },
+  perf:    { icon: '\u23F1', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)',  label: 'PRF' },
+} as const;
+
+// ── Formatters ──
 
 function formatTimestamp(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -31,19 +26,15 @@ function formatTimestamp(ms: number): string {
 }
 
 function getFpsColor(fps: number): string {
-  if (fps >= 55) return 'text-green-400';
-  if (fps >= 30) return 'text-yellow-400';
-  return 'text-red-400';
+  if (fps >= 55) return '#4ade80';
+  if (fps >= 30) return '#facc15';
+  return '#f87171';
 }
 
 function getFrametimeColor(ft: number): string {
-  if (ft <= 18) return 'text-green-400';
-  if (ft <= 33) return 'text-yellow-400';
-  return 'text-red-400';
-}
-
-function formatMemory(mb: number): string {
-  return `${mb}MB`;
+  if (ft <= 18) return '#4ade80';
+  if (ft <= 33) return '#facc15';
+  return '#f87171';
 }
 
 function formatCount(n: number): string {
@@ -52,37 +43,177 @@ function formatCount(n: number): string {
   return String(n);
 }
 
+function formatEntryForCopy(entry: LogEntry): string {
+  const ts = formatTimestamp(entry.timestamp);
+  const lvl = LEVEL_CONFIG[entry.level].label;
+  const count = entry.count > 1 ? ` (x${entry.count})` : '';
+  return `[${ts}] ${lvl} [${entry.source}] ${entry.message}${count}`;
+}
+
+// ── Inline styles (no scrollbar, no Tailwind overflow issues) ──
+
+const styles = {
+  panel: {
+    position: 'absolute' as const,
+    top: 8,
+    right: 8,
+    width: 420,
+    maxHeight: '55vh',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    pointerEvents: 'auto' as const,
+    fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace",
+    fontSize: 10,
+    lineHeight: '14px',
+    borderRadius: 6,
+    overflow: 'hidden',
+    border: '1px solid rgba(255,255,255,0.07)',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.3)',
+    userSelect: 'text' as const,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '5px 10px',
+    background: 'rgba(17,17,23,0.95)',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+  },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase' as const,
+  },
+  badge: (color: string, bg: string) => ({
+    fontSize: 9,
+    fontWeight: 600,
+    color,
+    background: bg,
+    padding: '1px 5px',
+    borderRadius: 3,
+  }),
+  headerBtn: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.3)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '2px 4px',
+    borderRadius: 3,
+    fontFamily: 'inherit',
+  },
+  perfBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '3px 10px',
+    background: 'rgba(10,10,16,0.95)',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    fontSize: 10,
+  },
+  perfSep: {
+    color: 'rgba(255,255,255,0.1)',
+  },
+  filterBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 3,
+    padding: '3px 8px',
+    background: 'rgba(13,13,19,0.95)',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    flexWrap: 'wrap' as const,
+  },
+  filterBtn: (active: boolean) => ({
+    fontSize: 9,
+    fontWeight: active ? 600 : 400,
+    color: active ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+    background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '1px 6px',
+    borderRadius: 3,
+    fontFamily: 'inherit',
+  }),
+  logArea: {
+    flex: 1,
+    overflow: 'hidden',
+    background: 'rgba(10,10,16,0.92)',
+    padding: '4px 0',
+  },
+  row: (bg: string) => ({
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 6,
+    padding: '1px 10px',
+    background: bg,
+    cursor: 'pointer',
+  }),
+  rowTs: {
+    color: 'rgba(255,255,255,0.2)',
+    flexShrink: 0,
+    width: 56,
+  },
+  rowIcon: (color: string) => ({
+    color,
+    flexShrink: 0,
+    width: 12,
+    textAlign: 'center' as const,
+  }),
+  rowSource: {
+    color: 'rgba(255,255,255,0.35)',
+    flexShrink: 0,
+  },
+  rowMsg: (color: string) => ({
+    color,
+    opacity: 0.85,
+    flex: 1,
+    wordBreak: 'break-word' as const,
+  }),
+  rowCount: (color: string) => ({
+    color,
+    opacity: 0.6,
+    flexShrink: 0,
+    fontWeight: 700,
+    fontSize: 9,
+    background: `${color}15`,
+    padding: '0 4px',
+    borderRadius: 3,
+    marginLeft: 4,
+  }),
+  empty: {
+    color: 'rgba(255,255,255,0.15)',
+    textAlign: 'center' as const,
+    padding: '12px 0',
+    fontSize: 10,
+  },
+} as const;
+
+// ── Sub-components ──
+
 function PerfBar({ perf }: { perf: PerfMetrics }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-1 bg-black/80 border-b border-white/10 font-mono text-[10px]">
-      {/* FPS */}
-      <span className={getFpsColor(perf.fps)}>
-        {perf.fps} FPS
+    <div style={styles.perfBar}>
+      <span style={{ color: getFpsColor(perf.fps) }}>{perf.fps} FPS</span>
+      <span style={{ color: getFrametimeColor(perf.frametime) }}>{perf.frametime}ms</span>
+      <span style={{ color: getFrametimeColor(perf.frametimeMax), opacity: 0.5 }}>
+        pk {perf.frametimeMax}ms
       </span>
-      {/* Frametime */}
-      <span className={getFrametimeColor(perf.frametime)}>
-        {perf.frametime}ms
-      </span>
-      {/* Max frametime */}
-      <span className={`${getFrametimeColor(perf.frametimeMax)} opacity-60`}>
-        max {perf.frametimeMax}ms
-      </span>
-      {/* Separator */}
-      <span className="text-white/20">|</span>
-      {/* Memory */}
-      <span className="text-purple-400">
-        {formatMemory(perf.memoryMB)}
-      </span>
-      {/* Draw calls */}
-      <span className="text-white/40">
+      <span style={styles.perfSep}>|</span>
+      <span style={{ color: '#c084fc' }}>{perf.memoryMB}MB</span>
+      <span style={{ color: 'rgba(255,255,255,0.3)' }}>
         DC:{perf.drawCalls}
       </span>
-      {/* Triangles */}
-      <span className="text-white/40">
+      <span style={{ color: 'rgba(255,255,255,0.3)' }}>
         Tri:{formatCount(perf.triangles)}
       </span>
-      {/* Geometries/Textures */}
-      <span className="text-white/30">
+      <span style={{ color: 'rgba(255,255,255,0.2)' }}>
         G:{perf.geometries} T:{perf.textures}
       </span>
     </div>
@@ -94,30 +225,20 @@ function FilterBar({ sources, activeFilter, onFilter }: {
   activeFilter: string | null;
   onFilter: (s: string | null) => void;
 }) {
-  // Only show filter bar when there are sources
   if (sources.length <= 1) return null;
-
   return (
-    <div className="flex items-center gap-1 px-2 py-1 bg-black/70 border-b border-white/10 overflow-x-auto">
+    <div style={styles.filterBar}>
       <button
+        style={styles.filterBtn(activeFilter === null)}
         onClick={() => onFilter(null)}
-        className={`text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
-          activeFilter === null
-            ? 'bg-white/20 text-white/90'
-            : 'text-white/40 hover:text-white/70'
-        }`}
       >
         ALL
       </button>
       {sources.map((src) => (
         <button
           key={src}
+          style={styles.filterBtn(activeFilter === src)}
           onClick={() => onFilter(activeFilter === src ? null : src)}
-          className={`text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
-            activeFilter === src
-              ? 'bg-white/20 text-white/90'
-              : 'text-white/40 hover:text-white/70'
-          }`}
         >
           {src}
         </button>
@@ -126,68 +247,108 @@ function FilterBar({ sources, activeFilter, onFilter }: {
   );
 }
 
+function LogRow({ entry, onClick }: { entry: LogEntry; onClick: (e: LogEntry) => void }) {
+  const cfg = LEVEL_CONFIG[entry.level];
+  return (
+    <div
+      style={styles.row(entry.count > 1 ? cfg.bg : 'transparent')}
+      onClick={() => onClick(entry)}
+      title="Click to copy"
+    >
+      <span style={styles.rowTs}>{formatTimestamp(entry.timestamp)}</span>
+      <span style={styles.rowIcon(cfg.color)}>{cfg.icon}</span>
+      <span style={styles.rowSource}>[{entry.source}]</span>
+      <span style={styles.rowMsg(cfg.color)}>{entry.message}</span>
+      {entry.count > 1 && (
+        <span style={styles.rowCount(cfg.color)}>x{entry.count}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ──
+
 export function DevLogPanel() {
   const entries = useDevLogStore((s) => s.entries);
   const visible = useDevLogStore((s) => s.visible);
   const filter = useDevLogStore((s) => s.filter);
   const perf = useDevLogStore((s) => s.perf);
   const sources = useDevLogStore((s) => s.sources);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const setFilter = useCallback((s: string | null) => {
     useDevLogStore.getState().setFilter(s);
   }, []);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [entries.length]);
+  const handleRowClick = useCallback((entry: LogEntry) => {
+    const text = formatEntryForCopy(entry);
+    navigator.clipboard.writeText(text);
+  }, []);
+
+  const handleCopyAll = useCallback(() => {
+    const state = useDevLogStore.getState();
+    const all = state.filter
+      ? state.entries.filter((e) => e.source === state.filter)
+      : state.entries;
+    const text = all.map(formatEntryForCopy).join('\n');
+    navigator.clipboard.writeText(text);
+  }, []);
+
+  // Compute visible entries + error/warn totals
+  const { visibleEntries, errorCount, warnCount } = useMemo(() => {
+    const filtered = filter ? entries.filter((e) => e.source === filter) : entries;
+    return {
+      visibleEntries: filtered.slice(-PANEL.MAX_VISIBLE),
+      errorCount: entries.reduce((sum, e) => sum + (e.level === 'error' ? e.count : 0), 0),
+      warnCount: entries.reduce((sum, e) => sum + (e.level === 'warn' ? e.count : 0), 0),
+    };
+  }, [entries, filter]);
 
   if (!visible) return null;
 
-  const filtered = filter
-    ? entries.filter((e) => e.source === filter)
-    : entries;
-  const visibleEntries = filtered.slice(-PANEL.MAX_VISIBLE);
-
-  // Count errors/warnings for header badge
-  const errorCount = entries.filter((e) => e.level === 'error').length;
-  const warnCount = entries.filter((e) => e.level === 'warn').length;
-
   return (
-    <div
-      className={`absolute top-2 right-2 ${PANEL.WIDTH} max-h-[60vh] flex flex-col pointer-events-auto`}
-    >
+    <div style={styles.panel}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-black/70 backdrop-blur-sm border border-white/10 rounded-t-lg">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold text-white/70 tracking-wider uppercase">
-            Dev Log
-          </span>
+      <div style={styles.header}>
+        <div style={styles.headerLeft}>
+          <span style={styles.title}>Dev Log</span>
           {errorCount > 0 && (
-            <span className="text-[9px] font-mono bg-red-500/30 text-red-400 px-1.5 py-0.5 rounded">
+            <span style={styles.badge('#f87171', 'rgba(248,113,113,0.15)')}>
               {errorCount} err
             </span>
           )}
           {warnCount > 0 && (
-            <span className="text-[9px] font-mono bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">
+            <span style={styles.badge('#facc15', 'rgba(250,204,21,0.12)')}>
               {warnCount} warn
             </span>
           )}
         </div>
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', gap: 6 }}>
           <button
+            style={styles.headerBtn}
+            onClick={handleCopyAll}
+            title="Copy all to clipboard"
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
+          >
+            CPY
+          </button>
+          <button
+            style={styles.headerBtn}
             onClick={() => useDevLogStore.getState().clear()}
-            className="text-xs text-white/40 hover:text-white/80 font-mono"
+            title="Clear log"
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
           >
             CLR
           </button>
           <button
+            style={styles.headerBtn}
             onClick={() => useDevLogStore.getState().toggle()}
-            className="text-xs text-white/40 hover:text-white/80 font-mono"
+            title="Close panel"
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
           >
-            X
+            \u2715
           </button>
         </div>
       </div>
@@ -198,30 +359,15 @@ export function DevLogPanel() {
       {/* Filter bar */}
       <FilterBar sources={sources} activeFilter={filter} onFilter={setFilter} />
 
-      {/* Log entries */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto bg-black/60 backdrop-blur-sm border-x border-b border-white/10 rounded-b-lg px-2 py-1 space-y-0.5"
-      >
-        {visibleEntries.map((entry) => (
-          <div key={entry.id} className="flex items-start gap-1.5 font-mono text-[10px] leading-tight">
-            <span className="text-white/30 shrink-0">
-              {formatTimestamp(entry.timestamp)}
-            </span>
-            <span className={`shrink-0 ${LOG_COLORS[entry.level]}`}>
-              {LOG_ICONS[entry.level]}
-            </span>
-            <span className="text-white/50 shrink-0">
-              [{entry.source}]
-            </span>
-            <span className={`${LOG_COLORS[entry.level]} opacity-80 break-all`}>
-              {entry.message}
-            </span>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="text-white/20 text-[10px] font-mono text-center py-2">
-            {filter ? `No "${filter}" entries` : 'Waiting for events...'}
+      {/* Log entries — fixed height, no scroll, shows latest N */}
+      <div style={styles.logArea}>
+        {visibleEntries.length > 0 ? (
+          visibleEntries.map((entry) => (
+            <LogRow key={entry.id} entry={entry} onClick={handleRowClick} />
+          ))
+        ) : (
+          <div style={styles.empty}>
+            {filter ? `No "${filter}" entries` : 'Waiting for events\u2026'}
           </div>
         )}
       </div>
