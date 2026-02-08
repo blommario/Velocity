@@ -3,15 +3,6 @@ import { PHYSICS } from '../components/game/physics/constants';
 import type { WeaponType } from '../components/game/physics/types';
 import { WEAPON_SLOTS } from '../components/game/physics/types';
 
-interface Projectile {
-  id: number;
-  type: WeaponType;
-  position: [number, number, number];
-  velocity: [number, number, number];
-  spawnTime: number;
-  bounces: number; // grenade bounce count
-}
-
 // Zone events queued by sensor callbacks, drained by physics tick
 export type ZoneEvent =
   | { type: 'boostPad'; direction: [number, number, number]; speed: number }
@@ -71,10 +62,6 @@ interface CombatState {
   knifeLungeTimer: number;
   knifeLungeDir: [number, number, number];
 
-  // Projectiles (managed in physics, rendered in R3F)
-  projectiles: Projectile[];
-  nextProjectileId: number;
-
   // Grapple
   isGrappling: boolean;
   grappleTarget: [number, number, number] | null;
@@ -94,15 +81,11 @@ interface CombatState {
   switchWeapon: (w: WeaponType) => void;
   switchWeaponBySlot: (slot: number) => void;
   scrollWeapon: (direction: 1 | -1) => void;
-  fireRocket: (pos: [number, number, number], vel: [number, number, number]) => number | null;
-  fireGrenade: (pos: [number, number, number], vel: [number, number, number]) => number | null;
   fireHitscan: (weapon: WeaponType) => boolean;
   fireKnife: (dir: [number, number, number]) => boolean;
   startPlasma: () => void;
   stopPlasma: () => void;
   tickPlasma: (dt: number) => void;
-  removeProjectile: (id: number) => void;
-  updateProjectiles: (dt: number) => void;
   pickupAmmo: (type: WeaponType, amount: number) => void;
   tickCooldown: (dt: number) => void;
   canFire: () => boolean;
@@ -142,9 +125,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   knifeLungeTimer: 0,
   knifeLungeDir: [0, 0, 0],
-
-  projectiles: [],
-  nextProjectileId: 1,
 
   isGrappling: false,
   grappleTarget: null,
@@ -200,42 +180,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     state.switchWeapon(WEAPON_SLOTS[next]);
   },
 
-  fireRocket: (pos, vel) => {
-    const state = get();
-    if (state.ammo.rocket.current <= 0 || state.fireCooldown > 0 || state.swapCooldown > 0) return null;
-    const id = state.nextProjectileId;
-    const newAmmo = { ...state.ammo, rocket: { ...state.ammo.rocket, current: state.ammo.rocket.current - 1 } };
-    set({
-      rocketAmmo: newAmmo.rocket.current,
-      ammo: newAmmo,
-      fireCooldown: PHYSICS.ROCKET_FIRE_COOLDOWN,
-      nextProjectileId: id + 1,
-      projectiles: [...state.projectiles, {
-        id, type: 'rocket', position: pos, velocity: vel,
-        spawnTime: performance.now(), bounces: 0,
-      }],
-    });
-    return id;
-  },
-
-  fireGrenade: (pos, vel) => {
-    const state = get();
-    if (state.ammo.grenade.current <= 0 || state.fireCooldown > 0 || state.swapCooldown > 0) return null;
-    const id = state.nextProjectileId;
-    const newAmmo = { ...state.ammo, grenade: { ...state.ammo.grenade, current: state.ammo.grenade.current - 1 } };
-    set({
-      grenadeAmmo: newAmmo.grenade.current,
-      ammo: newAmmo,
-      fireCooldown: PHYSICS.GRENADE_FIRE_COOLDOWN,
-      nextProjectileId: id + 1,
-      projectiles: [...state.projectiles, {
-        id, type: 'grenade', position: pos, velocity: vel,
-        spawnTime: performance.now(), bounces: 0,
-      }],
-    });
-    return id;
-  },
-
   fireHitscan: (weapon) => {
     const state = get();
     if (state.fireCooldown > 0 || state.swapCooldown > 0) return false;
@@ -282,37 +226,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     } else {
       set({ ammo: { ...state.ammo, plasma: { ...a, current: newCurrent } } });
     }
-  },
-
-  removeProjectile: (id) => {
-    const state = get();
-    set({ projectiles: state.projectiles.filter((p) => p.id !== id) });
-  },
-
-  updateProjectiles: (dt) => {
-    const state = get();
-    const updated: Projectile[] = [];
-
-    for (const p of state.projectiles) {
-      const newPos: [number, number, number] = [
-        p.position[0] + p.velocity[0] * dt,
-        p.position[1] + p.velocity[1] * dt,
-        p.position[2] + p.velocity[2] * dt,
-      ];
-
-      if (p.type === 'grenade') {
-        const newVel: [number, number, number] = [
-          p.velocity[0],
-          p.velocity[1] - PHYSICS.GRAVITY * dt,
-          p.velocity[2],
-        ];
-        updated.push({ ...p, position: newPos, velocity: newVel });
-      } else {
-        updated.push({ ...p, position: newPos });
-      }
-    }
-
-    set({ projectiles: updated });
   },
 
   pickupAmmo: (type, amount) => {
@@ -397,7 +310,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       isPlasmaFiring: false,
       knifeLungeTimer: 0,
       knifeLungeDir: [0, 0, 0],
-      projectiles: [],
       isGrappling: false,
       grappleTarget: null,
       grappleLength: 0,

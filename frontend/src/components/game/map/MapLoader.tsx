@@ -20,6 +20,7 @@ import { ModelBlock } from './ModelBlock';
 import { useGameStore } from '../../../stores/gameStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
+import { resetPool } from '../physics/projectilePool';
 import type { MapData, MapBlock, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {
@@ -52,6 +53,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       spawnYaw,
       mapId,
     );
+    resetPool();
     useCombatStore.getState().resetCombat(
       data.settings?.maxRocketAmmo ?? 10,
       data.settings?.maxGrenadeAmmo ?? 3,

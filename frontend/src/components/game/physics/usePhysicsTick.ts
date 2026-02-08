@@ -29,6 +29,10 @@ import { useReplayStore } from '../../../stores/replayStore';
 import { audioManager, SOUNDS } from '../../../engine/audio/AudioManager';
 import { useExplosionStore } from '../../../engine/effects/ExplosionEffect';
 import { devLog } from '../../../engine/stores/devLogStore';
+import {
+  spawnProjectile, deactivateAt, updatePositions,
+  getPool, getPoolSize, activeCount,
+} from './projectilePool';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
@@ -362,29 +366,38 @@ export function physicsTick(
     switch (weapon) {
       case 'rocket': {
         if (combat.ammo.rocket.current > 0) {
-          const spawnPos: [number, number, number] = [
-            _playerPos.x + _fireDir.x, _playerPos.y + eyeOff + _fireDir.y, _playerPos.z + _fireDir.z,
-          ];
-          const rocketVel: [number, number, number] = [
-            _fireDir.x * PHYSICS.ROCKET_SPEED, _fireDir.y * PHYSICS.ROCKET_SPEED, _fireDir.z * PHYSICS.ROCKET_SPEED,
-          ];
-          combat.fireRocket(spawnPos, rocketVel);
+          const sx = _playerPos.x + _fireDir.x;
+          const sy = _playerPos.y + eyeOff + _fireDir.y;
+          const sz = _playerPos.z + _fireDir.z;
+          spawnProjectile('rocket', sx, sy, sz,
+            _fireDir.x * PHYSICS.ROCKET_SPEED, _fireDir.y * PHYSICS.ROCKET_SPEED, _fireDir.z * PHYSICS.ROCKET_SPEED);
+          // Only update ammo in Zustand (UI-relevant)
+          const newAmmo = combat.ammo.rocket.current - 1;
+          useCombatStore.setState((s) => ({
+            rocketAmmo: newAmmo,
+            fireCooldown: PHYSICS.ROCKET_FIRE_COOLDOWN,
+            ammo: { ...s.ammo, rocket: { ...s.ammo.rocket, current: newAmmo } },
+          }));
           audioManager.play(SOUNDS.ROCKET_FIRE);
-          devLog.info('Combat', `Rocket fired → ammo=${combat.ammo.rocket.current - 1}`);
+          devLog.info('Combat', `Rocket fired → ammo=${newAmmo}`);
         }
         break;
       }
       case 'grenade': {
         if (combat.ammo.grenade.current > 0) {
-          const spawnPos: [number, number, number] = [
-            _playerPos.x + _fireDir.x * 0.8, _playerPos.y + eyeOff + _fireDir.y * 0.8, _playerPos.z + _fireDir.z * 0.8,
-          ];
-          const grenadeVel: [number, number, number] = [
-            _fireDir.x * PHYSICS.GRENADE_SPEED, _fireDir.y * PHYSICS.GRENADE_SPEED + 100, _fireDir.z * PHYSICS.GRENADE_SPEED,
-          ];
-          combat.fireGrenade(spawnPos, grenadeVel);
+          const sx = _playerPos.x + _fireDir.x * 0.8;
+          const sy = _playerPos.y + eyeOff + _fireDir.y * 0.8;
+          const sz = _playerPos.z + _fireDir.z * 0.8;
+          spawnProjectile('grenade', sx, sy, sz,
+            _fireDir.x * PHYSICS.GRENADE_SPEED, _fireDir.y * PHYSICS.GRENADE_SPEED + 100, _fireDir.z * PHYSICS.GRENADE_SPEED);
+          const newAmmo = combat.ammo.grenade.current - 1;
+          useCombatStore.setState((s) => ({
+            grenadeAmmo: newAmmo,
+            fireCooldown: PHYSICS.GRENADE_FIRE_COOLDOWN,
+            ammo: { ...s.ammo, grenade: { ...s.ammo.grenade, current: newAmmo } },
+          }));
           audioManager.play(SOUNDS.GRENADE_THROW);
-          devLog.info('Combat', `Grenade thrown → ammo=${combat.ammo.grenade.current - 1}`);
+          devLog.info('Combat', `Grenade thrown → ammo=${newAmmo}`);
         }
         break;
       }
@@ -458,43 +471,42 @@ export function physicsTick(
     }
   }
 
-  // --- Projectile collision via raycasts (BEFORE position update) ---
+  // --- Projectile collision via raycasts (mutable pool, zero GC) ---
   const now = performance.now();
-  const projectiles = combat.projectiles;
-  const removedIds: number[] = [];
+  const pool = getPool();
+  const poolSize = getPoolSize();
 
-  for (const p of projectiles) {
+  for (let i = 0; i < poolSize; i++) {
+    const p = pool[i];
+    if (!p.active) continue;
+
     const age = (now - p.spawnTime) / 1000;
 
     // Safety: remove projectiles that fell off map or timed out
-    if (p.position[1] < -60 || age > 8) {
-      removedIds.push(p.id);
+    if (p.posY < -60 || age > 8) {
+      deactivateAt(i);
       continue;
     }
 
     if (p.type === 'rocket') {
-      // Raycast from current position along velocity to detect wall/floor hits
-      const speed = Math.sqrt(
-        p.velocity[0] * p.velocity[0] + p.velocity[1] * p.velocity[1] + p.velocity[2] * p.velocity[2],
-      );
-      if (speed < 0.01) { removedIds.push(p.id); continue; }
+      const speed = Math.sqrt(p.velX * p.velX + p.velY * p.velY + p.velZ * p.velZ);
+      if (speed < 0.01) { deactivateAt(i); continue; }
 
-      const dirX = p.velocity[0] / speed;
-      const dirY = p.velocity[1] / speed;
-      const dirZ = p.velocity[2] / speed;
+      const dirX = p.velX / speed;
+      const dirY = p.velY / speed;
+      const dirZ = p.velZ / speed;
       const travelDist = speed * dt;
 
-      _reusableRay.origin.x = p.position[0]; _reusableRay.origin.y = p.position[1]; _reusableRay.origin.z = p.position[2];
+      _reusableRay.origin.x = p.posX; _reusableRay.origin.y = p.posY; _reusableRay.origin.z = p.posZ;
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
       const hit = rapierWorld.castRay(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
 
       if (hit) {
-        const hitPos: [number, number, number] = [
-          p.position[0] + dirX * hit.timeOfImpact,
-          p.position[1] + dirY * hit.timeOfImpact,
-          p.position[2] + dirZ * hit.timeOfImpact,
-        ];
+        const hx = p.posX + dirX * hit.timeOfImpact;
+        const hy = p.posY + dirY * hit.timeOfImpact;
+        const hz = p.posZ + dirZ * hit.timeOfImpact;
+        const hitPos: [number, number, number] = [hx, hy, hz];
         const damage = applyExplosionKnockback(
           velocity, _playerPos, hitPos,
           PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, PHYSICS.ROCKET_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
@@ -505,14 +517,15 @@ export function physicsTick(
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
         useExplosionStore.getState().spawnExplosion(hitPos, '#ff6600', 2.0);
-        removedIds.push(p.id);
-        devLog.info('Combat', `Rocket exploded at [${hitPos.map(v => v.toFixed(1)).join(', ')}] dmg=${damage.toFixed(0)}`);
+        deactivateAt(i);
+        devLog.info('Combat', `Rocket exploded at [${hx.toFixed(1)}, ${hy.toFixed(1)}, ${hz.toFixed(1)}] dmg=${damage.toFixed(0)}`);
       }
     } else if (p.type === 'grenade') {
-      // Grenade fuse check — explode when expired
+      // Grenade fuse check
       if (age >= PHYSICS.GRENADE_FUSE_TIME) {
+        const gPos: [number, number, number] = [p.posX, p.posY, p.posZ];
         const damage = applyExplosionKnockback(
-          velocity, _playerPos, p.position,
+          velocity, _playerPos, gPos,
           PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
         );
         if (damage > 0) {
@@ -520,32 +533,30 @@ export function physicsTick(
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
-        useExplosionStore.getState().spawnExplosion(p.position, '#22c55e', 1.0);
-        removedIds.push(p.id);
+        useExplosionStore.getState().spawnExplosion(gPos, '#22c55e', 1.0);
+        deactivateAt(i);
         continue;
       }
 
-      // Grenade bounce: raycast to detect surface collision
-      const speed = Math.sqrt(
-        p.velocity[0] * p.velocity[0] + p.velocity[1] * p.velocity[1] + p.velocity[2] * p.velocity[2],
-      );
+      // Grenade bounce raycast
+      const speed = Math.sqrt(p.velX * p.velX + p.velY * p.velY + p.velZ * p.velZ);
       if (speed < 0.01) continue;
 
-      const dirX = p.velocity[0] / speed;
-      const dirY = p.velocity[1] / speed;
-      const dirZ = p.velocity[2] / speed;
+      const dirX = p.velX / speed;
+      const dirY = p.velY / speed;
+      const dirZ = p.velZ / speed;
       const travelDist = speed * dt;
 
-      _reusableRay.origin.x = p.position[0]; _reusableRay.origin.y = p.position[1]; _reusableRay.origin.z = p.position[2];
+      _reusableRay.origin.x = p.posX; _reusableRay.origin.y = p.posY; _reusableRay.origin.z = p.posZ;
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
       const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + 0.5, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         if (p.bounces >= 1) {
-          // Explode on second bounce
+          const gPos: [number, number, number] = [p.posX, p.posY, p.posZ];
           const damage = applyExplosionKnockback(
-            velocity, _playerPos, p.position,
+            velocity, _playerPos, gPos,
             PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
           );
           if (damage > 0) {
@@ -553,35 +564,24 @@ export function physicsTick(
             store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
           }
           audioManager.play(SOUNDS.GRENADE_EXPLODE);
-          useExplosionStore.getState().spawnExplosion(p.position, '#22c55e', 1.0);
-          removedIds.push(p.id);
+          useExplosionStore.getState().spawnExplosion(gPos, '#22c55e', 1.0);
+          deactivateAt(i);
         } else {
-          // Reflect velocity off surface normal
+          // Reflect velocity off surface normal — mutate in-place, zero GC
           const normal = hit.normal;
-          const dot = p.velocity[0] * normal.x + p.velocity[1] * normal.y + p.velocity[2] * normal.z;
+          const dot = p.velX * normal.x + p.velY * normal.y + p.velZ * normal.z;
           const damp = PHYSICS.GRENADE_BOUNCE_DAMPING;
-          const newVel: [number, number, number] = [
-            (p.velocity[0] - 2 * dot * normal.x) * damp,
-            (p.velocity[1] - 2 * dot * normal.y) * damp,
-            (p.velocity[2] - 2 * dot * normal.z) * damp,
-          ];
-          useCombatStore.setState((s) => ({
-            projectiles: s.projectiles.map((proj) =>
-              proj.id === p.id ? { ...proj, velocity: newVel, bounces: proj.bounces + 1 } : proj,
-            ),
-          }));
+          p.velX = (p.velX - 2 * dot * normal.x) * damp;
+          p.velY = (p.velY - 2 * dot * normal.y) * damp;
+          p.velZ = (p.velZ - 2 * dot * normal.z) * damp;
+          p.bounces++;
         }
       }
     }
   }
 
-  // Batch-remove exploded/expired projectiles, then update positions
-  if (removedIds.length > 0) {
-    useCombatStore.setState((s) => ({
-      projectiles: s.projectiles.filter((p) => !removedIds.includes(p.id)),
-    }));
-  }
-  combat.updateProjectiles(dt);
+  // Update positions in-place (zero alloc)
+  updatePositions(dt, PHYSICS.GRAVITY);
 
   // --- Health regen ---
   combat.regenTick(dt);
@@ -676,9 +676,10 @@ export function physicsTick(
     velocity.multiplyScalar(maxSpeed / totalSpeed);
   }
 
-  // --- Character controller with substepping ---
+  // --- Character controller with substepping (capped to prevent spiral of death) ---
   const displacement = totalSpeed * dt;
-  const substeps = Math.max(1, Math.ceil(displacement / PHYSICS.MAX_DISPLACEMENT_PER_STEP));
+  const MAX_SUBSTEPS = 4;
+  const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(displacement / PHYSICS.MAX_DISPLACEMENT_PER_STEP)));
   const subDt = dt / substeps;
 
   _newPos.set(pos.x, pos.y, pos.z);
@@ -856,8 +857,9 @@ export function physicsTick(
     );
 
     // Log projectile count if any
-    if (combat.projectiles.length > 0) {
-      devLog.info('Combat', `${combat.projectiles.length} active projectiles | HP=${combat.health}/${PHYSICS.HEALTH_MAX} | R:${combat.rocketAmmo} G:${combat.grenadeAmmo}`);
+    const projCount = activeCount();
+    if (projCount > 0) {
+      devLog.info('Combat', `${projCount} active projectiles | HP=${combat.health}/${PHYSICS.HEALTH_MAX} | R:${combat.rocketAmmo} G:${combat.grenadeAmmo}`);
     }
 
     // Log collisions if hitting walls
