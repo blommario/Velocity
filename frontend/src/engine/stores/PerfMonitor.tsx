@@ -21,8 +21,21 @@ export function PerfMonitor() {
   const lastUpdateRef = useRef(0);
   const lastFrameRef = useRef(performance.now());
 
+  // Ensure renderer.info resets per frame (WebGPU needs this for accurate DC/tri counts)
+  const autoResetRef = useRef(false);
+  if (!autoResetRef.current) {
+    const info = (gl as unknown as WebGPURenderer).info;
+    if (info) {
+      info.autoReset = true;
+      autoResetRef.current = true;
+    }
+  }
+
   // Priority 2: runs AFTER PostProcessingEffects (priority 1) so we read fresh per-frame values
   useFrame(() => {
+    // Reset per-frame timing accumulators (before any system writes this frame)
+    frameTiming.resetFrame();
+
     const now = performance.now();
     const dt = now - lastFrameRef.current;
     lastFrameRef.current = now;

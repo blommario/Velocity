@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useDevLogStore, type LogLevel, type LogEntry, type PerfMetrics, type FrameTimings } from './devLogStore';
 
 // ── Constants ──
@@ -322,7 +322,7 @@ function FilterBar({ sources, activeFilter, onFilter }: {
   );
 }
 
-function LogRow({ entry, onClick }: { entry: LogEntry; onClick: (e: LogEntry) => void }) {
+const LogRow = memo(function LogRow({ entry, onClick }: { entry: LogEntry; onClick: (e: LogEntry) => void }) {
   const cfg = LEVEL_CONFIG[entry.level];
   return (
     <div
@@ -339,7 +339,7 @@ function LogRow({ entry, onClick }: { entry: LogEntry; onClick: (e: LogEntry) =>
       )}
     </div>
   );
-}
+});
 
 // ── Main component ──
 

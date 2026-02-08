@@ -126,34 +126,108 @@ const _starts: Record<string, number> = {};
 const _accum: Record<string, number> = {};
 
 export const frameTiming = {
+  /** Reset accumulators at start of each frame — call once in useFrame before any begin/end */
+  resetFrame(): void {
+    for (const key in _accum) {
+      _accum[key] = 0;
+    }
+  },
   begin(system: string): void {
     _starts[system] = performance.now();
   },
   end(system: string): void {
     const start = _starts[system];
     if (start !== undefined) {
-      _accum[system] = (performance.now() - start);
+      // Accumulate: physics substepping calls begin/end multiple times per frame
+      _accum[system] = (_accum[system] ?? 0) + (performance.now() - start);
     }
   },
-  /** Called by PerfMonitor once per second — returns snapshot and keeps current values */
+  /** Called by PerfMonitor once per second — returns per-frame snapshot */
   snapshot(): FrameTimings {
     return { ..._accum };
   },
 };
 
-// ── Convenience API ──
+// ── Batched convenience API ──
+// Queues log entries and flushes to Zustand at max LOG_FLUSH_HZ to prevent
+// store spam when errors fire at 128Hz physics tick rate.
+
+const LOG_FLUSH_INTERVAL_MS = 100; // 10Hz max store updates
+
+interface QueuedLog {
+  level: LogLevel;
+  source: string;
+  message: string;
+}
+
+const _logQueue: QueuedLog[] = [];
+let _flushScheduled = false;
+
+function _flushLogQueue(): void {
+  _flushScheduled = false;
+  if (_logQueue.length === 0) return;
+
+  // Single set() call for all queued entries — avoids N separate Zustand updates
+  useDevLogStore.setState((s) => {
+    let entries = s.entries;
+    let nextId = s.nextId;
+    let sources = s.sources;
+    const now = performance.now();
+
+    for (let i = 0; i < _logQueue.length; i++) {
+      const q = _logQueue[i];
+
+      if (!sources.includes(q.source)) {
+        sources = [...sources, q.source];
+      }
+
+      // Accumulate duplicate messages
+      const last = entries.length > 0 ? entries[entries.length - 1] : null;
+      if (
+        last &&
+        last.level === q.level &&
+        last.source === q.source &&
+        last.message === q.message &&
+        (now - last.timestamp) < ACCUMULATE_WINDOW_MS
+      ) {
+        entries = [...entries];
+        entries[entries.length - 1] = { ...last, count: last.count + 1, timestamp: now };
+        continue;
+      }
+
+      entries = [...entries, {
+        id: nextId++,
+        timestamp: now,
+        level: q.level,
+        source: q.source,
+        message: q.message,
+        count: 1,
+      }];
+    }
+
+    _logQueue.length = 0;
+    return {
+      entries: entries.slice(-MAX_ENTRIES),
+      nextId,
+      sources,
+    };
+  });
+}
+
+function _queueLog(level: LogLevel, source: string, message: string): void {
+  _logQueue.push({ level, source, message });
+  if (!_flushScheduled) {
+    _flushScheduled = true;
+    setTimeout(_flushLogQueue, LOG_FLUSH_INTERVAL_MS);
+  }
+}
 
 export const devLog = {
-  info: (source: string, message: string) =>
-    useDevLogStore.getState().push('info', source, message),
-  success: (source: string, message: string) =>
-    useDevLogStore.getState().push('success', source, message),
-  warn: (source: string, message: string) =>
-    useDevLogStore.getState().push('warn', source, message),
-  error: (source: string, message: string) =>
-    useDevLogStore.getState().push('error', source, message),
-  perf: (source: string, message: string) =>
-    useDevLogStore.getState().push('perf', source, message),
+  info: (source: string, message: string) => _queueLog('info', source, message),
+  success: (source: string, message: string) => _queueLog('success', source, message),
+  warn: (source: string, message: string) => _queueLog('warn', source, message),
+  error: (source: string, message: string) => _queueLog('error', source, message),
+  perf: (source: string, message: string) => _queueLog('perf', source, message),
 };
 
 // ── Global error capture → devLog ──
