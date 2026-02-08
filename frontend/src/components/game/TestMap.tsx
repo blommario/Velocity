@@ -54,7 +54,11 @@ export function TestMap() {
   useEffect(() => {
     devLog.info('Map', 'Loading GridMap...');
     scene.background = new Color(BACKGROUND_COLOR);
-    useGameStore.getState().initRun(TOTAL_CHECKPOINTS, SPAWN_POINT, SPAWN_YAW);
+    useGameStore.getState().initRun({
+      checkpointCount: TOTAL_CHECKPOINTS,
+      spawnPoint: SPAWN_POINT,
+      spawnYaw: SPAWN_YAW,
+    });
     useCombatStore.getState().resetCombat(5, 3);
     devLog.success('Map', `GridMap loaded (${TOTAL_CHECKPOINTS} checkpoints)`);
   }, [scene]);

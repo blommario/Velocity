@@ -7,6 +7,6 @@ import RAPIER from '@dimforge/rapier3d-compat';
 extend(THREE);
 
 // Pre-initialize Rapier WASM so subsequent init() from @react-three/rapier is a no-op.
-// KNOWN ISSUE: rapier3d-compat's own init() uses deprecated positional WASM params internally.
-// This warning cannot be fixed without a rapier package update.
-RAPIER.init({});
+// NOTE: rapier3d-compat 0.19 internally passes WASM bytes as a positional param to
+// wasm-bindgen's init, which logs a deprecation warning. This is upstream — not fixable here.
+RAPIER.init();

@@ -99,7 +99,7 @@ interface GameState {
   updateHud: (speed: number, position: [number, number, number], isGrounded: boolean) => void;
 
   // Run lifecycle
-  initRun: (totalCheckpoints: number, spawnPoint: [number, number, number], spawnYaw: number, mapId?: string) => void;
+  initRun: (params: { checkpointCount: number; spawnPoint: [number, number, number]; spawnYaw: number; mapId?: string }) => void;
   startRun: () => void;
   hitCheckpoint: (index: number) => void;
   finishRun: () => void;
@@ -210,14 +210,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  initRun: (totalCheckpoints, spawnPoint, spawnYaw, mapId) =>
+  initRun: ({ checkpointCount, spawnPoint, spawnYaw, mapId }) =>
     set({
       currentMapId: mapId ?? null,
       runState: RUN_STATES.READY,
       timerRunning: false,
       startTime: 0,
       elapsedMs: 0,
-      totalCheckpoints,
+      totalCheckpoints: checkpointCount,
       currentCheckpoint: 0,
       splitTimes: [],
       spawnPoint,

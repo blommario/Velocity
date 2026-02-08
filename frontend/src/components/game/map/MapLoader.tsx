@@ -51,12 +51,12 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
   useEffect(() => {
     devLog.info('Map', `Loading map "${mapId ?? 'unknown'}" (${data.blocks.length} blocks, ${data.checkpoints.length} checkpoints)`);
-    useGameStore.getState().initRun(
-      data.checkpoints.length,
-      data.spawnPoint,
+    useGameStore.getState().initRun({
+      checkpointCount: data.checkpoints.length,
+      spawnPoint: data.spawnPoint,
       spawnYaw,
       mapId,
-    );
+    });
     resetPool();
     useCombatStore.getState().resetCombat(
       data.settings?.maxRocketAmmo ?? 10,

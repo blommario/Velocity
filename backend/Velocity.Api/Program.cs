@@ -133,7 +133,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // ── Health check ──
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/api/health");
 
 // ── API endpoints ──
 app.MapAuthEndpoints()

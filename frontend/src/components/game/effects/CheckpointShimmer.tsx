@@ -50,6 +50,7 @@ export function CheckpointShimmer() {
 
       const points = new Points(geometry, material);
       points.frustumCulled = false;
+      points.visible = false;
       scene.add(points);
       pointsRef.current = points;
       geometryRef.current = geometry;
@@ -101,7 +102,9 @@ export function CheckpointShimmer() {
       attr.setXYZ(i, alive[i].x, alive[i].y, alive[i].z);
     }
     attr.needsUpdate = true;
-    geometry.setDrawRange(0, Math.min(alive.length, SHIMMER.PARTICLE_COUNT));
+    const drawCount = Math.min(alive.length, SHIMMER.PARTICLE_COUNT);
+    geometry.setDrawRange(0, drawCount);
+    pointsRef.current!.visible = drawCount > 0;
   });
 
   return null;

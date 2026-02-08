@@ -15,6 +15,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { devLog, frameTiming } from '../../engine/stores/devLogStore';
 
 export function PlayerController() {
+  console.log('[CRASH-DIAG] PlayerController render');
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const colliderRef = useRef<RapierCollider>(null);
   const { world } = useRapier();

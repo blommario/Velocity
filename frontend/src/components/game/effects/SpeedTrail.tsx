@@ -50,6 +50,7 @@ export function SpeedTrail() {
 
       const line = new Line(geometry, material);
       line.frustumCulled = false;
+      line.visible = false;
       scene.add(line);
       lineRef.current = line;
       materialRef.current = material;
@@ -70,6 +71,7 @@ export function SpeedTrail() {
         positionsRef.current.shift();
         updateGeometry(geometry, positionsRef.current);
       }
+      line.visible = positionsRef.current.length > 0;
       material.opacity = Math.max(0, material.opacity - delta * 3);
       return;
     }
@@ -88,6 +90,7 @@ export function SpeedTrail() {
         positionsRef.current.shift();
       }
       updateGeometry(geometry, positionsRef.current);
+      line.visible = true;
     }
   });
 

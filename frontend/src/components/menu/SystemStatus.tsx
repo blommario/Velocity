@@ -21,8 +21,6 @@ const STATUS_TEXT = {
   checking: 'text-gray-400',
 } as const;
 
-const BACKEND_URL = '/api/health';
-
 export function SystemStatus() {
   const [items, setItems] = useState<StatusItem[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -69,35 +67,31 @@ export function SystemStatus() {
       detail: '128Hz fixed timestep',
     });
 
-    // Backend — start as checking
+    // Backend — default to offline, upgrade if reachable
     checks.push({
       label: 'Backend',
-      status: 'checking',
-      detail: 'Connecting...',
+      status: 'warn',
+      detail: 'Offline — singleplayer only',
     });
 
     setItems(checks);
 
-    // Async backend check
-    fetch(BACKEND_URL, { method: 'GET' })
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 2000);
+    fetch('/api/health', { method: 'HEAD', signal: ctrl.signal })
       .then((res) => {
-        setItems((prev) => prev.map((item) =>
-          item.label === 'Backend'
-            ? {
-                ...item,
-                status: res.ok ? 'ok' : 'warn',
-                detail: res.ok ? `Connected (${res.status})` : `HTTP ${res.status}`,
-              }
-            : item,
-        ));
+        if (res.ok) {
+          setItems((prev) => prev.map((item) =>
+            item.label === 'Backend'
+              ? { ...item, status: 'ok', detail: 'Connected' }
+              : item,
+          ));
+        }
       })
-      .catch(() => {
-        setItems((prev) => prev.map((item) =>
-          item.label === 'Backend'
-            ? { ...item, status: 'error', detail: 'Unreachable' }
-            : item,
-        ));
-      });
+      .catch(() => { /* already showing offline */ })
+      .finally(() => clearTimeout(timeout));
+
+    return () => { ctrl.abort(); clearTimeout(timeout); };
   }, []);
 
   const okCount = items.filter((i) => i.status === 'ok').length;
