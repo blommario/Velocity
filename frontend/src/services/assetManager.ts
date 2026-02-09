@@ -9,7 +9,9 @@ import type {
   Group,
   Texture,
   DataTexture,
+  AnimationClip,
 } from 'three/webgpu';
+import type { ModelAsset } from '../engine/types/map';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
@@ -54,7 +56,9 @@ const modelCache = new Map<string, Group>();
 const textureCache = new Map<string, Texture>();
 const hdriCache = new Map<string, DataTexture>();
 const textureSetCache = new Map<string, TextureSet>();
+const animationCache = new Map<string, AnimationClip[]>();
 const loadingModels = new Map<string, Promise<Group>>();
+const loadingModelAssets = new Map<string, Promise<ModelAsset>>();
 const loadingTextures = new Map<string, Promise<Texture>>();
 const loadingHdri = new Map<string, Promise<DataTexture>>();
 
@@ -124,6 +128,7 @@ export function loadModel(
           (group) => {
             // FBX models often have large scale — normalize
             modelCache.set(name, group);
+            animationCache.set(name, group.animations ?? []);
             loadingModels.delete(name);
             resolve(group.clone());
           },
@@ -139,6 +144,7 @@ export function loadModel(
           url,
           (gltf) => {
             modelCache.set(name, gltf.scene);
+            animationCache.set(name, gltf.animations ?? []);
             loadingModels.delete(name);
             resolve(gltf.scene.clone());
           },
@@ -151,6 +157,78 @@ export function loadModel(
       });
 
   loadingModels.set(name, promise);
+  return promise;
+}
+
+// ── Model + Animation Loading ──
+
+export function loadModelWithAnimations(
+  name: string,
+  onProgress?: (progress: LoadProgress) => void,
+): Promise<ModelAsset> {
+  // Check caches
+  const cachedScene = modelCache.get(name);
+  const cachedAnims = animationCache.get(name);
+  if (cachedScene && cachedAnims !== undefined) {
+    return Promise.resolve({ scene: cachedScene.clone(), animations: cachedAnims });
+  }
+
+  // Dedup in-flight requests
+  const existingAsset = loadingModelAssets.get(name);
+  if (existingAsset) return existingAsset.then((a) => ({ scene: a.scene.clone(), animations: a.animations }));
+
+  const existingModel = loadingModels.get(name);
+  if (existingModel) {
+    return existingModel.then((g) => ({
+      scene: g.clone(),
+      animations: animationCache.get(name) ?? [],
+    }));
+  }
+
+  const url = `${MODEL_PATH}/${name}`;
+  const isFBX = name.toLowerCase().endsWith('.fbx');
+
+  const progressHandler = (event: ProgressEvent) => {
+    onProgress?.({ loaded: event.loaded, total: event.total, url });
+  };
+
+  const promise: Promise<ModelAsset> = isFBX
+    ? new Promise<ModelAsset>((resolve, reject) => {
+        getFBXLoader().load(
+          url,
+          (group) => {
+            const anims = group.animations ?? [];
+            modelCache.set(name, group);
+            animationCache.set(name, anims);
+            loadingModelAssets.delete(name);
+            resolve({ scene: group.clone(), animations: anims });
+          },
+          progressHandler,
+          (error) => {
+            loadingModelAssets.delete(name);
+            reject(new Error(`Failed to load FBX model ${name}: ${error}`));
+          },
+        );
+      })
+    : new Promise<ModelAsset>((resolve, reject) => {
+        getGLTFLoader().load(
+          url,
+          (gltf) => {
+            const anims = gltf.animations ?? [];
+            modelCache.set(name, gltf.scene);
+            animationCache.set(name, anims);
+            loadingModelAssets.delete(name);
+            resolve({ scene: gltf.scene.clone(), animations: anims });
+          },
+          progressHandler,
+          (error) => {
+            loadingModelAssets.delete(name);
+            reject(new Error(`Failed to load glTF model ${name}: ${error}`));
+          },
+        );
+      });
+
+  loadingModelAssets.set(name, promise);
   return promise;
 }
 
@@ -350,6 +428,8 @@ export function clearAssetCache(): void {
     disposeModelGroup(model);
   }
   modelCache.clear();
+  animationCache.clear();
+  loadingModelAssets.clear();
   textureSetCache.clear();
 }
 
@@ -364,10 +444,11 @@ function disposeModelGroup(group: Group): void {
   });
 }
 
-export function getAssetStats(): { models: number; textures: number; hdri: number } {
+export function getAssetStats(): { models: number; textures: number; hdri: number; animations: number } {
   return {
     models: modelCache.size,
     textures: textureCache.size,
     hdri: hdriCache.size,
+    animations: animationCache.size,
   };
 }

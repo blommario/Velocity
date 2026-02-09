@@ -12,26 +12,26 @@
 **Förutsättning:** Ingen (asset pipeline redan klar i Fas A)
 
 ### J1 — Animation Extraction i Asset Pipeline
-- 🔲 Utöka `services/assetManager.ts` — spara `gltf.animations` (AnimationClip[]) i ny `animationCache`
-- 🔲 Ny export `loadModelWithAnimations(url)` → `{ scene: Group, animations: AnimationClip[] }`
-- 🔲 Ny typ `ModelAsset = { scene: Group; animations: AnimationClip[] }`
+- ✅ Utöka `services/assetManager.ts` — spara `gltf.animations` (AnimationClip[]) i ny `animationCache`
+- ✅ Ny export `loadModelWithAnimations(url)` → `{ scene: Group, animations: AnimationClip[] }`
+- ✅ Ny typ `ModelAsset = { scene: Group; animations: AnimationClip[] }`
 
 ### J2 — Animation Playback Hook
 *React hook som wrapprar Three.js AnimationMixer.*
 
 **Förutsättning:** J1
 
-- 🔲 `engine/effects/useAnimation.ts` — hook med input: Group ref + AnimationClip[]
-- 🔲 Output: `{ play(name), stop(), crossFade(from, to, duration), mixer }`
-- 🔲 Uppdatering via `useFrame` delta, stödjer loop/clamp/ping-pong
+- ✅ `engine/effects/useAnimation.ts` — hook med input: Group ref + AnimationClip[]
+- ✅ Output: `{ play(name), stop(), crossFade(from, to, duration), mixer }`
+- ✅ Uppdatering via `useFrame` delta, stödjer loop/clamp/ping-pong
 
 ### J3 — Animated Object Component
 *Generisk komponent för animerade modeller i scenen.*
 
 **Förutsättning:** J1, J2
 
-- 🔲 `engine/effects/AnimatedModel.tsx` — props: `url`, `animation`, `loop`, `speed`, `onComplete`
-- 🔲 Använder J1 (asset loading) + J2 (playback) internt
+- ✅ `engine/effects/AnimatedModel.tsx` — props: `url`, `animation`, `loop`, `speed`, `onComplete`
+- ✅ Använder J1 (asset loading) + J2 (playback) internt
 
 ---
 
@@ -41,15 +41,15 @@
 **Förutsättning:** Ingen
 
 ### K1 — Directional Shadow (Single Light)
-- 🔲 `engine/rendering/useShadowLight.ts` — hook: skapar persistent DirectionalLight + shadow config
-- 🔲 `engine/rendering/shadowConfig.ts` — quality presets (mapSize: 512/1024/2048/4096, bias, cascade distances)
-- 🔲 Shadow quality kopplad till `settingsStore.shadows` + `qualityPreset`
-- 🔲 CSM via Three.js `CSMShadowNode` om tillgängligt, annars standard shadow map
+- ✅ `engine/rendering/useShadowLight.ts` — hook: skapar persistent DirectionalLight + shadow config
+- ✅ `engine/rendering/shadowConfig.ts` — quality presets (mapSize: 512/1024/2048/4096, bias, cascade distances)
+- ✅ Shadow quality kopplad till `settingsStore.shadowQuality`
+- ✅ CSM via Three.js `CSMShadowNode` med practical mode, fade enabled
 
 ### K2 — Shadow Quality Settings
-- 🔲 Utöka `stores/settingsStore.ts` — `shadowQuality: 'off' | 'low' | 'medium' | 'high'`
-- 🔲 Koppla till shadow map resolution och cascade count
-- 🔲 Default: `'medium'` vid qualityPreset high, `'off'` vid low
+- ✅ Utöka `stores/settingsStore.ts` — `shadowQuality: 'off' | 'low' | 'medium' | 'high'`
+- ✅ Koppla till shadow map resolution och cascade count
+- ✅ Default: `'medium'`, Settings UI: dropdown istället för toggle
 
 ---
 

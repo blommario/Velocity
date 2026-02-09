@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { PHYSICS } from '../components/game/physics/constants';
+import {
+  SHADOW_QUALITY_LEVELS,
+  type ShadowQuality,
+} from '../engine/rendering/shadowConfig';
 
 // ── Key Bindings ──
 
@@ -50,7 +54,7 @@ interface SettingsState {
   // Video
   fov: number;
   qualityPreset: QualityPreset;
-  shadows: boolean;
+  shadowQuality: ShadowQuality;
   bloom: boolean;
   particles: boolean;
   speedLines: boolean;
@@ -95,7 +99,7 @@ interface SettingsState {
   setSensitivity: (s: number) => void;
   setFov: (f: number) => void;
   setQualityPreset: (p: QualityPreset) => void;
-  setShadows: (b: boolean) => void;
+  setShadowQuality: (q: ShadowQuality) => void;
   setBloom: (b: boolean) => void;
   setParticles: (b: boolean) => void;
   setSpeedLines: (b: boolean) => void;
@@ -127,7 +131,7 @@ const DEFAULT_STATE = {
   sensitivity: PHYSICS.DEFAULT_SENSITIVITY,
   fov: 90,
   qualityPreset: QUALITY_PRESETS.HIGH as QualityPreset,
-  shadows: true,
+  shadowQuality: SHADOW_QUALITY_LEVELS.MEDIUM as ShadowQuality,
   bloom: true,
   particles: true,
   speedLines: true,
@@ -165,7 +169,7 @@ export const useSettingsStore = create<SettingsState>()(
       setSensitivity: (sensitivity) => set({ sensitivity }),
       setFov: (fov) => set({ fov }),
       setQualityPreset: (qualityPreset) => set({ qualityPreset }),
-      setShadows: (shadows) => set({ shadows }),
+      setShadowQuality: (shadowQuality) => set({ shadowQuality }),
       setBloom: (bloom) => set({ bloom }),
       setParticles: (particles) => set({ particles }),
       setSpeedLines: (speedLines) => set({ speedLines }),
@@ -200,7 +204,7 @@ export const useSettingsStore = create<SettingsState>()(
         sensitivity: state.sensitivity,
         fov: state.fov,
         qualityPreset: state.qualityPreset,
-        shadows: state.shadows,
+        shadowQuality: state.shadowQuality,
         bloom: state.bloom,
         particles: state.particles,
         speedLines: state.speedLines,

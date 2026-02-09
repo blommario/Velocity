@@ -14,7 +14,9 @@ import { GrapplePoint } from './zones/GrapplePoint';
 import { AtmosphericFog } from './AtmosphericFog';
 import { ProceduralSkybox } from './ProceduralSkybox';
 import { GpuLightSprites } from '../../engine/effects/GpuLightSprites';
+import { useShadowLight } from '../../engine/rendering';
 import { useGameStore } from '../../stores/gameStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { devLog } from '../../engine/stores/devLogStore';
 
@@ -50,6 +52,13 @@ const BACKGROUND_COLOR = '#1a1a2e';
 
 export function TestMap() {
   const scene = useThree((s) => s.scene);
+  const shadowQuality = useSettingsStore((s) => s.shadowQuality);
+
+  useShadowLight({
+    quality: shadowQuality,
+    position: [60, 100, 40],
+    intensity: 1.4,
+  });
 
   useEffect(() => {
     devLog.info('Map', 'Loading GridMap...');
@@ -260,20 +269,7 @@ export function TestMap() {
 
       {/* ── Lighting ── */}
       <ambientLight intensity={0.5} />
-      <directionalLight
-        position={[60, 100, 40]}
-        intensity={1.4}
-        castShadow
-        shadow-mapSize-width={4096}
-        shadow-mapSize-height={4096}
-        shadow-camera-far={300}
-        shadow-camera-left={-120}
-        shadow-camera-right={120}
-        shadow-camera-top={120}
-        shadow-camera-bottom={-120}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.02}
-      />
+      {/* DirectionalLight + CSM managed by useShadowLight hook */}
       <hemisphereLight args={['#87ceeb', '#3a3a3a', 0.4]} />
 
       {/* ── Light sprites (1 draw call) ── */}

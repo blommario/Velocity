@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGameStore, SCREENS } from '../../stores/gameStore';
 import {
   useSettingsStore,
@@ -6,6 +6,7 @@ import {
   DEFAULT_KEY_BINDINGS,
   type CrosshairStyle, type QualityPreset,
 } from '../../stores/settingsStore';
+import { SHADOW_QUALITY_LEVELS, type ShadowQuality } from '../../engine/rendering/shadowConfig';
 
 const SETTINGS_TABS = {
   MOUSE: 'mouse',
@@ -136,8 +137,8 @@ function VideoSettings() {
   const setFov = useSettingsStore((s) => s.setFov);
   const qualityPreset = useSettingsStore((s) => s.qualityPreset);
   const setQualityPreset = useSettingsStore((s) => s.setQualityPreset);
-  const shadows = useSettingsStore((s) => s.shadows);
-  const setShadows = useSettingsStore((s) => s.setShadows);
+  const shadowQuality = useSettingsStore((s) => s.shadowQuality);
+  const setShadowQuality = useSettingsStore((s) => s.setShadowQuality);
   const particles = useSettingsStore((s) => s.particles);
   const setParticles = useSettingsStore((s) => s.setParticles);
   const speedLines = useSettingsStore((s) => s.speedLines);
@@ -155,7 +156,12 @@ function VideoSettings() {
         options={Object.values(QUALITY_PRESETS)}
         onChange={(v) => setQualityPreset(v as QualityPreset)}
       />
-      <ToggleSetting label="Shadows" value={shadows} onChange={setShadows} />
+      <SelectSetting
+        label="Shadows"
+        value={shadowQuality}
+        options={Object.values(SHADOW_QUALITY_LEVELS)}
+        onChange={(v) => setShadowQuality(v as ShadowQuality)}
+      />
       <ToggleSetting label="Particles" value={particles} onChange={setParticles} />
       <ToggleSetting label="Speed Lines" value={speedLines} onChange={setSpeedLines} />
       <ToggleSetting label="Screen Shake" value={screenShake} onChange={setScreenShake} />
@@ -259,28 +265,30 @@ function KeyBindSettings() {
   const resetKeyBindings = useSettingsStore((s) => s.resetKeyBindings);
   const [rebinding, setRebinding] = useState<string | null>(null);
 
-  const handleRebind = (action: string) => {
-    setRebinding(action);
+  // Attach listeners via useEffect so they're cleaned up on unmount
+  useEffect(() => {
+    if (!rebinding) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
-      setKeyBinding(action, e.code);
+      setKeyBinding(rebinding, e.code);
       setRebinding(null);
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('mousedown', onMouseDown);
     };
 
     const onMouseDown = (e: MouseEvent) => {
       e.preventDefault();
-      setKeyBinding(action, `Mouse${e.button}`);
+      setKeyBinding(rebinding, `Mouse${e.button}`);
       setRebinding(null);
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('mousedown', onMouseDown);
     };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('mousedown', onMouseDown);
-  };
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [rebinding, setKeyBinding]);
 
   return (
     <div className="space-y-2">
@@ -298,7 +306,7 @@ function KeyBindSettings() {
         <div key={action} className="flex items-center justify-between py-2 border-b border-white/[0.04]">
           <span className="text-gray-400 capitalize text-sm">{formatActionName(action)}</span>
           <button
-            onClick={() => handleRebind(action)}
+            onClick={() => setRebinding(action)}
             className={`px-3 py-1.5 rounded-lg font-mono text-xs min-w-[100px] text-center transition-all cursor-pointer ${
               rebinding === action
                 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse'

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 
 interface StatusItem {
@@ -21,78 +21,64 @@ const STATUS_TEXT = {
   checking: 'text-gray-400',
 } as const;
 
+const hasWebGPU = !!(navigator as Navigator & { gpu?: unknown }).gpu;
+
 export function SystemStatus() {
-  const [items, setItems] = useState<StatusItem[]>([]);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'warn'>('checking');
   const [expanded, setExpanded] = useState(false);
 
+  // Reactive selectors — component re-renders when these change
+  const bloom = useSettingsStore((s) => s.bloom);
+  const particles = useSettingsStore((s) => s.particles);
+  const shadowQuality = useSettingsStore((s) => s.shadowQuality);
+
+  // Backend health check (once on mount)
   useEffect(() => {
-    const checks: StatusItem[] = [];
-
-    // WebGPU support
-    const gpu = (navigator as Navigator & { gpu?: unknown }).gpu;
-    if (gpu) {
-      checks.push({ label: 'WebGPU', status: 'ok', detail: 'GPU adapter available' });
-    } else {
-      checks.push({ label: 'WebGPU', status: 'error', detail: 'Not supported — falling back to WebGL' });
-    }
-
-    // Bloom setting
-    const bloom = useSettingsStore.getState().bloom;
-    checks.push({
-      label: 'Bloom',
-      status: bloom ? 'ok' : 'warn',
-      detail: bloom ? 'PostProcessing pipeline active' : 'Disabled in settings',
-    });
-
-    // Particles setting
-    const particles = useSettingsStore.getState().particles;
-    checks.push({
-      label: 'GPU Particles',
-      status: particles ? 'ok' : 'warn',
-      detail: particles ? 'Compute shaders enabled' : 'Disabled in settings',
-    });
-
-    // Shadows setting
-    const shadows = useSettingsStore.getState().shadows;
-    checks.push({
-      label: 'Shadows',
-      status: shadows ? 'ok' : 'warn',
-      detail: shadows ? 'Shadow mapping active' : 'Disabled in settings',
-    });
-
-    // Physics tick rate
-    checks.push({
-      label: 'Physics',
-      status: 'ok',
-      detail: '128Hz fixed timestep',
-    });
-
-    // Backend — default to offline, upgrade if reachable
-    checks.push({
-      label: 'Backend',
-      status: 'warn',
-      detail: 'Offline — singleplayer only',
-    });
-
-    setItems(checks);
-
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 2000);
+
     fetch('/api/health', { method: 'HEAD', signal: ctrl.signal })
-      .then((res) => {
-        if (res.ok) {
-          setItems((prev) => prev.map((item) =>
-            item.label === 'Backend'
-              ? { ...item, status: 'ok', detail: 'Connected' }
-              : item,
-          ));
-        }
-      })
-      .catch(() => { /* already showing offline */ })
+      .then((res) => setBackendStatus(res.ok ? 'ok' : 'warn'))
+      .catch(() => setBackendStatus('warn'))
       .finally(() => clearTimeout(timeout));
 
     return () => { ctrl.abort(); clearTimeout(timeout); };
   }, []);
+
+  const shadowsEnabled = shadowQuality !== 'off';
+
+  const items = useMemo<StatusItem[]>(() => [
+    {
+      label: 'WebGPU',
+      status: hasWebGPU ? 'ok' : 'error',
+      detail: hasWebGPU ? 'GPU adapter available' : 'Not supported — falling back to WebGL',
+    },
+    {
+      label: 'Bloom',
+      status: bloom ? 'ok' : 'warn',
+      detail: bloom ? 'PostProcessing pipeline active' : 'Disabled in settings',
+    },
+    {
+      label: 'GPU Particles',
+      status: particles ? 'ok' : 'warn',
+      detail: particles ? 'Compute shaders enabled' : 'Disabled in settings',
+    },
+    {
+      label: 'Shadows',
+      status: shadowsEnabled ? 'ok' : 'warn',
+      detail: shadowsEnabled ? `Shadow quality: ${shadowQuality}` : 'Disabled in settings',
+    },
+    {
+      label: 'Physics',
+      status: 'ok',
+      detail: '128Hz fixed timestep',
+    },
+    {
+      label: 'Backend',
+      status: backendStatus === 'checking' ? 'checking' : backendStatus,
+      detail: backendStatus === 'ok' ? 'Connected' : 'Offline — singleplayer only',
+    },
+  ], [bloom, particles, shadowQuality, shadowsEnabled, backendStatus]);
 
   const okCount = items.filter((i) => i.status === 'ok').length;
   const totalCount = items.length;

@@ -38,3 +38,8 @@ export {
   useTileClusteredLighting,
   type UseTileClusteredLightingProps, type TileClusteredLightingResult,
 } from './useTileClusteredLighting';
+export {
+  SHADOW_QUALITY_LEVELS, SHADOW_PRESETS, shadowQualityFromPreset,
+  type ShadowQuality, type ShadowPreset,
+} from './shadowConfig';
+export { useShadowLight, type ShadowLightConfig } from './useShadowLight';

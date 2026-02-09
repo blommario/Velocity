@@ -1,3 +1,13 @@
+import type { Group, AnimationClip } from 'three';
+
+// ── Asset types ──
+
+/** A loaded model with its associated animation clips. */
+export interface ModelAsset {
+  scene: Group;
+  animations: AnimationClip[];
+}
+
 // ── Primitives ──
 export type Vec3 = [number, number, number];
 export type Color = string; // hex color e.g. "#ff0000"

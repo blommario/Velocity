@@ -15,12 +15,12 @@ import { AtmosphericFog } from '../AtmosphericFog';
 import { ProceduralSkybox } from '../ProceduralSkybox';
 import { HdriSkybox } from '../HdriSkybox';
 import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
-import { useClusteredLighting, type LightData } from '../../../engine/rendering';
-import { useTileClusteredLighting } from '../../../engine/rendering';
+import { useClusteredLighting, useTileClusteredLighting, useShadowLight, type LightData } from '../../../engine/rendering';
 import { InstancedBlocks } from './InstancedBlocks';
 import { InstancedSurfRamps } from './InstancedSurfRamps';
 import { ModelBlock } from './ModelBlock';
 import { useGameStore } from '../../../stores/gameStore';
+import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
 import { resetPool } from '../physics/projectilePool';
@@ -116,6 +116,15 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
   // Steg 2: Tile-clustered GPU compute (used when >= 64 lights)
   const { tileLightingNode, isTileClustered } = useTileClusteredLighting({ lights: clusterLightData });
+
+  // Shadow light — quality driven by settings store
+  const shadowQuality = useSettingsStore((s) => s.shadowQuality);
+  useShadowLight({
+    quality: shadowQuality,
+    position: lighting.directionalPosition,
+    intensity: lighting.directionalIntensity,
+    color: lighting.directionalColor,
+  });
 
   // Only bind lightsNode when the map actually has point lights
   const hasLights = clusterLightData.length > 0;
@@ -222,21 +231,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
       {/* Lighting */}
       <ambientLight intensity={lighting.ambientIntensity} color={lighting.ambientColor} />
-      <directionalLight
-        position={lighting.directionalPosition}
-        intensity={lighting.directionalIntensity}
-        color={lighting.directionalColor}
-        castShadow
-        shadow-mapSize-width={4096}
-        shadow-mapSize-height={4096}
-        shadow-camera-far={300}
-        shadow-camera-left={-120}
-        shadow-camera-right={120}
-        shadow-camera-top={120}
-        shadow-camera-bottom={-120}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.02}
-      />
+      {/* DirectionalLight + CSM managed by useShadowLight hook */}
       <hemisphereLight
         args={[lighting.hemisphereSky, lighting.hemisphereGround, lighting.hemisphereIntensity]}
       />

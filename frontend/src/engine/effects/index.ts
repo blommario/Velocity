@@ -18,3 +18,9 @@ export {
   createFogComputeResources,
   type FogComputeResources, type FogComputeUniforms, type FogGridConfig,
 } from './fogOfWarCompute';
+export {
+  useAnimation,
+  type UseAnimationProps, type UseAnimationResult,
+  type AnimationLoopMode, type PlayOptions,
+} from './useAnimation';
+export { AnimatedModel, type AnimatedModelProps } from './AnimatedModel';
