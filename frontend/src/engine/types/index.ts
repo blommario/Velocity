@@ -6,4 +6,5 @@ export type {
   BoostPadData, LaunchPadData, SpeedGateData,
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
+  ProceduralMaterialType, EmissiveAnimation, BlendMode,
 } from './map';

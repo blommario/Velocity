@@ -13,12 +13,14 @@ import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
 import { AtmosphericFog } from './AtmosphericFog';
 import { ProceduralSkybox } from './ProceduralSkybox';
+import { InstancedBlocks } from './map/InstancedBlocks';
 import { GpuLightSprites } from '../../engine/effects/GpuLightSprites';
 import { useShadowLight } from '../../engine/rendering';
 import { useGameStore } from '../../stores/gameStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { devLog } from '../../engine/stores/devLogStore';
+import type { MapBlock } from './map/types';
 
 const TOTAL_CHECKPOINTS = 3;
 const SPAWN_POINT: [number, number, number] = [0, 2, 0];
@@ -49,6 +51,25 @@ const SECTOR_MARKERS: Array<{
 ];
 
 const BACKGROUND_COLOR = '#1a1a2e';
+
+const MATERIAL_DEMO_BLOCKS: MapBlock[] = [
+  // Concrete floor section
+  { shape: 'box', position: [-30, -0.25, 10], size: [10, 0.5, 10], color: '#888888', proceduralMaterial: 'concrete', textureScale: [0.5, 0.5] },
+  // Metal wall
+  { shape: 'box', position: [-30, 2.5, 15.25], size: [10, 5, 0.5], color: '#aaaacc', proceduralMaterial: 'metal', textureScale: [2, 2] },
+  // Sci-fi panel wall
+  { shape: 'box', position: [-30, 2.5, 4.75], size: [10, 5, 0.5], color: '#4488aa', proceduralMaterial: 'scifi-panel', textureScale: [1, 1] },
+  // Neon strip (pulsing glow)
+  { shape: 'box', position: [-30, 5.25, 10], size: [10, 0.3, 0.3], color: '#00ff88', proceduralMaterial: 'neon', emissive: '#00ff88', emissiveIntensity: 4.0, emissiveAnimation: 'pulse', emissiveAnimationSpeed: 1.5 },
+  // Rust block
+  { shape: 'box', position: [-35.25, 1.5, 10], size: [0.5, 3, 10], color: '#887766', proceduralMaterial: 'rust', textureScale: [1, 1] },
+  // Tile floor section
+  { shape: 'box', position: [-30, -0.25, 22], size: [10, 0.5, 4], color: '#cc9966', proceduralMaterial: 'tile', textureScale: [2, 2] },
+  // Blend demo: concrete-to-rust height blend (tall pillar)
+  { shape: 'box', position: [-24.5, 4, 10], size: [1, 8, 1], color: '#888888', proceduralMaterial: 'concrete', blendProceduralMaterial: 'rust', blendMode: 'height', blendHeight: 4, blendSharpness: 2, textureScale: [1, 1] },
+  // Flickering warning neon
+  { shape: 'box', position: [-30, 0.15, 15.5], size: [10, 0.15, 0.15], color: '#ff3300', proceduralMaterial: 'neon', emissive: '#ff3300', emissiveIntensity: 3.0, emissiveAnimation: 'flicker', emissiveAnimationSpeed: 2.0 },
+] as const;
 
 export function TestMap() {
   const scene = useThree((s) => s.scene);
@@ -266,6 +287,9 @@ export function TestMap() {
       <AmmoPickup position={[30, 0.5, 5]} type="grenade" amount={2} />
       <GrapplePoint position={[-15, 14, -15]} />
       <GrapplePoint position={[40, 12, -10]} />
+
+      {/* ── Material Demo (procedural PBR showcase) ── */}
+      <InstancedBlocks blocks={MATERIAL_DEMO_BLOCKS as MapBlock[]} />
 
       {/* ── Lighting ── */}
       <ambientLight intensity={0.5} />

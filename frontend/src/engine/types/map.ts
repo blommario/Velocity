@@ -12,6 +12,11 @@ export interface ModelAsset {
 export type Vec3 = [number, number, number];
 export type Color = string; // hex color e.g. "#ff0000"
 
+// ── Material types ──
+export type ProceduralMaterialType = 'concrete' | 'metal' | 'scifi-panel' | 'neon' | 'rust' | 'tile';
+export type EmissiveAnimation = 'none' | 'pulse' | 'flicker' | 'breathe';
+export type BlendMode = 'height' | 'noise';
+
 // ── Block types ──
 export type BlockShape = 'box' | 'ramp' | 'cylinder' | 'wedge';
 
@@ -27,6 +32,16 @@ export interface MapBlock {
   opacity?: number;
   textureSet?: string;
   textureScale?: [number, number];  // UV repeat [x, y], default [1,1]
+  roughness?: number;               // PBR roughness override (0-1)
+  metalness?: number;               // PBR metalness override (0-1)
+  proceduralMaterial?: ProceduralMaterialType;
+  emissiveAnimation?: EmissiveAnimation;
+  emissiveAnimationSpeed?: number;
+  blendTextureSet?: string;
+  blendProceduralMaterial?: ProceduralMaterialType;
+  blendMode?: BlendMode;
+  blendHeight?: number;
+  blendSharpness?: number;
 }
 
 // ── Model props (glTF placed in map) ──

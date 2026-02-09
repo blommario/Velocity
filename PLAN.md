@@ -10,10 +10,10 @@
 
 **Förutsättning:** Ingen
 
-### O1 — Material Upgrade
-- 🔲 Per-block PBR i InstancedBlocks — normal map, roughness, metalness per visuell grupp
-- 🔲 Emissive material stöd — glow-block typ (neon strips, warning lights)
-- 🔲 Texture blending — TSL blend mellan two texture sets baserat på height/mask
+### O1 — Material Upgrade ✅
+- ✅ Per-block PBR i InstancedBlocks — normal map, roughness, metalness per visuell grupp
+- ✅ Emissive material stöd — glow-block typ (neon strips, warning lights)
+- ✅ Texture blending — TSL blend mellan two texture sets baserat på height/mask
 
 ### O2 — Miljöeffekter
 - 🔲 Vatten/lava-yta — TSL animated plane med refraktion, flow-direction, vertex displacement

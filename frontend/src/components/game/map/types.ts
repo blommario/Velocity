@@ -6,6 +6,7 @@ import type {
   BoostPadData, LaunchPadData, SpeedGateData,
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
+  ProceduralMaterialType, EmissiveAnimation, BlendMode,
 } from '../../../engine/types/map';
 import type { FogOfWarConfig } from '../../../engine/effects/FogOfWar';
 
@@ -16,6 +17,7 @@ export type {
   BoostPadData, LaunchPadData, SpeedGateData,
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
+  ProceduralMaterialType, EmissiveAnimation, BlendMode,
 };
 
 // ── Game-specific types ──
