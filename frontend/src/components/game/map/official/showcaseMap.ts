@@ -20,7 +20,7 @@ const WALL_H = 6;
 
 // ── Helpers ──
 
-function labelPedestal(pos: Vec3, label: string, color: string): MapBlock[] {
+function labelPedestal(pos: Vec3, color: string, _label: string): MapBlock[] {
   // Thin bright base plate + tall sign post + name plate
   // The name is conveyed via the block color/emissive — human reads the
   // position context.  We make each label zone visually distinct.

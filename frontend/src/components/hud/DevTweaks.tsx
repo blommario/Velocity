@@ -4,8 +4,8 @@ import { PHYSICS } from '../game/physics/constants';
 const BASE_SPEED = PHYSICS.GROUND_MAX_SPEED; // 320 u/s
 const BASE_GRAVITY = PHYSICS.GRAVITY;         // 800 u/s²
 
-const SPEED_RANGE = { min: 0.1, max: 0.175, step: 0.005 } as const; // 32–56 u/s
-const GRAVITY_RANGE = { min: 0.05, max: 0.2, step: 0.01 } as const; // 40–160 u/s²
+const SPEED_RANGE = { min: 0.1, max: 1.9, step: 0.05 } as const;
+const GRAVITY_RANGE = { min: 0.1, max: 1.9, step: 0.05 } as const;
 
 export function DevTweaks() {
   const speedMult = useSettingsStore((s) => s.devSpeedMultiplier);
@@ -58,8 +58,8 @@ export function DevTweaks() {
         <div className="flex items-center">
           <button
             onClick={() => {
-              useSettingsStore.getState().setDevSpeedMultiplier(0.125);
-              useSettingsStore.getState().setDevGravityMultiplier(0.125);
+              useSettingsStore.getState().setDevSpeedMultiplier(1.0);
+              useSettingsStore.getState().setDevGravityMultiplier(1.0);
             }}
             className="text-[10px] font-mono text-white/40 hover:text-white/80 border border-white/10 hover:border-white/30 rounded px-2 py-1 transition-colors"
           >

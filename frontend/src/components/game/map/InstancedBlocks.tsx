@@ -220,8 +220,8 @@ export function InstancedBlocks({ blocks, lightsNode, tileLightingNode }: Instan
     <group>
       {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL, lightsNode, tileLightingNode)}
       {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE, lightsNode, tileLightingNode)}
-      {colliderGroups.map((group) => (
-        <RigidBody key={group.shape} type="fixed" colliders={false}>
+      {colliderGroups.map((group, gi) => (
+        <RigidBody key={`${group.shape}-${gi}`} type="fixed" colliders={false}>
           {group.colliders.map((col, i) =>
             col.shape === 'cylinder' ? (
               <CylinderCollider key={i} args={[col.args[0], col.args[1]]} position={col.position} rotation={col.rotation} />
