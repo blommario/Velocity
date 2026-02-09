@@ -37,6 +37,10 @@ export const SOUNDS = {
   COUNTDOWN_TICK: 'countdown_tick',
   COUNTDOWN_GO: 'countdown_go',
 
+  // Hit feedback
+  HIT_MARKER: 'hit_marker',
+  WALL_IMPACT: 'wall_impact',
+
   // UI
   UI_CLICK: 'ui_click',
   UI_HOVER: 'ui_hover',
@@ -71,6 +75,8 @@ const SOUND_CATEGORIES: Record<SoundId, 'sfx' | 'music' | 'ambient'> = {
   [SOUNDS.FINISH]: 'sfx',
   [SOUNDS.COUNTDOWN_TICK]: 'sfx',
   [SOUNDS.COUNTDOWN_GO]: 'sfx',
+  [SOUNDS.HIT_MARKER]: 'sfx',
+  [SOUNDS.WALL_IMPACT]: 'sfx',
   [SOUNDS.UI_CLICK]: 'sfx',
   [SOUNDS.UI_HOVER]: 'sfx',
 };
@@ -112,6 +118,8 @@ const SYNTH_CONFIGS: Partial<Record<SoundId, SynthConfig>> = {
   [SOUNDS.FINISH]: { frequency: 800, type: 'sine', duration: 0.5, gain: 0.4 },
   [SOUNDS.COUNTDOWN_TICK]: { frequency: 600, type: 'sine', duration: 0.08, gain: 0.2 },
   [SOUNDS.COUNTDOWN_GO]: { frequency: 1000, type: 'sine', duration: 0.15, gain: 0.3 },
+  [SOUNDS.HIT_MARKER]: { frequency: 1600, type: 'square', duration: 0.06, gain: 0.15, filterFreq: 3000 },
+  [SOUNDS.WALL_IMPACT]: { frequency: 400, type: 'sawtooth', duration: 0.08, gain: 0.12, decay: 0.06, filterFreq: 800 },
   [SOUNDS.UI_CLICK]: { frequency: 1400, type: 'sine', duration: 0.04, gain: 0.1 },
   [SOUNDS.UI_HOVER]: { frequency: 1800, type: 'sine', duration: 0.02, gain: 0.05 },
 };

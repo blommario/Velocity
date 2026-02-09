@@ -76,6 +76,7 @@ interface SettingsState {
 
   // Gameplay
   autoBhop: boolean;
+  edgeGrab: boolean;
   crosshairStyle: CrosshairStyle;
   crosshairColor: string;
   crosshairSize: number;
@@ -117,6 +118,7 @@ interface SettingsState {
   setMusicVolume: (v: number) => void;
   setAmbientVolume: (v: number) => void;
   setAutoBhop: (b: boolean) => void;
+  setEdgeGrab: (b: boolean) => void;
   setCrosshairStyle: (s: CrosshairStyle) => void;
   setCrosshairColor: (c: string) => void;
   setCrosshairSize: (s: number) => void;
@@ -161,6 +163,7 @@ const DEFAULT_STATE = {
   musicVolume: 0.5,
   ambientVolume: 0.6,
   autoBhop: true,
+  edgeGrab: true,
   crosshairStyle: CROSSHAIR_STYLES.DOT as CrosshairStyle,
   crosshairColor: '#ffffff',
   crosshairSize: 4,
@@ -181,8 +184,8 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       ...DEFAULT_STATE,
-      devSpeedMultiplier: 0.125,
-      devGravityMultiplier: 0.125,
+      devSpeedMultiplier: 1.0,
+      devGravityMultiplier: 1.0,
 
       setDevSpeedMultiplier: (devSpeedMultiplier) => set({ devSpeedMultiplier }),
       setDevGravityMultiplier: (devGravityMultiplier) => set({ devGravityMultiplier }),
@@ -205,6 +208,7 @@ export const useSettingsStore = create<SettingsState>()(
       setMusicVolume: (musicVolume) => set({ musicVolume }),
       setAmbientVolume: (ambientVolume) => set({ ambientVolume }),
       setAutoBhop: (autoBhop) => set({ autoBhop }),
+      setEdgeGrab: (edgeGrab) => set({ edgeGrab }),
       setCrosshairStyle: (crosshairStyle) => set({ crosshairStyle }),
       setCrosshairColor: (crosshairColor) => set({ crosshairColor }),
       setCrosshairSize: (crosshairSize) => set({ crosshairSize }),
@@ -255,6 +259,7 @@ export const useSettingsStore = create<SettingsState>()(
         musicVolume: state.musicVolume,
         ambientVolume: state.ambientVolume,
         autoBhop: state.autoBhop,
+        edgeGrab: state.edgeGrab,
         crosshairStyle: state.crosshairStyle,
         crosshairColor: state.crosshairColor,
         crosshairSize: state.crosshairSize,

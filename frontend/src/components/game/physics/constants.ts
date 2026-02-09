@@ -51,7 +51,8 @@ export const PHYSICS = {
   SHOTGUN_RANGE: 80,
   SHOTGUN_SPREAD: 0.1,          // radians — wide cone
   SHOTGUN_KNOCKBACK: 60,        // moderate push
-  SHOTGUN_SELF_KNOCKBACK: 25,   // small self-boost
+  SHOTGUN_SELF_KNOCKBACK: 120,  // strong self-boost for shotgun jumping
+  SHOTGUN_JUMP_UPLIFT: 100,     // min upward velocity when shotgun-jumping while grounded
   SHOTGUN_FIRE_COOLDOWN: 0.9,
   SHOTGUN_MAX_AMMO: 24,
 
@@ -65,12 +66,24 @@ export const PHYSICS = {
   // ── Plasma gun (continuous beam) ──
   PLASMA_DAMAGE_PER_SEC: 80,
   PLASMA_RANGE: 60,
-  PLASMA_PUSHBACK: 100,         // push force on self (mini-boost)
+  PLASMA_PUSHBACK: 150,         // push force on self (plasma surf boost)
+  PLASMA_SURF_FRICTION_MULT: 0.3, // reduced friction while plasma surfing
   PLASMA_AMMO_PER_SEC: 10,
   PLASMA_MAX_AMMO: 100,
 
   // ── Weapon switching ──
   WEAPON_SWAP_TIME: 0.3,        // seconds to switch weapons
+
+  // ── Edge grab / mantling ──
+  MANTLE_FORWARD_DIST: 0.8,       // raycast forward distance to detect wall
+  MANTLE_UP_CHECK: 2.0,           // how far above eye level to check for ledge top
+  MANTLE_DOWN_CHECK: 1.5,         // how far down from ledge-check ray to find surface
+  MANTLE_MAX_HEIGHT: 2.5,         // max ledge height above feet (prevents mantling cliffs)
+  MANTLE_MIN_HEIGHT: 0.5,         // min height (below = autostep handles it)
+  MANTLE_DURATION: 0.2,           // seconds for mantle lerp
+  MANTLE_SPEED_BOOST: 80,         // forward speed after mantle
+  MANTLE_COOLDOWN: 0.3,           // seconds before can mantle again
+  MANTLE_MIN_APPROACH_SPEED: 50,  // must be moving toward wall
 } as const;
 
 export { _DEG2RAD as DEG2RAD, _RAD2DEG as RAD2DEG };

@@ -23,6 +23,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { devLog } from '../../engine/stores/devLogStore';
+import { resetPhysicsTickState } from './physics/usePhysicsTick';
 import type { MapBlock } from './map/types';
 
 const TOTAL_CHECKPOINTS = 3;
@@ -93,6 +94,7 @@ export function TestMap() {
       spawnYaw: SPAWN_YAW,
     });
     useCombatStore.getState().resetCombat(5, 3);
+    resetPhysicsTickState();
     devLog.success('Map', `GridMap loaded (${TOTAL_CHECKPOINTS} checkpoints)`);
   }, [scene]);
 

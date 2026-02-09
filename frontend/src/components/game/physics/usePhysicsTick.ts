@@ -35,6 +35,8 @@ import {
   spawnProjectile, deactivateAt, updatePositions,
   getPool, getPoolSize, activeCount,
 } from './projectilePool';
+import { pushHitMarker } from '../../hud/HitMarker';
+import { spawnWallSparks } from '../effects/wallSparks';
 
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
@@ -93,6 +95,45 @@ let footstepTimer = 0;
 const FOOTSTEP_INTERVAL_BASE = 0.4;
 const FOOTSTEP_INTERVAL_MIN = 0.2;
 
+// Edge grab / mantle state
+let mantleTimer = 0;       // >0 = currently mantling (lerp progress)
+let mantleCooldown = 0;    // >0 = can't mantle yet
+let mantleTargetY = 0;     // target Y position (ledge top)
+let mantleStartY = 0;      // starting Y position
+let mantleFwdX = 0;        // forward direction during mantle
+let mantleFwdZ = 0;
+const _mantleRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+
+/** Reset all module-level physics state. Call on map load / game restart. */
+export function resetPhysicsTickState(): void {
+  wallRunState.isWallRunning = false;
+  wallRunState.wallRunTime = 0;
+  wallRunState.wallNormal[0] = 0; wallRunState.wallNormal[1] = 0; wallRunState.wallNormal[2] = 0;
+  wallRunState.lastWallNormalX = 0;
+  wallRunState.lastWallNormalZ = 0;
+  wallRunState.wallRunCooldown = false;
+
+  wasGrapplePressed = false;
+  wasAltFire = false;
+  cameraTilt = 0;
+  landingDip = 0;
+  respawnGraceTicks = 0;
+  wasGrounded = false;
+  footstepTimer = 0;
+
+  mantleTimer = 0;
+  mantleCooldown = 0;
+  mantleTargetY = 0;
+  mantleStartY = 0;
+  mantleFwdX = 0;
+  mantleFwdZ = 0;
+
+  lastHudUpdate = 0;
+  lastDevLogUpdate = 0;
+  lastDevSpeedMult = 1.0;
+  lastDevGravMult = 1.0;
+}
+
 export interface PhysicsTickRefs {
   rigidBody: MutableRefObject<RapierRigidBody | null>;
   collider: MutableRefObject<RapierCollider | null>;
@@ -126,7 +167,7 @@ export function physicsTick(
 
   const input = refs.input.current;
   const velocity = refs.velocity.current;
-  const { sensitivity, autoBhop, devSpeedMultiplier, devGravityMultiplier } = useSettingsStore.getState();
+  const { sensitivity, autoBhop, edgeGrab, devSpeedMultiplier, devGravityMultiplier } = useSettingsStore.getState();
   const dt = PHYSICS.TICK_DELTA;
   const speedMult = devSpeedMultiplier;
   const gravMult = devGravityMultiplier;
@@ -154,6 +195,8 @@ export function physicsTick(
     refs.jumpHoldTime.current = 0;
     wallRunState.isWallRunning = false;
     wallRunState.wallRunCooldown = false;
+    mantleTimer = 0;
+    mantleCooldown = 0;
     respawnGraceTicks = RESPAWN_GRACE_TICKS;
     collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
     camera.position.set(respawn.pos[0], respawn.pos[1] + PHYSICS.PLAYER_EYE_OFFSET, respawn.pos[2]);
@@ -356,14 +399,19 @@ export function physicsTick(
     velocity.y = Math.max(velocity.y, ld[1] * PHYSICS.KNIFE_LUNGE_SPEED * 0.3);
   }
 
-  // Plasma beam tick
+  // Plasma beam tick — plasma surf: pushback + reduced friction for surfing movement
   if (weapon === 'plasma' && input.fire && combat.ammo.plasma.current > 0) {
     if (!combat.isPlasmaFiring) combat.startPlasma();
     combat.tickPlasma(dt);
-    // Self-pushback (mini-boost in aim direction)
+    // Continuous self-pushback opposite to aim (plasma surf)
     velocity.x -= _fireDir.x * PHYSICS.PLASMA_PUSHBACK * dt;
     velocity.y -= _fireDir.y * PHYSICS.PLASMA_PUSHBACK * dt;
     velocity.z -= _fireDir.z * PHYSICS.PLASMA_PUSHBACK * dt;
+    // Ensure uplift when aimed downward while grounded
+    if (refs.grounded.current && _fireDir.y < -0.3 && velocity.y < 60) {
+      velocity.y = 60;
+      refs.grounded.current = false;
+    }
   } else if (combat.isPlasmaFiring) {
     combat.stopPlasma();
   }
@@ -412,7 +460,14 @@ export function physicsTick(
           // Hitscan raycast
           _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
           _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
-          rapierWorld.castRay(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
+          const sniperHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
+          if (sniperHit) {
+            const shx = _playerPos.x + _fireDir.x * sniperHit.timeOfImpact;
+            const shy = (_playerPos.y + eyeOff) + _fireDir.y * sniperHit.timeOfImpact;
+            const shz = _playerPos.z + _fireDir.z * sniperHit.timeOfImpact;
+            spawnWallSparks(shx, shy, shz, sniperHit.normal.x, sniperHit.normal.y, sniperHit.normal.z, 'heavy');
+            pushHitMarker();
+          }
           // Self-knockback backward
           velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
           velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
@@ -438,7 +493,8 @@ export function physicsTick(
             const hx = _reusableRay.origin.x + (aimX / aimLen) * arHit.timeOfImpact;
             const hy = _reusableRay.origin.y + (aimY / aimLen) * arHit.timeOfImpact;
             const hz = _reusableRay.origin.z + (aimZ / aimLen) * arHit.timeOfImpact;
-            spawnDecal(hx, hy, hz, arHit.normal.x, arHit.normal.y, arHit.normal.z, 0.15, 0.1, 0.1, 0.1, 5.0);
+            spawnWallSparks(hx, hy, hz, arHit.normal.x, arHit.normal.y, arHit.normal.z, 'light');
+            pushHitMarker();
           }
           // Small knockback
           velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * dt;
@@ -465,17 +521,23 @@ export function physicsTick(
               const hx = _reusableRay.origin.x + (px / pl) * hit.timeOfImpact;
               const hy = _reusableRay.origin.y + (py / pl) * hit.timeOfImpact;
               const hz = _reusableRay.origin.z + (pz / pl) * hit.timeOfImpact;
-              spawnDecal(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, 0.3, 0.1, 0.1, 0.1, 6.0);
+              spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, 'medium');
             }
           }
           // Consume remaining PRNG values to keep determinism regardless of pellet cap
           for (let i = physicalPellets; i < PHYSICS.SHOTGUN_PELLETS; i++) {
             nextRandom(); nextRandom();
           }
-          // Strong self-knockback (shotgun jump!)
+          pushHitMarker();
+          // Shotgun jump — strong directional knockback opposite to aim
           velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
           velocity.y -= _fireDir.y * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
           velocity.z -= _fireDir.z * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+          // Ensure grounded players get lifted (like rocket jump)
+          if (refs.grounded.current && velocity.y < PHYSICS.SHOTGUN_JUMP_UPLIFT) {
+            velocity.y = PHYSICS.SHOTGUN_JUMP_UPLIFT;
+            refs.grounded.current = false;
+          }
           audioManager.play(SOUNDS.ROCKET_EXPLODE); // reuse explosive sound
           devLog.info('Combat', `Shotgun fired → ammo=${combat.ammo.shotgun.current}`);
         }
@@ -688,6 +750,10 @@ export function physicsTick(
   } else if (refs.grounded.current) {
     if (refs.isSliding.current) {
       applySlideFriction(velocity, dt);
+    } else if (combat.isPlasmaFiring) {
+      // Plasma surf: reduced friction while firing plasma on ground
+      applyFriction(velocity, dt * PHYSICS.PLASMA_SURF_FRICTION_MULT, hasInput, wishDir);
+      if (hasInput) applyGroundAcceleration(velocity, wishDir, dt, speedMult);
     } else {
       applyFriction(velocity, dt, hasInput, wishDir);
       if (hasInput) applyGroundAcceleration(velocity, wishDir, dt, speedMult);
@@ -823,11 +889,100 @@ export function physicsTick(
   // --- Vertical velocity correction ---
   // Only zero upward velocity for ceiling hits (not during initial jump frames
   // where snap-to-ground may fight the small vertical displacement)
-  if (velocity.y > 0 && !refs.isJumping.current && _correctedMovement.y < _desiredTranslation.y * 0.5) {
+  if (velocity.y > 0 && !refs.isJumping.current && mantleTimer <= 0 && _correctedMovement.y < _desiredTranslation.y * 0.5) {
     velocity.y = 0;
   }
   if (refs.grounded.current && velocity.y < 0) {
     velocity.y = 0;
+  }
+
+  // --- Edge grab / mantle ---
+  if (mantleCooldown > 0) mantleCooldown -= dt;
+
+  if (mantleTimer > 0) {
+    // Currently mantling — lerp position upward + block input
+    mantleTimer -= dt;
+    const progress = 1 - Math.max(0, mantleTimer / PHYSICS.MANTLE_DURATION);
+    const easedProgress = progress * progress * (3 - 2 * progress); // smoothstep
+
+    _newPos.y = mantleStartY + (mantleTargetY - mantleStartY) * easedProgress;
+    // Small forward push at end of mantle
+    if (mantleTimer <= 0) {
+      velocity.set(mantleFwdX * PHYSICS.MANTLE_SPEED_BOOST, 0, mantleFwdZ * PHYSICS.MANTLE_SPEED_BOOST);
+      refs.grounded.current = true;
+      refs.isJumping.current = false;
+      mantleCooldown = PHYSICS.MANTLE_COOLDOWN;
+      devLog.info('Physics', `Mantle complete → Y=${_newPos.y.toFixed(1)}`);
+    } else {
+      velocity.set(0, 0, 0);
+    }
+    rb.setNextKinematicTranslation(_newPos);
+  } else if (
+    edgeGrab &&
+    !refs.grounded.current &&
+    !wallRunState.isWallRunning &&
+    !combat.isGrappling &&
+    mantleCooldown <= 0 &&
+    velocity.y <= 0 // only grab when falling or at apex
+  ) {
+    // Edge detection: raycast forward from chest height
+    const fwdX = -Math.sin(refs.yaw.current);
+    const fwdZ = -Math.cos(refs.yaw.current);
+
+    // Check approach speed (must be moving toward wall)
+    const approachSpeed = velocity.x * fwdX + velocity.z * fwdZ;
+    if (approachSpeed > PHYSICS.MANTLE_MIN_APPROACH_SPEED) {
+      const eyeY = _newPos.y + PHYSICS.PLAYER_EYE_OFFSET;
+
+      // Ray 1: Forward from eye level — detect wall
+      _mantleRay.origin.x = _newPos.x;
+      _mantleRay.origin.y = eyeY;
+      _mantleRay.origin.z = _newPos.z;
+      _mantleRay.dir.x = fwdX;
+      _mantleRay.dir.y = 0;
+      _mantleRay.dir.z = fwdZ;
+
+      const wallHit = rapierWorld.castRay(
+        _mantleRay, PHYSICS.MANTLE_FORWARD_DIST, true,
+        undefined, undefined, undefined, rb,
+      );
+
+      if (wallHit) {
+        // Ray 2: Upward from wall hit point — check no ceiling
+        const wallX = _newPos.x + fwdX * wallHit.timeOfImpact;
+        const wallZ = _newPos.z + fwdZ * wallHit.timeOfImpact;
+
+        _mantleRay.origin.x = wallX + fwdX * 0.3; // slightly past wall
+        _mantleRay.origin.y = eyeY + PHYSICS.MANTLE_UP_CHECK;
+        _mantleRay.origin.z = wallZ + fwdZ * 0.3;
+        _mantleRay.dir.x = 0;
+        _mantleRay.dir.y = -1;
+        _mantleRay.dir.z = 0;
+
+        const ledgeHit = rapierWorld.castRay(
+          _mantleRay, PHYSICS.MANTLE_DOWN_CHECK + PHYSICS.MANTLE_UP_CHECK, true,
+          undefined, undefined, undefined, rb,
+        );
+
+        if (ledgeHit) {
+          const ledgeY = (eyeY + PHYSICS.MANTLE_UP_CHECK) - ledgeHit.timeOfImpact;
+          const heightAboveFeet = ledgeY - (_newPos.y - PHYSICS.PLAYER_HEIGHT / 2);
+
+          if (heightAboveFeet >= PHYSICS.MANTLE_MIN_HEIGHT && heightAboveFeet <= PHYSICS.MANTLE_MAX_HEIGHT) {
+            // Initiate mantle
+            mantleTimer = PHYSICS.MANTLE_DURATION;
+            mantleStartY = _newPos.y;
+            mantleTargetY = ledgeY + PHYSICS.PLAYER_HEIGHT / 2 + 0.1; // feet on ledge
+            mantleFwdX = fwdX;
+            mantleFwdZ = fwdZ;
+            velocity.set(0, 0, 0);
+            refs.isJumping.current = false;
+            audioManager.play(SOUNDS.LAND_SOFT, 0.1);
+            devLog.info('Physics', `Mantle start → ledgeY=${ledgeY.toFixed(1)} height=${heightAboveFeet.toFixed(1)}`);
+          }
+        }
+      }
+    }
   }
 
   // --- Camera effects ---

@@ -27,6 +27,7 @@ import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
 import { resetPool } from '../physics/projectilePool';
+import { resetPhysicsTickState } from '../physics/usePhysicsTick';
 import { clearAssetCache } from '../../../services/assetManager';
 import type { MapData, MovingPlatformData, Vec3 } from './types';
 
@@ -61,6 +62,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       mapId,
     });
     resetPool();
+    resetPhysicsTickState();
     useCombatStore.getState().resetCombat(
       data.settings?.maxRocketAmmo ?? 10,
       data.settings?.maxGrenadeAmmo ?? 3,

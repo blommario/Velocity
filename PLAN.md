@@ -27,27 +27,27 @@
 
 ---
 
-## Fas P — Movement & Game Feel
+## Fas P — Movement & Game Feel ✅
 *Kärnrörelse (bhop, strafe, ramp) + avancerad rörelse (wall run, surf, grapple) redan implementerad. Kvar: weapon movement, hit feedback, edge grab.*
 
 **Förutsättning:** Ingen
 
-### P1 — Weapon Movement Mechanics
-- 🔲 Rocket jump — apply self-damage + knockback impulse från explosion proximity
-- 🔲 Shotgun jump — hitscan spread med knockback i motsatt riktning
-- 🔲 Plasma surf — kontinuerlig knockback vid plasma impact (self-hit = boost)
-- 🔲 Grenade boost — timed detonation med proximity knockback
+### P1 — Weapon Movement Mechanics ✅
+- ✅ Rocket jump — apply self-damage + knockback impulse från explosion proximity
+- ✅ Shotgun jump — hitscan spread med knockback i motsatt riktning (120 force + 100 uplift)
+- ✅ Plasma surf — kontinuerlig knockback vid plasma impact (150 force + 0.3x friction)
+- ✅ Grenade boost — timed detonation med proximity knockback
 
-### P2 — Hit Feedback & Game Feel
-- 🔲 Hit marker — visuell + audio feedback vid projectile hit (korsikon + ljud)
-- 🔲 Wall sparks — decal + sparks particle vid projectile-wall impact
-- 🔲 Kill feed — event log för eliminations (multiplayer-redo)
-- 🔲 Damage numbers — floating text med skadebelopp, decay + drift uppåt
+### P2 — Hit Feedback & Game Feel ✅
+- ✅ Hit marker — visuell X-crosshair + audio feedback vid hitscan/projectile hit
+- ✅ Wall sparks — explosion particles + decal vid projectile-wall impact (3 intensities)
+- ✅ Kill feed — event log för eliminations (multiplayer-redo, imperative API)
+- ✅ Damage numbers — floating text med skadebelopp, ease-out fade + drift uppåt
 
-### P3 — Edge Grab & Mantling
-- 🔲 Edge detection — raycast framåt + nedåt vid vägg-kontakt, detektera grabbable kanter
-- 🔲 Mantle animation — lerp position till kantnivå + framåt, blockera input under mantle
-- 🔲 Settings toggle: `edgeGrab: boolean` (default on)
+### P3 — Edge Grab & Mantling ✅
+- ✅ Edge detection — dual raycast (forward wall + downward ledge), approach speed check
+- ✅ Mantle animation — smoothstep lerp till kantnivå + forward speed boost vid complete
+- ✅ Settings toggle: `edgeGrab: boolean` (default on, persisted)
 
 ---
 

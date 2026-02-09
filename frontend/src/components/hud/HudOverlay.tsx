@@ -10,12 +10,13 @@ import { EndRunModal } from './EndRunModal';
 import { DevTweaks } from './DevTweaks';
 import { ScreenEffects } from './ScreenEffects';
 import { DamageIndicator } from './DamageIndicator';
+import { DamageNumbers } from './DamageNumbers';
 import { EventFeed } from './EventFeed';
+import { HitMarker } from './HitMarker';
+import { KillFeed } from './KillFeed';
 import { useGameStore, RUN_STATES } from '../../stores/gameStore';
 
 export function HudOverlay() {
-  const isGrounded = useGameStore((s) => s.isGrounded);
-  const position = useGameStore((s) => s.position);
   const runState = useGameStore((s) => s.runState);
 
   return (
@@ -29,19 +30,31 @@ export function HudOverlay() {
       <CombatHud />
       <TrackProgressBar />
       <DamageIndicator />
+      <DamageNumbers />
+      <HitMarker />
       <EventFeed />
+      <KillFeed />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}
 
-      {/* Debug info - bottom right */}
-      <div className="absolute bottom-8 right-8 font-mono text-xs text-white/40">
-        <div>pos: {position.map((v) => v.toFixed(1)).join(', ')}</div>
-        <div>grounded: {isGrounded ? 'yes' : 'no'}</div>
-      </div>
+      <DebugPosition />
 
       <ScreenEffects />
       <DevTweaks />
       <EndRunModal />
+    </div>
+  );
+}
+
+/** Isolated from HudOverlay so 30Hz position updates don't diff the entire HUD tree. */
+function DebugPosition() {
+  const position = useGameStore((s) => s.position);
+  const isGrounded = useGameStore((s) => s.isGrounded);
+
+  return (
+    <div className="absolute bottom-8 right-8 font-mono text-xs text-white/40">
+      <div>pos: {position.map((v) => v.toFixed(1)).join(', ')}</div>
+      <div>grounded: {isGrounded ? 'yes' : 'no'}</div>
     </div>
   );
 }
