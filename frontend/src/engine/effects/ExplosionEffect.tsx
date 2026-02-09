@@ -6,6 +6,7 @@
  * - CPU updates particle positions/velocities/life in flat Float32Arrays
  * - instancedDynamicBufferAttribute for efficient per-frame CPU→GPU transfer
  * - ZERO renderer.compute() calls — all physics on CPU (trivial for particles)
+ * - Partial buffer uploads via addUpdateRange() — only touched slots uploaded
  *
  * Total: 1 draw call for ALL explosions regardless of count.
  */
@@ -16,7 +17,7 @@ import {
   AdditiveBlending, SpriteNodeMaterial,
   Mesh as ThreeMesh,
 } from 'three/webgpu';
-import { BufferGeometry, InstancedBufferAttribute } from 'three';
+import { BufferGeometry, InstancedBufferAttribute, Color } from 'three';
 import { create } from 'zustand';
 import { devLog, frameTiming } from '../stores/devLogStore';
 
@@ -31,6 +32,8 @@ const EXPLOSION = {
   POOL_SIZE: 8,
   /** Hidden Y for inactive sprites */
   HIDDEN_Y: -9999,
+  /** Max queued requests to avoid memory spikes */
+  MAX_REQUESTS: 16,
 } as const;
 
 /** Total sprite instances across all slots */
@@ -54,11 +57,12 @@ export const useExplosionStore = create<ExplosionState>((set, get) => ({
   requests: [],
   nextId: 1,
   spawnExplosion: (position, color, scale = 1) => {
-    const state = get();
-    set({
+    const current = get().requests;
+    if (current.length >= EXPLOSION.MAX_REQUESTS) return;
+    set((state) => ({
       nextId: state.nextId + 1,
       requests: [...state.requests, { id: state.nextId, position, color, scale }],
-    });
+    }));
   },
   consumeRequests: () => {
     const reqs = get().requests;
@@ -79,12 +83,14 @@ interface ParticleArrays {
   velX: Float32Array;
   velY: Float32Array;
   velZ: Float32Array;
-  life: Float32Array;         // remaining life in seconds
-  maxLife: Float32Array;      // initial life for alpha calc
+  life: Float32Array;
+  maxLife: Float32Array;
 }
 
 interface SlotState {
   active: boolean;
+  /** Set true when slot just died — triggers one-time GPU zero-out */
+  needsCleanup: boolean;
   timeAlive: number;
   scale: number;
   colorR: number;
@@ -92,7 +98,10 @@ interface SlotState {
   colorB: number;
 }
 
-// Pre-computed random directions for particle init (deterministic, no per-spawn hash)
+// Reusable Color for hex parsing
+const _tempColor = new Color();
+
+// Pre-computed random tables (deterministic, built once)
 let _randomDirs: Float32Array | null = null;
 let _randomSpeeds: Float32Array | null = null;
 let _randomLifeMults: Float32Array | null = null;
@@ -104,7 +113,6 @@ function ensureRandomTables() {
   _randomSpeeds = new Float32Array(count);
   _randomLifeMults = new Float32Array(count);
 
-  // Simple seeded hash — same as the GPU version but on CPU
   for (let i = 0; i < count; i++) {
     const seed = i * 0.789;
     const rx = fract(Math.sin(seed * 127.1) * 43758.5453) * 2 - 1;
@@ -133,7 +141,7 @@ export function ExplosionManager() {
   const gpuColorRef = useRef<Float32Array | null>(null);
   const gpuScaleRef = useRef<Float32Array | null>(null);
 
-  // InstancedBufferAttribute refs for .needsUpdate
+  // InstancedBufferAttribute refs for partial update
   const posAttrRef = useRef<InstancedBufferAttribute | null>(null);
   const colorAttrRef = useRef<InstancedBufferAttribute | null>(null);
   const scaleAttrRef = useRef<InstancedBufferAttribute | null>(null);
@@ -154,10 +162,7 @@ export function ExplosionManager() {
       life: new Float32Array(TOTAL_PARTICLES),
       maxLife: new Float32Array(TOTAL_PARTICLES),
     };
-
-    // Initialize all particles to hidden
     particles.posY.fill(EXPLOSION.HIDDEN_Y);
-
     particlesRef.current = particles;
 
     // Pre-allocate slot states
@@ -165,6 +170,7 @@ export function ExplosionManager() {
     for (let i = 0; i < EXPLOSION.POOL_SIZE; i++) {
       slots.push({
         active: false,
+        needsCleanup: false,
         timeAlive: 0,
         scale: 1,
         colorR: 1,
@@ -179,7 +185,6 @@ export function ExplosionManager() {
     const gpuColor = new Float32Array(TOTAL_PARTICLES * 4);
     const gpuScale = new Float32Array(TOTAL_PARTICLES);
 
-    // Initialize positions to hidden
     for (let i = 0; i < TOTAL_PARTICLES; i++) {
       gpuPos[i * 3 + 1] = EXPLOSION.HIDDEN_Y;
     }
@@ -244,15 +249,15 @@ export function ExplosionManager() {
 
   useFrame((_, delta) => {
     const particles = particlesRef.current;
-    const gpuPos = gpuPosRef.current;
-    const gpuColor = gpuColorRef.current;
-    const gpuScale = gpuScaleRef.current;
-    const posAttr = posAttrRef.current;
-    const colorAttr = colorAttrRef.current;
-    const scaleAttr = scaleAttrRef.current;
-    const slots = slotsRef.current;
+    if (!particles || !meshRef.current) return;
 
-    if (!particles || !gpuPos || !gpuColor || !gpuScale || !posAttr || !colorAttr || !scaleAttr) return;
+    const gpuPos = gpuPosRef.current!;
+    const gpuColor = gpuColorRef.current!;
+    const gpuScale = gpuScaleRef.current!;
+    const posAttr = posAttrRef.current!;
+    const colorAttr = colorAttrRef.current!;
+    const scaleAttr = scaleAttrRef.current!;
+    const slots = slotsRef.current;
 
     frameTiming.begin('Explosions');
 
@@ -261,39 +266,34 @@ export function ExplosionManager() {
     const speeds = _randomSpeeds!;
     const lifeMults = _randomLifeMults!;
 
-    // Consume new explosion requests
+    // --- 1. SPAWN ---
     const requests = useExplosionStore.getState().consumeRequests();
     if (requests.length > 0) {
       for (const req of requests) {
         // Find inactive slot, or recycle oldest
         let slotIdx = -1;
+        let oldestTime = -1;
         for (let i = 0; i < slots.length; i++) {
           if (!slots[i].active) { slotIdx = i; break; }
-        }
-        if (slotIdx < 0) {
-          // Recycle oldest active slot
-          let oldestTime = -1;
-          for (let i = 0; i < slots.length; i++) {
-            if (slots[i].timeAlive > oldestTime) {
-              oldestTime = slots[i].timeAlive;
-              slotIdx = i;
-            }
+          if (slots[i].timeAlive > oldestTime) {
+            oldestTime = slots[i].timeAlive;
+            slotIdx = i;
           }
         }
+        if (slotIdx === -1) slotIdx = 0;
 
         const slot = slots[slotIdx];
-        const r = parseInt(req.color.slice(1, 3), 16) / 255;
-        const g = parseInt(req.color.slice(3, 5), 16) / 255;
-        const b = parseInt(req.color.slice(5, 7), 16) / 255;
+        _tempColor.set(req.color);
 
         slot.active = true;
+        slot.needsCleanup = false;
         slot.timeAlive = 0;
         slot.scale = req.scale;
-        slot.colorR = r;
-        slot.colorG = g;
-        slot.colorB = b;
+        slot.colorR = _tempColor.r;
+        slot.colorG = _tempColor.g;
+        slot.colorB = _tempColor.b;
 
-        // Init particles for this slot — CPU scatter
+        // Init particles — CPU scatter
         const base = slotIdx * count;
         const spd = EXPLOSION.SPEED * req.scale;
         for (let i = 0; i < count; i++) {
@@ -303,41 +303,63 @@ export function ExplosionManager() {
           particles.posZ[gi] = req.position[2];
           const s = spd * speeds[i];
           particles.velX[gi] = dirs[i * 3] * s;
-          particles.velY[gi] = dirs[i * 3 + 1] * s + 4; // upward bias
+          particles.velY[gi] = dirs[i * 3 + 1] * s + 4;
           particles.velZ[gi] = dirs[i * 3 + 2] * s;
           const life = EXPLOSION.LIFE * lifeMults[i];
           particles.life[gi] = life;
           particles.maxLife[gi] = life;
+          // Set initial scale so it appears this frame
+          gpuScale[gi] = EXPLOSION.SPRITE_SIZE * req.scale;
         }
       }
       devLog.info('Explosion', `Spawned ${requests.length} in 0.0ms`);
     }
 
-    // Update all active slots — pure CPU math, no GPU compute
-    const dt = Math.min(delta, 0.05); // cap to avoid explosion on tab-back
+    // --- 2. UPDATE (only active/cleanup slots) ---
+    const dt = Math.min(delta, 0.05);
     const gravity = EXPLOSION.GRAVITY;
     const dragMult = 1 - dt * 2;
 
+    // Track dirty range for partial GPU upload
+    let dirtyMin = TOTAL_PARTICLES;
+    let dirtyMax = -1;
+
     for (let si = 0; si < slots.length; si++) {
       const slot = slots[si];
-      const base = si * count;
 
       if (!slot.active) {
-        // Ensure all particles for this slot are hidden in GPU buffers
-        for (let i = 0; i < count; i++) {
-          gpuScale[base + i] = 0;
+        // One-time cleanup: zero out GPU scale when slot dies
+        if (slot.needsCleanup) {
+          slot.needsCleanup = false;
+          const base = si * count;
+          for (let i = 0; i < count; i++) {
+            gpuScale[base + i] = 0;
+          }
+          if (base < dirtyMin) dirtyMin = base;
+          if (base + count > dirtyMax) dirtyMax = base + count;
         }
         continue;
       }
 
       slot.timeAlive += dt;
-      if (slot.timeAlive > EXPLOSION.LIFE * 2) {
+      const base = si * count;
+
+      // Slot death
+      if (slot.timeAlive > EXPLOSION.LIFE * 1.5) {
         slot.active = false;
+        slot.needsCleanup = true;
+        // Zero out immediately
         for (let i = 0; i < count; i++) {
           gpuScale[base + i] = 0;
         }
+        if (base < dirtyMin) dirtyMin = base;
+        if (base + count > dirtyMax) dirtyMax = base + count;
         continue;
       }
+
+      // Track this slot in dirty range
+      if (base < dirtyMin) dirtyMin = base;
+      if (base + count > dirtyMax) dirtyMax = base + count;
 
       const cr = slot.colorR;
       const cg = slot.colorG;
@@ -346,32 +368,31 @@ export function ExplosionManager() {
 
       for (let i = 0; i < count; i++) {
         const gi = base + i;
-        const life = particles.life[gi] - dt;
+        let life = particles.life[gi] - dt;
         particles.life[gi] = life;
 
         if (life <= 0) {
-          gpuScale[gi] = 0;
-          gpuColor[gi * 4 + 3] = 0;
+          if (gpuScale[gi] !== 0) gpuScale[gi] = 0;
           continue;
         }
 
-        // Update velocity (gravity + drag)
+        // Velocity: gravity + drag
         particles.velY[gi] -= gravity * dt;
         particles.velX[gi] *= dragMult;
         particles.velY[gi] *= dragMult;
         particles.velZ[gi] *= dragMult;
 
-        // Update position
+        // Position
         particles.posX[gi] += particles.velX[gi] * dt;
         particles.posY[gi] += particles.velY[gi] * dt;
         particles.posZ[gi] += particles.velZ[gi] * dt;
 
-        // Write to GPU buffers
+        // Write GPU buffers
         gpuPos[gi * 3] = particles.posX[gi];
         gpuPos[gi * 3 + 1] = particles.posY[gi];
         gpuPos[gi * 3 + 2] = particles.posZ[gi];
 
-        const alpha = Math.min(life / particles.maxLife[gi], 1);
+        const alpha = life / particles.maxLife[gi];
         gpuColor[gi * 4] = cr;
         gpuColor[gi * 4 + 1] = cg;
         gpuColor[gi * 4 + 2] = cb;
@@ -381,10 +402,22 @@ export function ExplosionManager() {
       }
     }
 
-    // Mark GPU buffers dirty — single upload, no compute dispatch
-    posAttr.needsUpdate = true;
-    colorAttr.needsUpdate = true;
-    scaleAttr.needsUpdate = true;
+    // --- 3. PARTIAL GPU UPLOAD ---
+    if (dirtyMax > dirtyMin) {
+      const rangeCount = dirtyMax - dirtyMin;
+
+      posAttr.clearUpdateRanges();
+      posAttr.addUpdateRange(dirtyMin * 3, rangeCount * 3);
+      posAttr.needsUpdate = true;
+
+      colorAttr.clearUpdateRanges();
+      colorAttr.addUpdateRange(dirtyMin * 4, rangeCount * 4);
+      colorAttr.needsUpdate = true;
+
+      scaleAttr.clearUpdateRanges();
+      scaleAttr.addUpdateRange(dirtyMin, rangeCount);
+      scaleAttr.needsUpdate = true;
+    }
 
     frameTiming.end('Explosions');
   });
