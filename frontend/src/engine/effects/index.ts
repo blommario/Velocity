@@ -25,3 +25,6 @@ export {
 } from './useAnimation';
 export { AnimatedModel, type AnimatedModelProps } from './AnimatedModel';
 export { MuzzleFlash, triggerMuzzleFlash } from './MuzzleFlash';
+export { DecalPool, spawnDecal } from './DecalPool';
+export { EnvironmentalParticles } from './EnvironmentalParticles';
+export { PARTICLE_PRESETS, type ParticlePreset, type ParticlePresetName } from './particlePresets';

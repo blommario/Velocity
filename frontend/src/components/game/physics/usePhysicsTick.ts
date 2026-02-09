@@ -28,6 +28,8 @@ import { useCombatStore } from '../../../stores/combatStore';
 import { useReplayStore } from '../../../stores/replayStore';
 import { audioManager, SOUNDS } from '../../../engine/audio/AudioManager';
 import { useExplosionStore } from '../../../engine/effects/ExplosionEffect';
+import { spawnDecal } from '../../../engine/effects/DecalPool';
+import { nextRandom } from '../../../engine/physics/seededRandom';
 import { devLog } from '../../../engine/stores/devLogStore';
 import {
   spawnProjectile, deactivateAt, updatePositions,
@@ -423,15 +425,21 @@ export function physicsTick(
       case 'assault': {
         if (combat.fireHitscan('assault')) {
           // Spread: random offset within cone
-          const spreadX = (Math.random() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
-          const spreadY = (Math.random() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+          const spreadX = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+          const spreadY = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
           const aimX = _fireDir.x + spreadX;
           const aimY = _fireDir.y + spreadY;
           const aimZ = _fireDir.z;
           const aimLen = Math.sqrt(aimX * aimX + aimY * aimY + aimZ * aimZ);
           _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
           _reusableRay.dir.x = aimX / aimLen; _reusableRay.dir.y = aimY / aimLen; _reusableRay.dir.z = aimZ / aimLen;
-          rapierWorld.castRay(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
+          const arHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
+          if (arHit) {
+            const hx = _reusableRay.origin.x + (aimX / aimLen) * arHit.timeOfImpact;
+            const hy = _reusableRay.origin.y + (aimY / aimLen) * arHit.timeOfImpact;
+            const hz = _reusableRay.origin.z + (aimZ / aimLen) * arHit.timeOfImpact;
+            spawnDecal(hx, hy, hz, arHit.normal.x, arHit.normal.y, arHit.normal.z, 0.15, 0.1, 0.1, 0.1, 5.0);
+          }
           // Small knockback
           velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * dt;
           velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * dt;
@@ -441,17 +449,28 @@ export function physicsTick(
       }
       case 'shotgun': {
         if (combat.fireHitscan('shotgun')) {
-          // Fire multiple pellets in a cone
-          for (let i = 0; i < PHYSICS.SHOTGUN_PELLETS; i++) {
-            const sx = (Math.random() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
-            const sy = (Math.random() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+          // Fire pellets in a cone — limit physical raycasts to 4 representative rays
+          const physicalPellets = Math.min(PHYSICS.SHOTGUN_PELLETS, 4);
+          for (let i = 0; i < physicalPellets; i++) {
+            const sx = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+            const sy = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
             const px = _fireDir.x + sx;
             const py = _fireDir.y + sy;
             const pz = _fireDir.z;
             const pl = Math.sqrt(px * px + py * py + pz * pz);
             _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
             _reusableRay.dir.x = px / pl; _reusableRay.dir.y = py / pl; _reusableRay.dir.z = pz / pl;
-            rapierWorld.castRay(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
+            const hit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
+            if (hit) {
+              const hx = _reusableRay.origin.x + (px / pl) * hit.timeOfImpact;
+              const hy = _reusableRay.origin.y + (py / pl) * hit.timeOfImpact;
+              const hz = _reusableRay.origin.z + (pz / pl) * hit.timeOfImpact;
+              spawnDecal(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, 0.3, 0.1, 0.1, 0.1, 6.0);
+            }
+          }
+          // Consume remaining PRNG values to keep determinism regardless of pellet cap
+          for (let i = physicalPellets; i < PHYSICS.SHOTGUN_PELLETS; i++) {
+            nextRandom(); nextRandom();
           }
           // Strong self-knockback (shotgun jump!)
           velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
@@ -505,7 +524,7 @@ export function physicsTick(
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
       // Raycast margin: at least projectile radius to catch near-contact hits
-      const hit = rapierWorld.castRay(_reusableRay, travelDist + PHYSICS.ROCKET_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
+      const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + PHYSICS.ROCKET_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         _hitPos[0] = p.posX + dirX * hit.timeOfImpact;
@@ -523,6 +542,7 @@ export function physicsTick(
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
         useExplosionStore.getState().spawnExplosion(_hitPos, '#ff6600', 8.0);
+        spawnDecal(_hitPos[0], _hitPos[1], _hitPos[2], hit.normal.x, hit.normal.y, hit.normal.z, 2.0, 0.08, 0.05, 0.03);
         deactivateAt(i);
         devLog.info('Combat', `Rocket exploded at [${_hitPos[0].toFixed(1)}, ${_hitPos[1].toFixed(1)}, ${_hitPos[2].toFixed(1)}] dmg=${damage.toFixed(0)}`);
       }
@@ -542,6 +562,7 @@ export function physicsTick(
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
         useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 3.5);
+        spawnDecal(_gPos[0], _gPos[1], _gPos[2], 0, 1, 0, 1.5, 0.05, 0.12, 0.04);
         deactivateAt(i);
         continue;
       }
@@ -575,6 +596,7 @@ export function physicsTick(
           }
           audioManager.play(SOUNDS.GRENADE_EXPLODE);
           useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 3.5);
+          spawnDecal(_gPos[0], _gPos[1], _gPos[2], hit.normal.x, hit.normal.y, hit.normal.z, 1.5, 0.05, 0.12, 0.04);
           deactivateAt(i);
         } else {
           // Reflect velocity off surface normal — mutate in-place, zero GC

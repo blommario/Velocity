@@ -103,17 +103,18 @@
 **Förutsättning:** Ingen
 
 ### N1 — Decal System
-- 🔲 `engine/effects/DecalPool.tsx` — poolad decal-manager (max ~64 aktiva)
-- 🔲 Mesh-baserad decal projection (Three.js `DecalGeometry` eller TSL-baserad)
-- 🔲 Input: position, normal, size, texture/color, lifetime
-- 🔲 Auto-fade + recycle äldsta vid pool exhaustion
+- ✅ `engine/effects/DecalPool.tsx` — poolad decal-manager (64 aktiva, ring-buffer)
+- ✅ Instanced PlaneGeometry med instancedDynamicBufferAttribute (1 draw call)
+- ✅ Input: position, normal, size, color, lifetime via `spawnDecal()` trigger
+- ✅ Auto-fade (sista 2s) + ring-buffer recycle äldsta vid pool exhaustion
+- ✅ Integrerad i `usePhysicsTick.ts` — rocket/grenade impacts spawnar decals
 
 ### N2 — Particle Presets
-- 🔲 `engine/effects/particlePresets.ts` — konfigurationsobjekt per partikeltyp
-- 🔲 Presets: `smoke`, `sparks`, `dust`, `debris`, `trail`, `ambient` (snö/ash/pollen)
-- 🔲 Varje preset: count, lifetime, speed, spread, gravity, color, blend mode, sprite
-- 🔲 Återanvänder GpuParticles-systemet med preset som input
-- 🔲 `engine/effects/EnvironmentalParticles.tsx` — komponent för ambient particles (prop-driven)
+- ✅ `engine/effects/particlePresets.ts` — konfigurationsobjekt per partikeltyp
+- ✅ Presets: `smoke`, `sparks`, `dust`, `debris`, `trail`, `snow`, `ash`, `pollen`
+- ✅ Varje preset: count, lifetime, speed, spread, gravity, color, drag, spriteSize, direction
+- ✅ `engine/effects/EnvironmentalParticles.tsx` — GPU compute ambient particles (prop-driven)
+- ✅ Följer kamera, TSL compute med gravity/drag/wind, automatisk respawn
 
 ---
 

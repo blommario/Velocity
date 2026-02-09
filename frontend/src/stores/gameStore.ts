@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { MapData } from '../components/game/map/types';
 import { useReplayStore } from './replayStore';
+import { seedRandom } from '../engine/physics/seededRandom';
 
 export const SCREENS = {
   MAIN_MENU: 'mainMenu',
@@ -233,6 +234,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   startRun: () => {
     const state = get();
     if (state.runState !== RUN_STATES.READY) return;
+    // Seed PRNG deterministically so replays produce identical weapon spread
+    seedRandom(state.totalCheckpoints * 7919 + (state.spawnPoint[0] * 31 | 0));
     useReplayStore.getState().startRecording();
     set({
       runState: RUN_STATES.RUNNING,
