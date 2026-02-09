@@ -94,7 +94,7 @@ export function EndRunModal() {
           <button
             onClick={() => {
               resetRun();
-              document.querySelector('canvas')?.requestPointerLock();
+              document.querySelector('canvas')?.requestPointerLock?.()?.catch?.(() => {});
             }}
             className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded transition-colors cursor-pointer"
           >
@@ -111,7 +111,7 @@ export function EndRunModal() {
                     const replay = deserializeReplay(res.replayDataJson);
                     useReplayStore.getState().loadGhost(replay);
                     resetRun();
-                    document.querySelector('canvas')?.requestPointerLock();
+                    document.querySelector('canvas')?.requestPointerLock?.()?.catch?.(() => {});
                   })
                   .catch(() => setLoadingGhost(false));
               }}

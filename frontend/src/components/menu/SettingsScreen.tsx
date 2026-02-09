@@ -145,6 +145,14 @@ function VideoSettings() {
   const setSpeedLines = useSettingsStore((s) => s.setSpeedLines);
   const screenShake = useSettingsStore((s) => s.screenShake);
   const setScreenShake = useSettingsStore((s) => s.setScreenShake);
+  const ssao = useSettingsStore((s) => s.ssao);
+  const setSsao = useSettingsStore((s) => s.setSsao);
+  const colorGrading = useSettingsStore((s) => s.colorGrading);
+  const setColorGrading = useSettingsStore((s) => s.setColorGrading);
+  const filmGrain = useSettingsStore((s) => s.filmGrain);
+  const setFilmGrain = useSettingsStore((s) => s.setFilmGrain);
+  const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
+  const setChromaticAberration = useSettingsStore((s) => s.setChromaticAberration);
 
   return (
     <div className="space-y-4">
@@ -165,6 +173,14 @@ function VideoSettings() {
       <ToggleSetting label="Particles" value={particles} onChange={setParticles} />
       <ToggleSetting label="Speed Lines" value={speedLines} onChange={setSpeedLines} />
       <ToggleSetting label="Screen Shake" value={screenShake} onChange={setScreenShake} />
+
+      <div className="pt-4">
+        <SubSectionTitle>Post-Processing</SubSectionTitle>
+      </div>
+      <ToggleSetting label="SSAO" value={ssao} onChange={setSsao} />
+      <ToggleSetting label="Color Grading" value={colorGrading} onChange={setColorGrading} />
+      <ToggleSetting label="Film Grain" value={filmGrain} onChange={setFilmGrain} />
+      <ToggleSetting label="Chromatic Aberration" value={chromaticAberration} onChange={setChromaticAberration} />
     </div>
   );
 }
@@ -271,6 +287,11 @@ function KeyBindSettings() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
+      if (e.code === 'Escape') {
+        setRebinding(null);
+        return;
+      }
+      // Conflict resolution (swap) is handled inside settingsStore.setKeyBinding
       setKeyBinding(rebinding, e.code);
       setRebinding(null);
     };

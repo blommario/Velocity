@@ -157,18 +157,25 @@ export function useFogOfWar({
     devLog.success('FogOfWar', `GPU path: ${merged.gridSize}×${merged.gridSize} ray march (${resources.totalCells} cells)`);
 
     // Async warmup: compile compute pipeline — gpuReadyRef gates useFrame dispatch
+    let mounted = true;
     const warmup = async () => {
       try {
         await renderer.computeAsync(resources.computeRayMarch);
+        if (!mounted) return;
         gpuReadyRef.current = true;
         devLog.success('FogOfWar', 'Compute pipeline compiled');
       } catch (err) {
+        if (!mounted) return;
         devLog.error('FogOfWar', `Compute warmup failed: ${err}`);
       }
     };
     warmup();
 
     return () => {
+      mounted = false;
+      // Dispose GPU storage buffers to free VRAM
+      resources.heightmapBuffer.value?.dispose?.();
+      resources.visibilityBuffer.value?.dispose?.();
       gpuResourcesRef.current = null;
       gpuReadyRef.current = false;
       gridRef.current = null;
@@ -222,12 +229,17 @@ export function useFogOfWar({
     // GPU visibility buffer resets on next compute dispatch via the "outside totalRadius" logic
   }, []);
 
-  return {
-    fogTexture: !isGpuPath ? textureRef.current : null,
-    fogComputeResources: isGpuPath ? gpuResourcesRef.current : null,
-    fogUniforms: uniformsRef.current,
-    fogGrid: gridRef.current,
+  const fogTexture = !isGpuPath ? textureRef.current : null;
+  const fogComputeResources = isGpuPath ? gpuResourcesRef.current : null;
+  const fogUniforms = uniformsRef.current;
+  const fogGrid = gridRef.current;
+
+  return useMemo(() => ({
+    fogTexture,
+    fogComputeResources,
+    fogUniforms,
+    fogGrid,
     isGpuPath,
     reset,
-  };
+  }), [fogTexture, fogComputeResources, fogUniforms, fogGrid, isGpuPath, reset]);
 }

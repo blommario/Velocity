@@ -32,16 +32,13 @@ const FOV_SCALING = {
   LERP_SPEED: 5,
 } as const;
 
-// Pre-allocated view position tuple (mutated in-place, no GC)
-const _fogViewPos: [number, number, number] = [0, 0, 0];
-
 /** Wraps PostProcessingEffects with optional fog-of-war driven by camera position. */
 function ScenePostProcessing({ fogConfig, blocks }: {
   fogConfig?: Partial<FogOfWarConfig>;
   blocks?: ReadonlyArray<MapBlock>;
 }) {
   const { camera } = useThree();
-  const camPosRef = useRef(_fogViewPos);
+  const camPosRef = useRef<[number, number, number]>([0, 0, 0]);
 
   // Update pre-allocated tuple from camera each frame (before useFogOfWar reads it)
   useFrame(() => {
@@ -58,11 +55,21 @@ function ScenePostProcessing({ fogConfig, blocks }: {
     blocks,
   });
 
+  // PostFX settings from store
+  const ssao = useSettingsStore((s) => s.ssao);
+  const colorGrading = useSettingsStore((s) => s.colorGrading);
+  const filmGrain = useSettingsStore((s) => s.filmGrain);
+  const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
+
   return (
     <PostProcessingEffects
       fogTexture={fogTexture}
       fogComputeResources={fogComputeResources}
       fogUniforms={fogUniforms}
+      ssaoEnabled={ssao}
+      colorGradingEnabled={colorGrading}
+      filmGrainEnabled={filmGrain}
+      chromaticAberrationEnabled={chromaticAberration}
     />
   );
 }
@@ -112,7 +119,13 @@ export function GameCanvas() {
             canvas: props.canvas as HTMLCanvasElement,
             antialias: true,
           });
-          await renderer.init();
+
+          try {
+            await renderer.init();
+          } catch (err) {
+            devLog.error('Renderer', `WebGPU init failed: ${err}`);
+            throw err;
+          }
 
           // Monitor GPU device loss (OOM, driver crash, TDR, etc.)
           const device = renderer.backend.device as GPUDevice | undefined;
@@ -132,7 +145,7 @@ export function GameCanvas() {
         camera={{ fov, near: 0.1, far: 1000 }}
         shadows
         onPointerDown={(e) => {
-          (e.target as HTMLCanvasElement).requestPointerLock();
+          (e.target as HTMLCanvasElement).requestPointerLock?.()?.catch?.(() => {});
         }}
       >
         <DynamicFov />

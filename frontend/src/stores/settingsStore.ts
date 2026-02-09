@@ -60,6 +60,12 @@ interface SettingsState {
   speedLines: boolean;
   screenShake: boolean;
 
+  // Post-Processing
+  ssao: boolean;
+  colorGrading: boolean;
+  filmGrain: boolean;
+  chromaticAberration: boolean;
+
   // Audio
   masterVolume: number;
   sfxVolume: number;
@@ -122,6 +128,10 @@ interface SettingsState {
   setRtsZoomSpeed: (v: number) => void;
   setRtsRotateSpeed: (v: number) => void;
   setRtsEdgeScrollEnabled: (b: boolean) => void;
+  setSsao: (b: boolean) => void;
+  setColorGrading: (b: boolean) => void;
+  setFilmGrain: (b: boolean) => void;
+  setChromaticAberration: (b: boolean) => void;
   setKeyBinding: (action: string, key: string) => void;
   resetKeyBindings: () => void;
   resetAll: () => void;
@@ -136,6 +146,10 @@ const DEFAULT_STATE = {
   particles: true,
   speedLines: true,
   screenShake: true,
+  ssao: true,
+  colorGrading: true,
+  filmGrain: false,
+  chromaticAberration: false,
   masterVolume: 0.8,
   sfxVolume: 0.8,
   musicVolume: 0.5,
@@ -174,6 +188,10 @@ export const useSettingsStore = create<SettingsState>()(
       setParticles: (particles) => set({ particles }),
       setSpeedLines: (speedLines) => set({ speedLines }),
       setScreenShake: (screenShake) => set({ screenShake }),
+      setSsao: (ssao) => set({ ssao }),
+      setColorGrading: (colorGrading) => set({ colorGrading }),
+      setFilmGrain: (filmGrain) => set({ filmGrain }),
+      setChromaticAberration: (chromaticAberration) => set({ chromaticAberration }),
       setMasterVolume: (masterVolume) => set({ masterVolume }),
       setSfxVolume: (sfxVolume) => set({ sfxVolume }),
       setMusicVolume: (musicVolume) => set({ musicVolume }),
@@ -192,9 +210,18 @@ export const useSettingsStore = create<SettingsState>()(
       setRtsZoomSpeed: (rtsZoomSpeed) => set({ rtsZoomSpeed }),
       setRtsRotateSpeed: (rtsRotateSpeed) => set({ rtsRotateSpeed }),
       setRtsEdgeScrollEnabled: (rtsEdgeScrollEnabled) => set({ rtsEdgeScrollEnabled }),
-      setKeyBinding: (action, key) => set((s) => ({
-        keyBindings: { ...s.keyBindings, [action]: key },
-      })),
+      setKeyBinding: (action, newKey) => set((s) => {
+        const bindings = { ...s.keyBindings, [action]: newKey };
+        // Swap: if another action already uses this key, give it the old key
+        const oldKey = s.keyBindings[action];
+        const conflicting = Object.keys(s.keyBindings).find(
+          (a) => a !== action && s.keyBindings[a] === newKey,
+        );
+        if (conflicting) {
+          bindings[conflicting] = oldKey;
+        }
+        return { keyBindings: bindings };
+      }),
       resetKeyBindings: () => set({ keyBindings: { ...DEFAULT_KEY_BINDINGS } }),
       resetAll: () => set({ ...DEFAULT_STATE }),
     }),
@@ -209,6 +236,10 @@ export const useSettingsStore = create<SettingsState>()(
         particles: state.particles,
         speedLines: state.speedLines,
         screenShake: state.screenShake,
+        ssao: state.ssao,
+        colorGrading: state.colorGrading,
+        filmGrain: state.filmGrain,
+        chromaticAberration: state.chromaticAberration,
         masterVolume: state.masterVolume,
         sfxVolume: state.sfxVolume,
         musicVolume: state.musicVolume,

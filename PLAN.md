@@ -81,19 +81,19 @@
 **Förutsättning:** Ingen (men bäst efter K då SSAO drar nytta av depth/normals)
 
 ### M1 — SSAO (Screen-Space Ambient Occlusion)
-- 🔲 Använd `GTAONode` från `three/addons` (WebGPU-ready)
-- 🔲 Lägg till MRT `normalView` output från scenePass i `PostProcessingEffects.tsx`
-- 🔲 Kopplad till `settingsStore` toggle (`ssao: boolean`)
+- ✅ Använd `GTAONode` från `three/addons` (WebGPU-ready)
+- ✅ Lägg till MRT `normalView` output från scenePass i `PostProcessingEffects.tsx`
+- ✅ Kopplad till `settingsStore` toggle (`ssao: boolean`)
 
 ### M2 — Color Grading & Film Effects
-- 🔲 Color grading via TSL: exposure, contrast, saturation, color temperature
-- 🔲 Valfri chromatic aberration (TSL UV offset per kanal)
-- 🔲 Valfri film grain (TSL noise)
-- 🔲 Alla effekter toggle-bara via settingsStore
+- ✅ Color grading via TSL: exposure, contrast, saturation, color temperature
+- ✅ Valfri chromatic aberration (TSL UV offset per kanal)
+- ✅ Valfri film grain (TSL noise)
+- ✅ Alla effekter toggle-bara via settingsStore
 
 ### M3 — PostFX Settings
-- 🔲 Utöka `stores/settingsStore.ts` — `ssao`, `colorGrading`, `filmGrain`, `chromaticAberration` booleans
-- 🔲 Koppla till kvalitetspreset (ultra → alla på, low → alla av)
+- ✅ Utöka `stores/settingsStore.ts` — `ssao`, `colorGrading`, `filmGrain`, `chromaticAberration` booleans
+- ✅ Koppla till kvalitetspreset (ultra → alla på, low → alla av)
 
 ---
 
