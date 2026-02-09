@@ -16,6 +16,9 @@ import { ProceduralSkybox } from './ProceduralSkybox';
 import { InstancedBlocks } from './map/InstancedBlocks';
 import { GpuLightSprites } from '../../engine/effects/GpuLightSprites';
 import { useShadowLight } from '../../engine/rendering';
+import { WaterSurface } from './environment/WaterSurface';
+import { FogVolume } from './environment/FogVolume';
+import { ParticleEmitter } from './environment/ParticleEmitter';
 import { useGameStore } from '../../stores/gameStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useCombatStore } from '../../stores/combatStore';
@@ -310,6 +313,72 @@ export function TestMap() {
       {/* ── Environment ── */}
       <ProceduralSkybox type="night" />
       <AtmosphericFog color={BACKGROUND_COLOR} near={100} far={300} />
+
+      {/* ── Environment Effects Demo (O2) ── */}
+      {/* Water pool */}
+      <WaterSurface data={{
+        position: [30, -0.3, 30],
+        size: [20, 20],
+        type: 'water',
+        flowDirection: [0.7, 0.3],
+        flowSpeed: 0.8,
+        waveHeight: 0.25,
+      }} />
+
+      {/* Lava pit */}
+      <WaterSurface data={{
+        position: [-40, -0.2, -30],
+        size: [12, 12],
+        type: 'lava',
+        waveHeight: 0.15,
+        waveScale: 3.0,
+        flowSpeed: 0.4,
+      }} />
+
+      {/* Fog volume (ground mist) */}
+      <FogVolume data={{
+        position: [30, 2, 30],
+        shape: 'box',
+        size: [12, 4, 12],
+        color: '#aaccee',
+        density: 0.35,
+        heightFalloff: 0.8,
+      }} />
+
+      {/* Fog sphere (mystic orb) */}
+      <FogVolume data={{
+        position: [-15, 6, 30],
+        shape: 'sphere',
+        size: [5, 5, 5],
+        color: '#aa66ff',
+        density: 0.5,
+      }} />
+
+      {/* Smoke emitter near lava */}
+      <ParticleEmitter data={{
+        position: [-40, 0.5, -30],
+        preset: 'smoke',
+        count: 64,
+        spread: 5,
+        wind: [0.3, 0, 0.1],
+      }} />
+
+      {/* Sparks emitter at corridor */}
+      <ParticleEmitter data={{
+        position: [50.5, 4, 5],
+        preset: 'sparks',
+        count: 24,
+        spread: 0.5,
+      }} />
+
+      {/* Ash emitter over lava */}
+      <ParticleEmitter data={{
+        position: [-40, 3, -30],
+        preset: 'ash',
+        count: 96,
+        spread: 8,
+        color: '#ff6622',
+      }} />
     </group>
   );
 }

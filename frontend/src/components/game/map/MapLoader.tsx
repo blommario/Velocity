@@ -19,6 +19,9 @@ import { useClusteredLighting, useTileClusteredLighting, useShadowLight, type Li
 import { InstancedBlocks } from './InstancedBlocks';
 import { InstancedSurfRamps } from './InstancedSurfRamps';
 import { ModelBlock } from './ModelBlock';
+import { WaterSurface } from '../environment/WaterSurface';
+import { FogVolume } from '../environment/FogVolume';
+import { ParticleEmitter } from '../environment/ParticleEmitter';
 import { useGameStore } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
@@ -227,6 +230,21 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       {/* Moving platforms */}
       {data.movingPlatforms?.map((mp, i) => (
         <MovingPlatformRenderer key={`mp-${i}`} platform={mp} />
+      ))}
+
+      {/* Water/lava surfaces */}
+      {data.waterSurfaces?.map((ws, i) => (
+        <WaterSurface key={`ws-${i}`} data={ws} />
+      ))}
+
+      {/* Volumetric fog volumes */}
+      {data.fogVolumes?.map((fv, i) => (
+        <FogVolume key={`fv-${i}`} data={fv} />
+      ))}
+
+      {/* Particle emitters (smoke, fire, ash, etc.) */}
+      {data.particleEmitters?.map((pe, i) => (
+        <ParticleEmitter key={`pe-${i}`} data={pe} />
       ))}
 
       {/* Lighting */}

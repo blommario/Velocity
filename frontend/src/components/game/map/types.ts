@@ -7,6 +7,9 @@ import type {
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
   ProceduralMaterialType, EmissiveAnimation, BlendMode,
+  WaterSurfaceData, WaterSurfaceType,
+  FogVolumeData, FogVolumeShape,
+  ParticleEmitterData, ParticleEmitterPreset,
 } from '../../../engine/types/map';
 import type { FogOfWarConfig } from '../../../engine/effects/FogOfWar';
 
@@ -18,6 +21,9 @@ export type {
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
   ProceduralMaterialType, EmissiveAnimation, BlendMode,
+  WaterSurfaceData, WaterSurfaceType,
+  FogVolumeData, FogVolumeShape,
+  ParticleEmitterData, ParticleEmitterPreset,
 };
 
 // ── Game-specific types ──
@@ -59,4 +65,10 @@ export interface MapData {
   backgroundColor?: Color;
   /** Optional fog-of-war configuration. Omit to disable. */
   fogOfWar?: Partial<FogOfWarConfig>;
+  /** Water/lava surfaces */
+  waterSurfaces?: WaterSurfaceData[];
+  /** Volumetric fog volumes */
+  fogVolumes?: FogVolumeData[];
+  /** Particle emitters (smoke, fire, ash, etc.) */
+  particleEmitters?: ParticleEmitterData[];
 }

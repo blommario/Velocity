@@ -15,10 +15,10 @@
 - ✅ Emissive material stöd — glow-block typ (neon strips, warning lights)
 - ✅ Texture blending — TSL blend mellan two texture sets baserat på height/mask
 
-### O2 — Miljöeffekter
-- 🔲 Vatten/lava-yta — TSL animated plane med refraktion, flow-direction, vertex displacement
-- 🔲 Volumetrisk dimma — TSL ray march fog volumes (box/sphere), depth-baserad density
-- 🔲 Rök/eld-emitters — använda particlePresets (smoke/ash) med trigger-zoner i MapData
+### O2 — Miljöeffekter ✅
+- ✅ Vatten/lava-yta — TSL animated plane med refraktion, flow-direction, vertex displacement
+- ✅ Volumetrisk dimma — TSL ray march fog volumes (box/sphere), depth-baserad density
+- ✅ Rök/eld-emitters — använda particlePresets (smoke/ash) med trigger-zoner i MapData
 
 ### O3 — Motion Blur & DoF
 - 🔲 Per-object motion blur via velocity buffer — TSL passNode med previousModelMatrix

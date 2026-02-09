@@ -113,6 +113,48 @@ export interface MovingPlatformData {
   pauseTime?: number;
 }
 
+// ── Environment effects ──
+
+export type WaterSurfaceType = 'water' | 'lava';
+
+export interface WaterSurfaceData {
+  position: Vec3;
+  size: [number, number];  // [width, depth] — plane is horizontal
+  type: WaterSurfaceType;
+  color?: Color;
+  flowDirection?: [number, number];  // [x, z] normalized flow
+  flowSpeed?: number;               // default 1.0
+  waveHeight?: number;              // vertex displacement amplitude, default 0.3
+  waveScale?: number;               // wave frequency, default 2.0
+  opacity?: number;                 // default 0.7 for water, 0.9 for lava
+}
+
+export type FogVolumeShape = 'box' | 'sphere';
+
+export interface FogVolumeData {
+  position: Vec3;
+  shape: FogVolumeShape;
+  size: Vec3;           // box half-extents or [radius, radius, radius] for sphere
+  color?: Color;
+  density?: number;     // 0-1, default 0.5
+  heightFalloff?: number; // density fades toward top, default 0.0 (uniform)
+}
+
+export type ParticleEmitterPreset = 'smoke' | 'sparks' | 'ash' | 'dust' | 'trail' | 'snow' | 'pollen';
+
+export interface ParticleEmitterData {
+  position: Vec3;
+  preset: ParticleEmitterPreset;
+  /** Override particle count (defaults to preset value) */
+  count?: number;
+  /** Override spread radius (defaults to preset value) */
+  spread?: number;
+  /** Wind applied to particles [x, y, z] */
+  wind?: Vec3;
+  /** Color override (hex) */
+  color?: Color;
+}
+
 // ── Lighting & Environment ──
 export type ProceduralSkyboxType = 'day' | 'sunset' | 'night' | 'neon' | 'sky';
 export type SkyboxType = ProceduralSkyboxType | `hdri:${string}`;
