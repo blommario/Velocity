@@ -210,10 +210,10 @@ export function applyGrappleSwing(
 const _explosionDir = new Vector3();
 
 /** Max velocity delta from a single explosion — prevents tunneling through walls */
-const MAX_KNOCKBACK_DELTA = 400;
+const MAX_KNOCKBACK_DELTA = 250;
 
 /** Minimum upward velocity when grounded and hit by an explosion (ungrounds the player). */
-const EXPLOSION_MIN_UPLIFT = 120;
+const EXPLOSION_MIN_UPLIFT = 80;
 
 /**
  * Apply explosion knockback to player.

@@ -5,6 +5,7 @@ import { seedRandom } from '../engine/physics/seededRandom';
 
 export const SCREENS = {
   MAIN_MENU: 'mainMenu',
+  LOADING: 'loading',
   PLAYING: 'playing',
   PAUSED: 'paused',
   MAP_EDITOR: 'mapEditor',
@@ -93,6 +94,10 @@ interface GameState {
   respawnFadeOpacity: number;  // 0 = clear, 1 = black
   deathFlashOpacity: number;   // 0 = clear, 1 = red vignette
 
+  // Loading
+  loadProgress: number;        // 0–1
+  loadStatus: string;
+
   // Actions
   setScreen: (screen: Screen) => void;
   loadMap: (mapId: string, mapData: MapData) => void;
@@ -123,6 +128,10 @@ interface GameState {
   triggerDeathFlash: () => void;
   triggerRespawnFade: () => void;
   tickScreenEffects: (dt: number) => void;
+
+  // Loading
+  setLoadProgress: (progress: number, status: string) => void;
+  finishLoading: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -159,6 +168,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   shakeIntensity: 0,
   respawnFadeOpacity: 0,
   deathFlashOpacity: 0,
+  loadProgress: 0,
+  loadStatus: '',
 
   setScreen: (screen) => set({ screen }),
 
@@ -168,7 +179,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       currentMapId: mapId,
       currentMapData: mapData,
-      screen: SCREENS.PLAYING,
+      screen: SCREENS.LOADING,
+      loadProgress: 0,
+      loadStatus: 'Initializing graphics...',
       // Pre-set spawn so PlayerController creates RigidBody at correct position
       spawnPoint: mapData.spawnPoint,
       spawnYaw: yaw,
@@ -181,7 +194,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   playTestMap: () => set({
     currentMapId: null,
     currentMapData: null,
-    screen: SCREENS.PLAYING,
+    screen: SCREENS.LOADING,
+    loadProgress: 0,
+    loadStatus: 'Initializing graphics...',
   }),
 
   updateHud: (speed, position, isGrounded) => {
@@ -344,6 +359,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerShake: (intensity) => set({ shakeIntensity: Math.min(intensity, 1) }),
   clearShake: () => set({ shakeIntensity: 0 }),
+
+  setLoadProgress: (progress, status) => set({ loadProgress: progress, loadStatus: status }),
+  finishLoading: () => set({ screen: SCREENS.PLAYING, loadProgress: 1, loadStatus: 'Ready' }),
 
   triggerDeathFlash: () => set({ deathFlashOpacity: 1 }),
   triggerRespawnFade: () => set({ respawnFadeOpacity: 1 }),

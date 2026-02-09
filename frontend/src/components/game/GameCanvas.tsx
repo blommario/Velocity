@@ -109,6 +109,59 @@ function DynamicFov() {
   return null;
 }
 
+/**
+ * Waits for the rendering pipeline to stabilise before dismissing the loading screen.
+ * WebGPU compiles shader pipelines lazily on first use — the first few frames stutter
+ * heavily while the GPU driver builds PSOs. We keep the loading overlay up until
+ * frametime drops below a threshold for several consecutive frames.
+ */
+const STABLE_FRAME_MS = 18;     // frametime must be below this …
+const STABLE_FRAMES_NEEDED = 20; // … for this many consecutive frames
+const MIN_WARMUP_FRAMES = 40;   // always render at least this many frames first
+const FALLBACK_TIMEOUT_MS = 8000; // bail out after 8s no matter what
+
+function ReadySignal() {
+  const frameCount = useRef(0);
+  const stableCount = useRef(0);
+  const startTime = useRef(performance.now());
+  const fired = useRef(false);
+
+  useFrame((_, delta) => {
+    if (fired.current) return;
+
+    frameCount.current++;
+    const elapsed = performance.now() - startTime.current;
+    const frameMs = delta * 1000;
+
+    // Update progress smoothly while warming up
+    const warmupProgress = Math.min(frameCount.current / MIN_WARMUP_FRAMES, 1);
+    const progress = 0.8 + warmupProgress * 0.15; // 80% → 95%
+    useGameStore.getState().setLoadProgress(progress, 'Compiling shaders...');
+
+    // Don't evaluate stability until minimum frames rendered
+    if (frameCount.current < MIN_WARMUP_FRAMES) return;
+
+    // Count consecutive stable frames
+    if (frameMs < STABLE_FRAME_MS) {
+      stableCount.current++;
+    } else {
+      stableCount.current = 0;
+    }
+
+    // Ready when stable enough or timeout reached
+    if (stableCount.current >= STABLE_FRAMES_NEEDED || elapsed > FALLBACK_TIMEOUT_MS) {
+      fired.current = true;
+      useGameStore.getState().setLoadProgress(1, 'Ready');
+      // One more rAF to let the final progress render
+      requestAnimationFrame(() => {
+        useGameStore.getState().finishLoading();
+      });
+    }
+  });
+
+  return null;
+}
+
 export function GameCanvas() {
   const fov = useSettingsStore((s) => s.fov);
   const mapData = useGameStore((s) => s.currentMapData);
@@ -118,6 +171,7 @@ export function GameCanvas() {
     <div className="w-screen h-screen relative select-none">
       <Canvas
         gl={async (props) => {
+          useGameStore.getState().setLoadProgress(0.1, 'Initializing graphics...');
           devLog.info('Renderer', 'Creating WebGPURenderer...');
           const renderer = new WebGPURenderer({
             canvas: props.canvas as HTMLCanvasElement,
@@ -130,6 +184,8 @@ export function GameCanvas() {
             devLog.error('Renderer', `WebGPU init failed: ${err}`);
             throw err;
           }
+
+          useGameStore.getState().setLoadProgress(0.4, 'Setting up physics...');
 
           // Monitor GPU device loss (OOM, driver crash, TDR, etc.)
           const device = renderer.backend.device as GPUDevice | undefined;
@@ -144,6 +200,7 @@ export function GameCanvas() {
           const aniso = renderer.getMaxAnisotropy();
           setMaxAnisotropy(aniso);
           devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name}, anisotropy=${aniso})`);
+          useGameStore.getState().setLoadProgress(0.6, 'Loading map...');
           return renderer;
         }}
         camera={{ fov, near: 0.1, far: 1000 }}
@@ -152,6 +209,7 @@ export function GameCanvas() {
           (e.target as HTMLCanvasElement).requestPointerLock?.()?.catch?.(() => {});
         }}
       >
+        <ReadySignal />
         <DynamicFov />
         <ScreenShake
           getIntensity={() => useGameStore.getState().shakeIntensity}

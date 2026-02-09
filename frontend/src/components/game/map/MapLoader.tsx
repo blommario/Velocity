@@ -68,6 +68,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       data.settings?.maxGrenadeAmmo ?? 3,
     );
     devLog.success('Map', `Map loaded — spawn at [${data.spawnPoint.map(v => v.toFixed(0)).join(', ')}]`);
+    useGameStore.getState().setLoadProgress(0.8, 'Compiling shaders...');
 
     return () => {
       clearAssetCache();

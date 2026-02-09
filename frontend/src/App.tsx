@@ -6,6 +6,7 @@ import { MapEditor } from './components/editor/MapEditor';
 import { SettingsScreen } from './components/menu/SettingsScreen';
 import { RaceLobby } from './components/menu/RaceLobby';
 import { PlayerProfile } from './components/menu/PlayerProfile';
+import { LoadingScreen } from './components/menu/LoadingScreen';
 import { useGameStore, SCREENS } from './stores/gameStore';
 import { useAuthStore } from './stores/authStore';
 
@@ -36,8 +37,14 @@ function App() {
       return <RaceLobby />;
     case SCREENS.PROFILE:
       return <PlayerProfile />;
+    case SCREENS.LOADING:
     case SCREENS.PLAYING:
-      return <GameCanvas />;
+      return (
+        <>
+          <GameCanvas />
+          {screen === SCREENS.LOADING && <LoadingScreen />}
+        </>
+      );
     default:
       return <GameCanvas />;
   }

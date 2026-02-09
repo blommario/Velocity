@@ -3,27 +3,27 @@ export const ENGINE_PHYSICS = {
   TICK_RATE: 128,
   TICK_DELTA: 1 / 128,
 
-  // Movement — tuned for snappy feel (higher accel than Quake defaults)
-  GROUND_ACCEL: 15,
-  GROUND_DECEL: 10,
-  GROUND_MAX_SPEED: 320,
-  AIR_ACCEL: 12,
-  AIR_SPEED_CAP: 30,
+  // Movement — balanced for readable speed + strafe-jump growth
+  GROUND_ACCEL: 7,
+  GROUND_DECEL: 6,
+  GROUND_MAX_SPEED: 140,
+  AIR_ACCEL: 5,
+  AIR_SPEED_CAP: 24,
   GROUND_FRICTION: 6.0,
-  STOP_SPEED: 100,
-  MAX_SPEED: 2500,
+  STOP_SPEED: 80,
+  MAX_SPEED: 1200,
   MAX_DISPLACEMENT_PER_STEP: 2,
 
-  // Jumping — peak height = v²/(2g) → 150²/1600 ≈ 14 units
-  JUMP_FORCE: 150,
-  JUMP_FORCE_MIN: 80,             // tap-jump minimum
+  // Jumping — peak height = v²/(2g) → 120²/1000 ≈ 14.4 units (similar height, floatier arc)
+  JUMP_FORCE: 120,
+  JUMP_FORCE_MIN: 60,             // tap-jump minimum
   JUMP_BUFFER_MS: 80,             // pre-land buffer
   JUMP_RELEASE_WINDOW_MS: 100,    // ms after jump where releasing cuts velocity
   COYOTE_TIME_MS: 100,            // grace period to jump after leaving ground
 
-  // Gravity — 800 u/s² gives snappy Quake-like falls at meter scale
-  GRAVITY: 800,
-  GRAVITY_JUMP_RELEASE: 1400,     // extra gravity when jump released early (snappy descent)
+  // Gravity — 500 u/s² gives floatier jumps with good air control
+  GRAVITY: 500,
+  GRAVITY_JUMP_RELEASE: 900,      // extra gravity when jump released early
 
   // Player capsule
   PLAYER_RADIUS: 0.4,
@@ -34,8 +34,8 @@ export const ENGINE_PHYSICS = {
 
   // Crouch sliding
   CROUCH_FRICTION: 1.2,
-  CROUCH_SLIDE_MIN_SPEED: 150,
-  CROUCH_SLIDE_BOOST: 60,
+  CROUCH_SLIDE_MIN_SPEED: 100,
+  CROUCH_SLIDE_BOOST: 40,
 
   // Collision
   STAIR_STEP_HEIGHT: 0.45,
@@ -47,12 +47,12 @@ export const ENGINE_PHYSICS = {
   DEFAULT_SENSITIVITY: 0.002,
 
   // Wall running
-  WALL_RUN_MIN_SPEED: 200,
+  WALL_RUN_MIN_SPEED: 130,
   WALL_RUN_MAX_DURATION: 1.5,
   WALL_RUN_SPEED_PRESERVATION: 0.9,
   WALL_RUN_GRAVITY_MULT: 0.15,
-  WALL_RUN_JUMP_FORCE_NORMAL: 250,
-  WALL_RUN_JUMP_FORCE_UP: 200,
+  WALL_RUN_JUMP_FORCE_NORMAL: 180,
+  WALL_RUN_JUMP_FORCE_UP: 150,
   WALL_RUN_DETECTION_DIST: 0.8,
   WALL_RUN_MIN_HEIGHT: 1.0,
 
@@ -62,21 +62,21 @@ export const ENGINE_PHYSICS = {
   SURF_FRICTION: 0,
 
   // Boost pads
-  BOOST_PAD_DEFAULT_SPEED: 400,
+  BOOST_PAD_DEFAULT_SPEED: 280,
 
   // Launch pads
-  LAUNCH_PAD_DEFAULT_SPEED: 600,
+  LAUNCH_PAD_DEFAULT_SPEED: 400,
 
   // Speed gates
-  SPEED_GATE_MULTIPLIER: 1.5,
-  SPEED_GATE_MIN_SPEED: 400,
+  SPEED_GATE_MULTIPLIER: 1.4,
+  SPEED_GATE_MIN_SPEED: 250,
 
   // Grappling hook
-  GRAPPLE_SPEED: 1200,
+  GRAPPLE_SPEED: 800,
   GRAPPLE_MAX_DISTANCE: 80,
-  GRAPPLE_PULL_FORCE: 1500,
-  GRAPPLE_SWING_GRAVITY: 600,
-  GRAPPLE_RELEASE_BOOST: 1.15,
+  GRAPPLE_PULL_FORCE: 900,
+  GRAPPLE_SWING_GRAVITY: 400,
+  GRAPPLE_RELEASE_BOOST: 1.12,
 } as const;
 
 export const DEG2RAD = Math.PI / 180;

@@ -8,7 +8,7 @@ export const PHYSICS = {
   ROCKET_SPEED: 180,
   ROCKET_RADIUS: 0.15,
   ROCKET_EXPLOSION_RADIUS: 8,   // blast radius in game units
-  ROCKET_KNOCKBACK_FORCE: 200,  // knockback force — balanced for controlled rocket jumps
+  ROCKET_KNOCKBACK_FORCE: 120,  // knockback force — toned down for controlled rocket jumps
   ROCKET_SELF_DAMAGE_MULT: 0.5,
   ROCKET_DAMAGE: 100,
   ROCKET_FIRE_COOLDOWN: 0.8, // seconds
@@ -19,7 +19,7 @@ export const PHYSICS = {
   GRENADE_FUSE_TIME: 2.5,
   GRENADE_BOUNCE_DAMPING: 0.6,
   GRENADE_EXPLOSION_RADIUS: 7,  // blast radius in game units
-  GRENADE_KNOCKBACK_FORCE: 180, // knockback force — balanced for grenade jumps
+  GRENADE_KNOCKBACK_FORCE: 110, // knockback force — toned down for grenade jumps
   GRENADE_DAMAGE: 80,
   GRENADE_FIRE_COOLDOWN: 0.6,
 
@@ -50,9 +50,9 @@ export const PHYSICS = {
   SHOTGUN_DAMAGE_PER_PELLET: 15,
   SHOTGUN_RANGE: 80,
   SHOTGUN_SPREAD: 0.1,          // radians — wide cone
-  SHOTGUN_KNOCKBACK: 60,        // moderate push
-  SHOTGUN_SELF_KNOCKBACK: 120,  // strong self-boost for shotgun jumping
-  SHOTGUN_JUMP_UPLIFT: 100,     // min upward velocity when shotgun-jumping while grounded
+  SHOTGUN_KNOCKBACK: 40,        // moderate push
+  SHOTGUN_SELF_KNOCKBACK: 70,   // self-boost for shotgun jumping
+  SHOTGUN_JUMP_UPLIFT: 60,     // min upward velocity when shotgun-jumping while grounded
   SHOTGUN_FIRE_COOLDOWN: 0.9,
   SHOTGUN_MAX_AMMO: 24,
 
@@ -66,7 +66,7 @@ export const PHYSICS = {
   // ── Plasma gun (continuous beam) ──
   PLASMA_DAMAGE_PER_SEC: 80,
   PLASMA_RANGE: 60,
-  PLASMA_PUSHBACK: 150,         // push force on self (plasma surf boost)
+  PLASMA_PUSHBACK: 90,          // push force on self (plasma surf boost)
   PLASMA_SURF_FRICTION_MULT: 0.3, // reduced friction while plasma surfing
   PLASMA_AMMO_PER_SEC: 10,
   PLASMA_MAX_AMMO: 100,
