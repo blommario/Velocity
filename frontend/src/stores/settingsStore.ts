@@ -89,6 +89,13 @@ interface SettingsState {
   hudScale: number;
   hudOpacity: number;
 
+  // Camera
+  headBob: boolean;
+  cameraSmoothing: number;
+  viewmodelVisible: boolean;
+  viewmodelBob: number;
+  fovScaling: boolean;
+
   // RTS Camera
   rtsPanSpeed: number;
   rtsZoomSpeed: number;
@@ -128,6 +135,11 @@ interface SettingsState {
   setShowTrackProgress: (b: boolean) => void;
   setHudScale: (s: number) => void;
   setHudOpacity: (o: number) => void;
+  setHeadBob: (b: boolean) => void;
+  setCameraSmoothing: (v: number) => void;
+  setViewmodelVisible: (b: boolean) => void;
+  setViewmodelBob: (v: number) => void;
+  setFovScaling: (b: boolean) => void;
   setRtsPanSpeed: (v: number) => void;
   setRtsZoomSpeed: (v: number) => void;
   setRtsRotateSpeed: (v: number) => void;
@@ -173,6 +185,11 @@ const DEFAULT_STATE = {
   showTrackProgress: true,
   hudScale: 1.0,
   hudOpacity: 1.0,
+  headBob: false,
+  cameraSmoothing: 0,
+  viewmodelVisible: true,
+  viewmodelBob: 1.0,
+  fovScaling: true,
   rtsPanSpeed: 40,
   rtsZoomSpeed: 0.1,
   rtsRotateSpeed: 2,
@@ -218,6 +235,11 @@ export const useSettingsStore = create<SettingsState>()(
       setShowTrackProgress: (showTrackProgress) => set({ showTrackProgress }),
       setHudScale: (hudScale) => set({ hudScale }),
       setHudOpacity: (hudOpacity) => set({ hudOpacity }),
+      setHeadBob: (headBob) => set({ headBob }),
+      setCameraSmoothing: (cameraSmoothing) => set({ cameraSmoothing }),
+      setViewmodelVisible: (viewmodelVisible) => set({ viewmodelVisible }),
+      setViewmodelBob: (viewmodelBob) => set({ viewmodelBob }),
+      setFovScaling: (fovScaling) => set({ fovScaling }),
       setRtsPanSpeed: (rtsPanSpeed) => set({ rtsPanSpeed }),
       setRtsZoomSpeed: (rtsZoomSpeed) => set({ rtsZoomSpeed }),
       setRtsRotateSpeed: (rtsRotateSpeed) => set({ rtsRotateSpeed }),
@@ -269,6 +291,11 @@ export const useSettingsStore = create<SettingsState>()(
         showTrackProgress: state.showTrackProgress,
         hudScale: state.hudScale,
         hudOpacity: state.hudOpacity,
+        headBob: state.headBob,
+        cameraSmoothing: state.cameraSmoothing,
+        viewmodelVisible: state.viewmodelVisible,
+        viewmodelBob: state.viewmodelBob,
+        fovScaling: state.fovScaling,
         rtsPanSpeed: state.rtsPanSpeed,
         rtsZoomSpeed: state.rtsZoomSpeed,
         rtsRotateSpeed: state.rtsRotateSpeed,

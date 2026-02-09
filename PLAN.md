@@ -51,48 +51,11 @@
 
 ---
 
-## Fas Q — Ljud & Audio
-*AudioManager finns med 26 synth-ljud. Kvar: spatial audio, musik, ambience.*
-
-**Förutsättning:** Ingen
-
-### Q1 — Spatial Audio (3D)
-- 🔲 `engine/audio/SpatialAudioManager.ts` — wrappa Web Audio PannerNode
-- 🔲 3D-positionering för alla world sounds (explosions, projectiles, pickups)
-- 🔲 Listener kopplad till kamera/spelare position + orientation
-- 🔲 Distance attenuation model (inverse, max distance, rolloff)
-- 🔲 Reverb via ConvolverNode — rum-storlek baserat på environment (ute/inne)
-
-### Q2 — Musik & Ambience
-- 🔲 Ambient loops — per-map ambient sound (wind, hum, machinery) via AudioManager
-- 🔲 Menu musik — synth-genererad loop (arpeggiator + pad) för main menu
-- 🔲 In-game musik — intensitetsbaserat layer system (idle → running → airborne → combat)
-- 🔲 Stingers — korta triggers vid events (PB, checkpoint, finish, countdown)
-
-### Q3 — SFX Upgrade
-- 🔲 Upgrade synth-presets — mer variation per ljud (footstep material detection)
-- 🔲 Projectile-flyby — doppler pitch shift vid nära miss
-- 🔲 Impact variation — 3-4 varianter per material (betong, metall, glas)
 
 ---
 
 ## Fas R — Banor & Content
-*En officiell bana ("First Steps"). Map editor komplett. Kvar: fler banor, teman, editor v2.*
-
-**Förutsättning:** Fas O (material/miljöeffekter ger visuell variation)
-
-### R1 — Officiella Banor (5 st)
-- 🔲 **Cliffside** (Medium) — utomhus, vertikala klippor, wind-boost, long falls
-- 🔲 **Neon District** (Medium) — neon-tema, trånga korridorer, wall-run sektioner
-- 🔲 **Gauntlet** (Hard) — stridsarena med kill zones, ammo management, timed doors
-- 🔲 **Skybreak** (Hard) — floating platforms, precision jumps, grapple points
-- 🔲 **The Furnace** (Expert) — lava-golv, moving platforms, surf ramps, speed gates
-
-### R2 — Map Teman & Prefabs
-- 🔲 Temapaket-system — `MapTheme` interface med texture sets, skybox, lighting, ambient
-- 🔲 3-4 teman: Industrial, Sci-Fi, Nature, Abstract
-- 🔲 Prefab-system — sparade block-grupper (corridors, rooms, jumps) importerbara i editorn
-- 🔲 Editor: prefab-panel med thumbnail preview + drag-to-place
+*En officiell bana ("First Steps"). Map editor komplett. 
 
 ### R3 — Map Editor v2
 - 🔲 Modell-placering — browse assets/models/, place + scale + rotate i viewport
@@ -100,57 +63,16 @@
 - 🔲 Decoration objects — non-collidable props (pipes, crates, lights, signs)
 - 🔲 Terrain brush — heightmap-baserad markyta (smooth/raise/lower/flatten)
 
----
 
-## Fas S — Gameplay Loop & Onboarding
-*EndRunModal, replay/ghost system finns. Kvar: tutorial, progression, achievements.*
-
-**Förutsättning:** R1 (behöver banor att spela)
-
-### S1 — Tutorial System
-- 🔲 Tutorial overlay — context-sensitive tips (flytta, hoppa, bhop, strafe, wall run)
-- 🔲 Teknik-demos — isolerade mini-maps per movement teknik (bhop course, surf course)
-- 🔲 Progress tracking — vilka tekniker spelaren har "lärt sig" (localStorage)
-- 🔲 Skippable — erfarna spelare kan stänga av i settings
-
-### S2 — Progression & Stats
-- 🔲 Player stats dashboard — total playtime, runs completed, PBs, favorite maps
-- 🔲 Per-map stats — attempts, PB history (graph), rank percentile
-- 🔲 XP system — XP per completed run (baserat på map difficulty × performance)
-- 🔲 Player level — title/badge baserat på total XP (Rookie → Speedrunner → Legend)
-
-### S3 — Achievements
-- 🔲 Achievement system — `achievementStore.ts` med unlock conditions
-- 🔲 15-20 achievements: first run, first PB, sub-par time, all checkpoints, weapon kills
-- 🔲 Achievement popup — toast notification vid unlock
-- 🔲 Achievement showcase — profil-sida med grid av låsta/olåsta
 
 ---
 
 ## Fas T — Multiplayer & Community
 *SSE backend + race rooms + race store finns. Kvar: live race UX, matchmaking, community.*
 
-**Förutsättning:** Fas R1 (banor att tävla på)
 
-### T1 — Live Race Polish
-- 🔲 Ghost rendering av andra spelare — semi-transparent modeller via SSE position-stream
-- 🔲 Race HUD — position (1st/2nd/3rd), gap to leader, minimap med alla spelare
-- 🔲 Race countdown — synkroniserad 3-2-1-GO med server-clock
-- 🔲 Race results — podium-vy med tider, splits, placement animation
-- 🔲 Spectator mode — free-cam + player-follow under aktiv race
 
-### T2 — Matchmaking & Ranked
-- 🔲 ELO-system i backend — `PlayerRating` entity, Glicko-2 rating algorithm
-- 🔲 Ranked queue — auto-matchmake baserat på rating + map pool
-- 🔲 Seasons — 30-dagars season med leaderboard reset, season rewards (titles)
-- 🔲 Unranked quickplay — snabb matchmake utan rating impact
 
-### T3 — Community Features
-- 🔲 Map rating — 1-5 stjärnor + text review per map
-- 🔲 Map tags — community-driven tagging (trick, beginner, long, short, surf, etc.)
-- 🔲 Featured maps — weekly rotation av top-rated community maps
-- 🔲 Activity feed — SSE-driven global feed (nya PBs, maps published, achievements)
-- 🔲 Friends list — follow players, se online status, invite to race
 
 ### T4 — Game Modes
 - 🔲 Time Attack — solo timed run (befintligt, men med dedicated mode + constraints)

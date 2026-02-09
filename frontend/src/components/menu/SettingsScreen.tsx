@@ -13,6 +13,7 @@ const SETTINGS_TABS = {
   VIDEO: 'video',
   AUDIO: 'audio',
   GAMEPLAY: 'gameplay',
+  CAMERA: 'camera',
   HUD: 'hud',
   KEYBINDS: 'keybinds',
 } as const;
@@ -24,6 +25,7 @@ const TAB_LABELS: { tab: SettingsTab; label: string; icon: string }[] = [
   { tab: SETTINGS_TABS.VIDEO, label: 'Video', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
   { tab: SETTINGS_TABS.AUDIO, label: 'Audio', icon: 'M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z' },
   { tab: SETTINGS_TABS.GAMEPLAY, label: 'Gameplay', icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z' },
+  { tab: SETTINGS_TABS.CAMERA, label: 'Camera', icon: 'M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z M15 13a3 3 0 11-6 0 3 3 0 016 0z' },
   { tab: SETTINGS_TABS.HUD, label: 'HUD', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
   { tab: SETTINGS_TABS.KEYBINDS, label: 'Key Binds', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
 ];
@@ -100,6 +102,7 @@ export function SettingsScreen() {
           {tab === SETTINGS_TABS.VIDEO && <VideoSettings />}
           {tab === SETTINGS_TABS.AUDIO && <AudioSettings />}
           {tab === SETTINGS_TABS.GAMEPLAY && <GameplaySettings />}
+          {tab === SETTINGS_TABS.CAMERA && <CameraSettings />}
           {tab === SETTINGS_TABS.HUD && <HudSettings />}
           {tab === SETTINGS_TABS.KEYBINDS && <KeyBindSettings />}
         </div>
@@ -139,6 +142,8 @@ function VideoSettings() {
   const setQualityPreset = useSettingsStore((s) => s.setQualityPreset);
   const shadowQuality = useSettingsStore((s) => s.shadowQuality);
   const setShadowQuality = useSettingsStore((s) => s.setShadowQuality);
+  const bloom = useSettingsStore((s) => s.bloom);
+  const setBloom = useSettingsStore((s) => s.setBloom);
   const particles = useSettingsStore((s) => s.particles);
   const setParticles = useSettingsStore((s) => s.setParticles);
   const speedLines = useSettingsStore((s) => s.speedLines);
@@ -174,6 +179,7 @@ function VideoSettings() {
         options={Object.values(SHADOW_QUALITY_LEVELS)}
         onChange={(v) => setShadowQuality(v as ShadowQuality)}
       />
+      <ToggleSetting label="Bloom" value={bloom} onChange={setBloom} />
       <ToggleSetting label="Particles" value={particles} onChange={setParticles} />
       <ToggleSetting label="Speed Lines" value={speedLines} onChange={setSpeedLines} />
       <ToggleSetting label="Screen Shake" value={screenShake} onChange={setScreenShake} />
@@ -219,6 +225,8 @@ function AudioSettings() {
 function GameplaySettings() {
   const autoBhop = useSettingsStore((s) => s.autoBhop);
   const setAutoBhop = useSettingsStore((s) => s.setAutoBhop);
+  const edgeGrab = useSettingsStore((s) => s.edgeGrab);
+  const setEdgeGrab = useSettingsStore((s) => s.setEdgeGrab);
   const crosshairStyle = useSettingsStore((s) => s.crosshairStyle);
   const setCrosshairStyle = useSettingsStore((s) => s.setCrosshairStyle);
   const crosshairColor = useSettingsStore((s) => s.crosshairColor);
@@ -230,6 +238,7 @@ function GameplaySettings() {
     <div className="space-y-4">
       <SectionTitle>Gameplay</SectionTitle>
       <ToggleSetting label="Auto Bunny Hop" value={autoBhop} onChange={setAutoBhop} />
+      <ToggleSetting label="Edge Grab" value={edgeGrab} onChange={setEdgeGrab} />
 
       <div className="pt-4">
         <SubSectionTitle>Crosshair</SubSectionTitle>
@@ -242,6 +251,52 @@ function GameplaySettings() {
       />
       <ColorSetting label="Color" value={crosshairColor} onChange={setCrosshairColor} />
       <SliderSetting label="Size" value={crosshairSize} min={1} max={20} step={1} onChange={setCrosshairSize} displayValue={`${crosshairSize}px`} />
+    </div>
+  );
+}
+
+// ── Camera ──
+
+function CameraSettings() {
+  const headBob = useSettingsStore((s) => s.headBob);
+  const setHeadBob = useSettingsStore((s) => s.setHeadBob);
+  const cameraSmoothing = useSettingsStore((s) => s.cameraSmoothing);
+  const setCameraSmoothing = useSettingsStore((s) => s.setCameraSmoothing);
+  const viewmodelVisible = useSettingsStore((s) => s.viewmodelVisible);
+  const setViewmodelVisible = useSettingsStore((s) => s.setViewmodelVisible);
+  const viewmodelBob = useSettingsStore((s) => s.viewmodelBob);
+  const setViewmodelBob = useSettingsStore((s) => s.setViewmodelBob);
+  const fovScaling = useSettingsStore((s) => s.fovScaling);
+  const setFovScaling = useSettingsStore((s) => s.setFovScaling);
+  const rtsPanSpeed = useSettingsStore((s) => s.rtsPanSpeed);
+  const setRtsPanSpeed = useSettingsStore((s) => s.setRtsPanSpeed);
+  const rtsZoomSpeed = useSettingsStore((s) => s.rtsZoomSpeed);
+  const setRtsZoomSpeed = useSettingsStore((s) => s.setRtsZoomSpeed);
+  const rtsRotateSpeed = useSettingsStore((s) => s.rtsRotateSpeed);
+  const setRtsRotateSpeed = useSettingsStore((s) => s.setRtsRotateSpeed);
+  const rtsEdgeScrollEnabled = useSettingsStore((s) => s.rtsEdgeScrollEnabled);
+  const setRtsEdgeScrollEnabled = useSettingsStore((s) => s.setRtsEdgeScrollEnabled);
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle>Camera</SectionTitle>
+      <ToggleSetting label="Head Bob" value={headBob} onChange={setHeadBob} />
+      <SliderSetting label="Smoothing" value={cameraSmoothing} min={0} max={1} step={0.05} onChange={setCameraSmoothing} displayValue={cameraSmoothing === 0 ? 'Off' : `${Math.round(cameraSmoothing * 100)}%`} />
+      <ToggleSetting label="FOV Scaling" value={fovScaling} onChange={setFovScaling} />
+
+      <div className="pt-4">
+        <SubSectionTitle>Viewmodel</SubSectionTitle>
+      </div>
+      <ToggleSetting label="Show Weapon" value={viewmodelVisible} onChange={setViewmodelVisible} />
+      <SliderSetting label="Weapon Bob" value={viewmodelBob} min={0} max={2} step={0.1} onChange={setViewmodelBob} displayValue={`${Math.round(viewmodelBob * 100)}%`} />
+
+      <div className="pt-4">
+        <SubSectionTitle>Editor Camera</SubSectionTitle>
+      </div>
+      <SliderSetting label="Pan Speed" value={rtsPanSpeed} min={10} max={100} step={5} onChange={setRtsPanSpeed} displayValue={`${rtsPanSpeed}`} />
+      <SliderSetting label="Zoom Speed" value={rtsZoomSpeed} min={0.01} max={0.5} step={0.01} onChange={setRtsZoomSpeed} displayValue={rtsZoomSpeed.toFixed(2)} />
+      <SliderSetting label="Rotate Speed" value={rtsRotateSpeed} min={0.5} max={5} step={0.5} onChange={setRtsRotateSpeed} displayValue={rtsRotateSpeed.toFixed(1)} />
+      <ToggleSetting label="Edge Scrolling" value={rtsEdgeScrollEnabled} onChange={setRtsEdgeScrollEnabled} />
     </div>
   );
 }
