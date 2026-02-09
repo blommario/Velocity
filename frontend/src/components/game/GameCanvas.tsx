@@ -215,6 +215,7 @@ export function GameCanvas() {
           getIntensity={() => useGameStore.getState().shakeIntensity}
           onDecayed={() => useGameStore.getState().clearShake()}
         />
+        <Viewmodel />
         <ScenePostProcessing fogConfig={mapData?.fogOfWar} blocks={mapData?.blocks} />
         <Physics
           timeStep={PHYSICS.TICK_DELTA}
@@ -230,7 +231,6 @@ export function GameCanvas() {
           <ProjectileRenderer />
           <GhostRenderer />
         </Physics>
-        <Viewmodel />
         <SpeedTrail />
         <GrappleBeam />
         <ExplosionManager />

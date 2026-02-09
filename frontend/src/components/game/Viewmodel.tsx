@@ -8,21 +8,48 @@
  * MuzzleFlash is rendered inside the ViewmodelLayer so flash coordinates
  * are in viewmodel-local space (not world space).
  */
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { BoxGeometry, CylinderGeometry, Vector3, Euler } from 'three';
+import { BoxGeometry, Vector3, Euler } from 'three';
+import type { Group } from 'three';
 import { ViewmodelLayer } from '../../engine/rendering/ViewmodelLayer';
 import { useViewmodelAnimation, type ViewmodelAnimationInput } from '../../engine/rendering/useViewmodelAnimation';
 import { MuzzleFlash, triggerMuzzleFlash } from '../../engine/effects/MuzzleFlash';
 import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
+import { loadModel } from '../../services/assetManager';
+import { devLog } from '../../engine/stores/devLogStore';
 import type { WeaponType } from './physics/types';
 
 const VM_POSITION = {
-  /** Viewmodel offset from camera origin (right, down, forward). */
-  X: 0.25,
-  Y: -0.2,
-  Z: -0.5,
+  /** Viewmodel offset from camera origin (left, down, forward). */
+  X: -0.22,
+  Y: -0.22,
+  Z: -0.30,
+} as const;
+
+/**
+ * Convergence — rotate the weapon so its barrel points at the crosshair.
+ *
+ * The weapon sits at (X, Y, Z) in camera space.  The crosshair corresponds to
+ * a point on the camera's center axis at distance FOCAL_DIST.  We compute a
+ * small yaw (around Y) and pitch (around X) so the weapon's forward (-Z) axis
+ * converges on that focal point instead of running parallel to the camera.
+ *
+ * A shorter FOCAL_DIST exaggerates the convergence angle — at 4 units the
+ * barrel visibly rotates ~3° inward, which reads as "aiming at the crosshair"
+ * even though true geometric convergence only needs ~0.6° at 20 units.
+ *
+ * With the weapon on the LEFT side (negative X), atan2(-0.22, 4) gives a
+ * negative yaw → rotates right toward center. atan2 handles the sign
+ * automatically.
+ */
+const CONVERGENCE = {
+  FOCAL_DIST: 4,
+  /** ~3.1° inward yaw — negative because weapon is left of center. */
+  YAW: Math.atan2(-0.22, 4),
+  /** ~3.1° upward pitch so barrel converges vertically too. */
+  PITCH: Math.atan2(0.22, 4),
 } as const;
 
 const WEAPON_COLORS: Record<WeaponType, string> = {
@@ -45,11 +72,19 @@ const MUZZLE_COLORS: Record<WeaponType, [number, number, number]> = {
   plasma: [0.3, 0.6, 1.0],
 } as const;
 
-// Pre-allocated geometries (shared across renders)
-const barrelGeometry = new CylinderGeometry(0.02, 0.025, 0.35, 8);
-barrelGeometry.rotateX(Math.PI / 2);
-const bodyGeometry = new BoxGeometry(0.06, 0.05, 0.15);
-const handleGeometry = new BoxGeometry(0.04, 0.1, 0.04);
+// Rifle 3D model transform — rotateY(PI/2) maps barrel from +X to -Z (forward)
+const RIFLE_MODEL = {
+  PATH: 'weapons/rifle.glb',
+  SCALE: 0.045,
+  // Rotate 90° — barrel points forward (-Z)
+  ROTATION_Y: Math.PI / 2,
+  // Sub-offset within the viewmodel group (on top of VM_POSITION).
+  OFFSET_X: 0.00,
+  OFFSET_Y: -0.05,
+  OFFSET_Z: 0.05,
+} as const;
+
+// Pre-allocated geometries for fallback/knife
 const knifeGeometry = new BoxGeometry(0.02, 0.02, 0.3);
 
 // Pre-allocated vectors for muzzle flash positioning (zero GC)
@@ -62,9 +97,31 @@ interface ViewmodelState {
   prevFireCooldown: number;
 }
 
+function useRifleModel(): Group | null {
+  const [model, setModel] = useState<Group | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    devLog.info('Viewmodel', 'Loading rifle model...');
+    loadModel(RIFLE_MODEL.PATH).then((scene) => {
+      if (cancelled) return;
+      devLog.info('Viewmodel', `Rifle loaded: ${scene.children.length} children`);
+      // Apply transform: scale + rotate so barrel points -Z
+      scene.scale.setScalar(RIFLE_MODEL.SCALE);
+      scene.rotation.y = RIFLE_MODEL.ROTATION_Y;
+      scene.position.set(RIFLE_MODEL.OFFSET_X, RIFLE_MODEL.OFFSET_Y, RIFLE_MODEL.OFFSET_Z);
+      setModel(scene);
+    }).catch((err) => {
+      devLog.error('Viewmodel', `Rifle model load failed: ${err}`);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  return model;
+}
+
 function ViewmodelContent() {
   const groupRef = useRef<THREE.Group>(null);
   const mouseDeltaRef = useRef<[number, number]>([0, 0]);
+  const rifleModel = useRifleModel();
   const stateRef = useRef<ViewmodelState>({
     prevWeapon: 'rocket',
     drawTimer: 0,
@@ -124,17 +181,27 @@ function ViewmodelContent() {
       VM_POSITION.Y + anim.posY,
       VM_POSITION.Z + anim.posZ,
     );
-    group.rotation.set(anim.rotX, anim.rotY, anim.rotZ);
+    // Rotation = convergence (crosshair lock) + recoil kick.
+    // anim.rotY is always 0 (look sway removed from rotation output).
+    // anim.rotX is recoil only — pass through at full strength.
+    group.rotation.set(
+      CONVERGENCE.PITCH + anim.rotX,
+      CONVERGENCE.YAW + anim.rotY,
+      anim.rotZ,
+    );
 
     // Trigger muzzle flash on fire (coordinates are viewmodel-local)
     const combat = useCombatStore.getState();
     const justFired = combat.fireCooldown > 0 && state.prevFireCooldown === 0;
     if (justFired && combat.activeWeapon !== 'knife') {
       const [r, g, b] = MUZZLE_COLORS[combat.activeWeapon];
-      // Barrel tip offset in local space, rotated by the current viewmodel rotation
-      // so the flash stays attached to the barrel during recoil/sway
-      _muzzleOffset.set(0, 0.01, -0.35);
-      _muzzleEuler.set(anim.rotX, anim.rotY, anim.rotZ);
+      // Barrel tip offset in local space, rotated to match group rotation
+      _muzzleOffset.set(0, 0.02, -0.4);
+      _muzzleEuler.set(
+        CONVERGENCE.PITCH + anim.rotX,
+        CONVERGENCE.YAW + anim.rotY,
+        anim.rotZ,
+      );
       _muzzleOffset.applyEuler(_muzzleEuler);
       triggerMuzzleFlash(
         group.position.x + _muzzleOffset.x,
@@ -160,17 +227,16 @@ function ViewmodelContent() {
           <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
         </mesh>
       ) : (
-        // Gun: barrel + body + handle
+        // Gun: 3D rifle model with inline fallback box while loading
         <group>
-          <mesh geometry={barrelGeometry} position={[0, 0.01, -0.15]}>
-            <meshStandardMaterial color="#333333" metalness={0.7} roughness={0.3} />
-          </mesh>
-          <mesh geometry={bodyGeometry} position={[0, 0, 0.02]}>
-            <meshStandardMaterial color={color} metalness={0.5} roughness={0.4} />
-          </mesh>
-          <mesh geometry={handleGeometry} position={[0, -0.06, 0.05]}>
-            <meshStandardMaterial color="#222222" metalness={0.3} roughness={0.6} />
-          </mesh>
+          {rifleModel ? (
+            <primitive object={rifleModel} />
+          ) : (
+            <mesh>
+              <boxGeometry args={[0.06, 0.05, 0.35]} />
+              <meshStandardMaterial color={color} metalness={0.5} roughness={0.4} />
+            </mesh>
+          )}
         </group>
       )}
     </group>

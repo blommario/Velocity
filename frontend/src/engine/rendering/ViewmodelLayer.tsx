@@ -52,6 +52,8 @@ export function ViewmodelLayer({
   const vmCameraRef = useRef<PerspectiveCamera | null>(null);
 
   // Create viewmodel scene + camera once (stable across renders)
+  // Register singleton ref synchronously so PostProcessing can read it
+  // during its own useEffect pipeline build (same commit phase).
   const { vmScene, vmCamera } = useMemo(() => {
     const scene = new Scene();
     scene.name = 'ViewmodelScene';
@@ -71,12 +73,15 @@ export function ViewmodelLayer({
     directional.position.set(0.5, 1, 0.3);
     scene.add(directional);
 
+    // Set ref synchronously — PostProcessing reads this in useEffect
+    _viewmodelRef = { scene, camera };
+
     return { vmScene: scene, vmCamera: camera };
   }, []);
 
   vmCameraRef.current = vmCamera;
 
-  // Register/unregister singleton ref
+  // Update visibility + cleanup on unmount
   useEffect(() => {
     if (visible) {
       _viewmodelRef = { scene: vmScene, camera: vmCamera };
@@ -92,13 +97,19 @@ export function ViewmodelLayer({
     vmCamera.updateProjectionMatrix();
   }, [vmCamera, fov]);
 
-  // Sync viewmodel camera rotation with main camera each frame
+  // Sync viewmodel camera rotation with main camera each frame.
+  // Priority 1 — runs AFTER PlayerController/physics update the main camera
+  // (priority 0) but BEFORE PostProcessing renders (also priority 1, but
+  // mounted later so it runs after this in same-priority order).
   useFrame(() => {
     const cam = vmCameraRef.current;
     if (!cam) return;
 
     // Copy rotation from main gameplay camera
     cam.quaternion.copy(mainCamera.quaternion);
+    // Camera stays at origin — viewmodel objects are positioned relative to it
+    cam.position.set(0, 0, 0);
+    cam.updateMatrixWorld(true);
 
     // Update aspect ratio if canvas resized
     const aspect = size.width / size.height;
@@ -106,7 +117,7 @@ export function ViewmodelLayer({
       cam.aspect = aspect;
       cam.updateProjectionMatrix();
     }
-  });
+  }, 1);
 
   if (!visible) return null;
 

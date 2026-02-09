@@ -454,7 +454,7 @@ export function PostProcessingEffects({
 
       if (vmRef) {
         const vmPass = pass(vmRef.scene, vmRef.camera);
-        vmPass.setClearColor(0x000000, 0);
+        // PassNode renders with autoClear=true and scene.background=null → transparent
         const vmColor = vmPass.getTextureNode('output');
         const vmDepth = vmPass.getTextureNode('depth');
 

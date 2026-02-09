@@ -32,12 +32,12 @@ const VM_ANIM = {
   DRAW_SPEED: 6,
   DRAW_OFFSET_Y: -0.4,
 
-  // Mouse look sway (viewmodel lags behind camera slightly)
+  // Mouse look sway — position-only lag (weapon trails the camera spatially)
   LOOK_SWAY_FACTOR: 0.0015,
   LOOK_SWAY_RECOVERY: 8,
 
-  // Lerp speed for smooth transitions
-  LERP_SPEED: 10,
+  // Lerp speed for smooth transitions (higher = tighter anchor)
+  LERP_SPEED: 18,
 } as const;
 
 export interface ViewmodelAnimationInput {
@@ -130,11 +130,14 @@ export function useViewmodelAnimation(
     );
 
     // ── Combine ──
+    // Look sway affects POSITION only (weapon trails the camera spatially).
+    // Rotation is driven exclusively by recoil — convergence in Viewmodel.tsx
+    // handles crosshair alignment, and we must not fight it with sway rotation.
     const targetPosX = swayX + bobX + lookSwayXRef.current;
     const targetPosY = swayY - bobY + drawOffset + lookSwayYRef.current;
     const targetPosZ = -recoilZ;
     const targetRotX = -recoilRotX;
-    const targetRotY = lookSwayXRef.current * 2;
+    const targetRotY = 0;
 
     // Smooth final values
     const lerpFactor = 1 - Math.exp(-VM_ANIM.LERP_SPEED * dt);
