@@ -7,10 +7,11 @@ import type { DataTexture } from 'three/webgpu';
 import {
   pass, renderOutput, viewportUV, screenUV, clamp, texture, float, uint, vec2, vec4,
   cameraNear, cameraFar, cameraProjectionMatrixInverse, cameraWorldMatrix,
-  perspectiveDepthToViewZ, getViewPosition, floor,
+  perspectiveDepthToViewZ, getViewPosition, floor, mix,
 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { devLog, frameTiming } from '../stores/devLogStore';
+import { getViewmodelScene } from '../rendering/ViewmodelLayer';
 import type { FogOfWarUniforms } from '../effects/useFogOfWar';
 import type { FogComputeResources } from '../effects/fogOfWarCompute';
 
@@ -151,13 +152,41 @@ export function PostProcessingEffects({
         devLog.success('PostFX', 'Fog of War CPU path enabled (depth reconstruction)');
       }
 
-      // Combine: scene + bloom → fog → vignette → tonemapping + color space
-      const combined = scenePassColor.add(bloomPass).mul(fogFactor).mul(vignetteFactor);
+      // ── Viewmodel compositing ──
+      // Render viewmodel scene on top of world scene (depth cleared between passes)
+      const vmRef = getViewmodelScene();
+      let worldWithViewmodel = scenePassColor.add(bloomPass).mul(fogFactor);
+
+      if (vmRef) {
+        const vmPass = pass(vmRef.scene, vmRef.camera);
+        vmPass.setClearColor(0x000000, 0); // transparent background
+        const vmColor = vmPass.getTextureNode('output');
+        const vmDepth = vmPass.getTextureNode('depth');
+
+        // Viewmodel bloom (same settings as world)
+        const vmBloomPass = bloom(vmColor);
+        vmBloomPass.threshold.value = bloomThreshold;
+        vmBloomPass.strength.value = bloomStrength;
+        vmBloomPass.radius.value = bloomRadius;
+
+        const vmWithBloom = vmColor.add(vmBloomPass);
+
+        // Composite: where viewmodel has content (depth < 1.0), use viewmodel color
+        // Depth = 1.0 means background (no geometry rendered) — keep world color
+        const vmMask = vmDepth.lessThan(float(0.9999)).toFloat();
+        worldWithViewmodel = mix(worldWithViewmodel, vmWithBloom, vmMask);
+
+        devLog.success('PostFX', 'Viewmodel compositing enabled');
+      }
+
+      // Combine: (world+viewmodel) → vignette → tonemapping + color space
+      const combined = worldWithViewmodel.mul(vignetteFactor);
       pipeline.outputNode = renderOutput(combined, ACESFilmicToneMapping, SRGBColorSpace);
 
       pipelineRef.current = pipeline;
       const fogLabel = fogComputeResources ? ' (+ FoW GPU)' : fogTexture ? ' (+ FoW CPU)' : '';
-      devLog.success('PostFX', `Bloom + Vignette + ACES tonemapping ready${fogLabel}`);
+      const vmLabel = vmRef ? ' + Viewmodel' : '';
+      devLog.success('PostFX', `Bloom + Vignette + ACES tonemapping ready${fogLabel}${vmLabel}`);
     } catch (err) {
       devLog.error('PostFX', `PostProcessing pipeline creation failed: ${err}`);
       pipelineRef.current = null;

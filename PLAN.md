@@ -59,19 +59,19 @@
 **Förutsättning:** Fas J (animation behövs för viewmodel)
 
 ### L1 — Viewmodel Render Layer
-- 🔲 `engine/rendering/ViewmodelLayer.tsx` — `createPortal` till separat scene
-- 🔲 Egen kamera (viewmodel FOV ~70° vs gameplay ~100°)
-- 🔲 Extra `pass()` i PostProcessing pipeline efter scenePass
-- 🔲 Depth clear mellan passes — viewmodel alltid framför world geometry
+- ✅ `engine/rendering/ViewmodelLayer.tsx` — `createPortal` till separat scene
+- ✅ Egen kamera (viewmodel FOV ~70° vs gameplay ~100°)
+- ✅ Extra `pass()` i PostProcessing pipeline efter scenePass
+- ✅ Depth clear mellan passes — viewmodel alltid framför world geometry
 
 ### L2 — Viewmodel Animation Support
-- 🔲 `engine/rendering/useViewmodelAnimation.ts` — hook för viewmodel-specifik animation
-- 🔲 Stödjer: idle sway, bob (kopplat till velocity), recoil, draw/holster
-- 🔲 Input via props (velocity, isFiring, isDrawing) — INTE game store
+- ✅ `engine/rendering/useViewmodelAnimation.ts` — hook för viewmodel-specifik animation
+- ✅ Stödjer: idle sway, bob (kopplat till velocity), recoil, draw/holster
+- ✅ Input via props (velocity, isFiring, isDrawing) — INTE game store
 
 ### L3 — Muzzle Flash
-- 🔲 `engine/effects/MuzzleFlash.tsx` — GPU sprite burst (återanvänder GpuParticles-mönster)
-- 🔲 Emissive ×8.0 + bloom, 2-3 frames duration, additive blending
+- ✅ `engine/effects/MuzzleFlash.tsx` — GPU sprite burst (återanvänder GpuParticles-mönster)
+- ✅ Emissive ×8.0 + bloom, 2-3 frames duration, additive blending
 
 ---
 

@@ -24,3 +24,4 @@ export {
   type AnimationLoopMode, type PlayOptions,
 } from './useAnimation';
 export { AnimatedModel, type AnimatedModelProps } from './AnimatedModel';
+export { MuzzleFlash, triggerMuzzleFlash } from './MuzzleFlash';

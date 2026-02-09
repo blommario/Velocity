@@ -12,6 +12,7 @@ import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from '../../engine/core/PostProcessingEffects';
 import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer } from './effects';
+import { Viewmodel } from './Viewmodel';
 import { PerfMonitor } from '../../engine/stores/PerfMonitor';
 import { HudOverlay } from '../hud/HudOverlay';
 import { DevLogPanel } from '../../engine/stores/DevLogPanel';
@@ -66,6 +67,8 @@ function ScenePostProcessing({ fogConfig, blocks }: {
   );
 }
 
+const FOV_EPSILON = 0.01;
+
 function DynamicFov() {
   const { camera } = useThree();
   const targetFovRef = useRef(FOV_SCALING.BASE);
@@ -83,8 +86,13 @@ function DynamicFov() {
     targetFovRef.current = baseFov + speedFraction * (maxFov - baseFov);
 
     const cam = camera as PerspectiveCamera;
-    cam.fov = MathUtils.lerp(cam.fov, targetFovRef.current, 1 - Math.exp(-FOV_SCALING.LERP_SPEED * delta));
-    cam.updateProjectionMatrix();
+    const newFov = MathUtils.lerp(cam.fov, targetFovRef.current, 1 - Math.exp(-FOV_SCALING.LERP_SPEED * delta));
+
+    // Only rebuild projection matrix when FOV actually changes
+    if (Math.abs(newFov - cam.fov) > FOV_EPSILON) {
+      cam.fov = newFov;
+      cam.updateProjectionMatrix();
+    }
   });
 
   return null;
@@ -147,6 +155,7 @@ export function GameCanvas() {
           <ProjectileRenderer />
           <GhostRenderer />
         </Physics>
+        <Viewmodel />
         <SpeedTrail />
         <GrappleBeam />
         <ExplosionManager />

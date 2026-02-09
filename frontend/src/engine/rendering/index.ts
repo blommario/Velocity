@@ -43,3 +43,11 @@ export {
   type ShadowQuality, type ShadowPreset,
 } from './shadowConfig';
 export { useShadowLight, type ShadowLightConfig } from './useShadowLight';
+export {
+  ViewmodelLayer, getViewmodelScene,
+  type ViewmodelLayerProps, type ViewmodelSceneRef,
+} from './ViewmodelLayer';
+export {
+  useViewmodelAnimation,
+  type ViewmodelAnimationInput, type ViewmodelAnimationOutput,
+} from './useViewmodelAnimation';
