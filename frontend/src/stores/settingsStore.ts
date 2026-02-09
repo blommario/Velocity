@@ -65,6 +65,8 @@ interface SettingsState {
   colorGrading: boolean;
   filmGrain: boolean;
   chromaticAberration: boolean;
+  motionBlur: boolean;
+  depthOfField: boolean;
 
   // Audio
   masterVolume: number;
@@ -132,6 +134,8 @@ interface SettingsState {
   setColorGrading: (b: boolean) => void;
   setFilmGrain: (b: boolean) => void;
   setChromaticAberration: (b: boolean) => void;
+  setMotionBlur: (b: boolean) => void;
+  setDepthOfField: (b: boolean) => void;
   setKeyBinding: (action: string, key: string) => void;
   resetKeyBindings: () => void;
   resetAll: () => void;
@@ -150,6 +154,8 @@ const DEFAULT_STATE = {
   colorGrading: true,
   filmGrain: false,
   chromaticAberration: false,
+  motionBlur: false,
+  depthOfField: false,
   masterVolume: 0.8,
   sfxVolume: 0.8,
   musicVolume: 0.5,
@@ -192,6 +198,8 @@ export const useSettingsStore = create<SettingsState>()(
       setColorGrading: (colorGrading) => set({ colorGrading }),
       setFilmGrain: (filmGrain) => set({ filmGrain }),
       setChromaticAberration: (chromaticAberration) => set({ chromaticAberration }),
+      setMotionBlur: (motionBlur) => set({ motionBlur }),
+      setDepthOfField: (depthOfField) => set({ depthOfField }),
       setMasterVolume: (masterVolume) => set({ masterVolume }),
       setSfxVolume: (sfxVolume) => set({ sfxVolume }),
       setMusicVolume: (musicVolume) => set({ musicVolume }),
@@ -223,7 +231,7 @@ export const useSettingsStore = create<SettingsState>()(
         return { keyBindings: bindings };
       }),
       resetKeyBindings: () => set({ keyBindings: { ...DEFAULT_KEY_BINDINGS } }),
-      resetAll: () => set({ ...DEFAULT_STATE }),
+      resetAll: () => set({ ...DEFAULT_STATE, keyBindings: { ...DEFAULT_KEY_BINDINGS } }),
     }),
     {
       name: 'velocity-settings',
@@ -240,6 +248,8 @@ export const useSettingsStore = create<SettingsState>()(
         colorGrading: state.colorGrading,
         filmGrain: state.filmGrain,
         chromaticAberration: state.chromaticAberration,
+        motionBlur: state.motionBlur,
+        depthOfField: state.depthOfField,
         masterVolume: state.masterVolume,
         sfxVolume: state.sfxVolume,
         musicVolume: state.musicVolume,

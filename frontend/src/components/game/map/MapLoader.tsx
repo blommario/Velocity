@@ -276,14 +276,11 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
 // ── Moving Platform ──
 
-// Pre-allocated vectors for MovingPlatformRenderer — zero GC in hot path
-const _mpFrom = new Vector3();
-const _mpTo = new Vector3();
-const _mpPos = new Vector3();
-
 function MovingPlatformRenderer({ platform }: { platform: MovingPlatformData }) {
   const rbRef = useRef<import('@react-three/rapier').RapierRigidBody>(null);
   const timeRef = useRef(0);
+  // Per-instance scratch vectors — avoids shared-singleton bugs with multiple platforms
+  const vecRef = useRef({ from: new Vector3(), to: new Vector3(), pos: new Vector3() });
   const color = platform.color ?? '#8888aa';
 
   // Pre-compute segment lengths once (stable reference — waypoints don't change)
@@ -333,10 +330,11 @@ function MovingPlatformRenderer({ platform }: { platform: MovingPlatformData }) 
         } else {
           const moveFrac = Math.min((localT - segmentPause) / segmentMoveTime, 1);
           const next = waypoints[(i + 1) % waypoints.length];
-          _mpFrom.set(waypoints[i][0], waypoints[i][1], waypoints[i][2]);
-          _mpTo.set(next[0], next[1], next[2]);
-          _mpPos.lerpVectors(_mpFrom, _mpTo, moveFrac);
-          rb.setNextKinematicTranslation({ x: _mpPos.x, y: _mpPos.y, z: _mpPos.z });
+          const { from, to, pos } = vecRef.current;
+          from.set(waypoints[i][0], waypoints[i][1], waypoints[i][2]);
+          to.set(next[0], next[1], next[2]);
+          pos.lerpVectors(from, to, moveFrac);
+          rb.setNextKinematicTranslation({ x: pos.x, y: pos.y, z: pos.z });
         }
         break;
       }

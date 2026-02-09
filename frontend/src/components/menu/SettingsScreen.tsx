@@ -153,6 +153,10 @@ function VideoSettings() {
   const setFilmGrain = useSettingsStore((s) => s.setFilmGrain);
   const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
   const setChromaticAberration = useSettingsStore((s) => s.setChromaticAberration);
+  const motionBlur = useSettingsStore((s) => s.motionBlur);
+  const setMotionBlur = useSettingsStore((s) => s.setMotionBlur);
+  const depthOfField = useSettingsStore((s) => s.depthOfField);
+  const setDepthOfField = useSettingsStore((s) => s.setDepthOfField);
 
   return (
     <div className="space-y-4">
@@ -181,6 +185,8 @@ function VideoSettings() {
       <ToggleSetting label="Color Grading" value={colorGrading} onChange={setColorGrading} />
       <ToggleSetting label="Film Grain" value={filmGrain} onChange={setFilmGrain} />
       <ToggleSetting label="Chromatic Aberration" value={chromaticAberration} onChange={setChromaticAberration} />
+      <ToggleSetting label="Motion Blur" value={motionBlur} onChange={setMotionBlur} />
+      <ToggleSetting label="Depth of Field" value={depthOfField} onChange={setDepthOfField} />
     </div>
   );
 }

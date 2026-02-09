@@ -60,6 +60,8 @@ function ScenePostProcessing({ fogConfig, blocks }: {
   const colorGrading = useSettingsStore((s) => s.colorGrading);
   const filmGrain = useSettingsStore((s) => s.filmGrain);
   const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
+  const motionBlur = useSettingsStore((s) => s.motionBlur);
+  const depthOfField = useSettingsStore((s) => s.depthOfField);
 
   return (
     <PostProcessingEffects
@@ -70,6 +72,8 @@ function ScenePostProcessing({ fogConfig, blocks }: {
       colorGradingEnabled={colorGrading}
       filmGrainEnabled={filmGrain}
       chromaticAberrationEnabled={chromaticAberration}
+      motionBlurEnabled={motionBlur}
+      depthOfFieldEnabled={depthOfField}
     />
   );
 }

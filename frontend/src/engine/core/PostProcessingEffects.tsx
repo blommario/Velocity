@@ -2,13 +2,15 @@ import { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import {
   PostProcessing, WebGPURenderer, ACESFilmicToneMapping, SRGBColorSpace,
+  Matrix4,
 } from 'three/webgpu';
-import type { DataTexture } from 'three/webgpu';
+import type { DataTexture, PerspectiveCamera } from 'three/webgpu';
 import {
   pass, renderOutput, viewportUV, screenUV, clamp, texture, float, uint, vec2, vec4,
   cameraNear, cameraFar, cameraProjectionMatrixInverse, cameraWorldMatrix,
+  cameraProjectionMatrix, cameraViewMatrix,
   perspectiveDepthToViewZ, getViewPosition, floor, mix, uniform,
-  hash, time, Fn, Loop, int, abs, max, step,
+  hash, time, Fn, Loop, int, abs, max, step, mat4,
 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { devLog, frameTiming } from '../stores/devLogStore';
@@ -30,6 +32,9 @@ const POST_PROCESSING_DEFAULTS = {
   colorTemperature: 0.0,
   filmGrainAmount: 0.06,
   chromaticAberrationOffset: 0.003,
+  motionBlurStrength: 1.0,
+  dofFocusDistance: 50.0,
+  dofAperture: 2.0,
 } as const;
 
 /** Number of depth samples for SSAO. 8 is a good perf/quality trade-off. */
@@ -93,6 +98,107 @@ function buildSsaoNode(depthNode: any, uRadius: any, uIntensity: any) {
   })();
 }
 
+/** Number of samples for motion blur along velocity vector. */
+const MOTION_BLUR_SAMPLES = 8;
+/** If camera moves more than this in a single frame, skip blur (teleport/respawn). */
+const MOTION_BLUR_TELEPORT_THRESHOLD_SQ = 400; // 20 units squared
+
+/**
+ * Camera-based motion blur via depth-buffer velocity reconstruction.
+ * Stores the previous frame's ViewProjection matrix as a TSL uniform,
+ * then for each pixel: reconstruct world position from depth → project
+ * with previous VP → compute screen-space velocity → sample along it.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildMotionBlurNode(colorNode: any, depthNode: any, uPrevVP: any, uStrength: any) {
+  return Fn(() => {
+    const depthRaw = depthNode.sample(screenUV).r;
+    // Skip sky pixels
+    const isSky = depthRaw.greaterThanEqual(0.9999);
+
+    // Reconstruct view-space position from depth
+    const viewZ = perspectiveDepthToViewZ(depthRaw, cameraNear, cameraFar);
+    const viewPos = getViewPosition(screenUV, viewZ, cameraProjectionMatrixInverse);
+    // View → world
+    const worldPos = cameraWorldMatrix.mul(vec4(viewPos, 1.0));
+
+    // Project world position with previous frame's VP matrix
+    const prevClip = uPrevVP.mul(worldPos);
+    const prevNDC = prevClip.xy.div(prevClip.w);
+    const prevUV = prevNDC.mul(0.5).add(0.5);
+
+    // Current screen UV is already in 0..1
+    const velocity = screenUV.sub(prevUV).mul(uStrength);
+
+    // Clamp velocity magnitude to avoid excessive blur
+    const velLen = velocity.length();
+    const maxVel = float(0.05);
+    const clampedVel = velocity.mul(maxVel.div(max(velLen, maxVel)));
+
+    // Accumulate samples along velocity vector
+    const accum = vec4(0.0, 0.0, 0.0, 0.0).toVar();
+    const stepUV = clampedVel.div(float(MOTION_BLUR_SAMPLES));
+
+    Loop({ start: int(0), end: int(MOTION_BLUR_SAMPLES), type: 'int', condition: '<' }, ({ i }: { i: ReturnType<typeof int> }) => {
+      const sampleUV = screenUV.add(stepUV.mul(float(i).sub(float(MOTION_BLUR_SAMPLES).mul(0.5))));
+      accum.addAssign(colorNode.sample(sampleUV));
+    });
+
+    const blurred = accum.div(float(MOTION_BLUR_SAMPLES));
+    return isSky.select(colorNode.sample(screenUV), blurred);
+  })();
+}
+
+/** Number of samples for the DoF bokeh disc kernel. */
+const DOF_SAMPLES = 12;
+
+/**
+ * Bokeh-style depth of field using circle-of-confusion from depth buffer.
+ * Samples a disc pattern around each pixel, weighted by CoC size.
+ * Designed for replays/spectator — large aperture gives cinematic look.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildDofNode(colorNode: any, depthNode: any, uFocusDist: any, uAperture: any) {
+  const goldenAngle = float(2.399963);
+
+  return Fn(() => {
+    const depthRaw = depthNode.sample(screenUV).r;
+    const isSky = depthRaw.greaterThanEqual(0.9999);
+
+    // Linear view-space depth
+    const viewZ = perspectiveDepthToViewZ(depthRaw, cameraNear, cameraFar).negate();
+    // Circle of confusion: how far this pixel is from focus plane
+    const coc = abs(viewZ.sub(uFocusDist)).div(uFocusDist).mul(uAperture).clamp(0.0, 1.0);
+
+    // If CoC is tiny, skip blur
+    const accum = vec4(0.0, 0.0, 0.0, 0.0).toVar();
+    const totalWeight = float(0.0).toVar();
+
+    Loop({ start: int(0), end: int(DOF_SAMPLES), type: 'int', condition: '<' }, ({ i }: { i: ReturnType<typeof int> }) => {
+      const angle = float(i).mul(goldenAngle);
+      const radius = float(i).add(0.5).div(float(DOF_SAMPLES)).sqrt().mul(coc).mul(0.02);
+      const offset = vec2(angle.cos().mul(radius), angle.sin().mul(radius));
+      const sampleUV = screenUV.add(offset);
+
+      const sampleColor = colorNode.sample(sampleUV);
+      const sampleDepth = depthNode.sample(sampleUV).r;
+      const sampleViewZ = perspectiveDepthToViewZ(sampleDepth, cameraNear, cameraFar).negate();
+      const sampleCoc = abs(sampleViewZ.sub(uFocusDist)).div(uFocusDist).mul(uAperture).clamp(0.0, 1.0);
+
+      // Weight: prefer samples that are also blurry (prevents sharp leaking into bokeh)
+      const w = sampleCoc.add(0.001);
+      accum.addAssign(sampleColor.mul(w));
+      totalWeight.addAssign(w);
+    });
+
+    const blurred = accum.div(max(totalWeight, float(0.001)));
+    // Mix between sharp and blurred based on CoC
+    const sharp = colorNode.sample(screenUV);
+    const result = mix(sharp, blurred, coc.smoothstep(0.0, 0.15));
+    return isSky.select(sharp, result);
+  })();
+}
+
 const FOG_BRIGHTNESS = {
   /** Brightness multiplier for HIDDEN areas (0 in texture). */
   HIDDEN: 0.05,
@@ -118,6 +224,11 @@ interface PipelineUniforms {
   colorTemperature?: { value: number };
   filmGrainAmount?: { value: number };
   chromaticAberrationOffset?: { value: number };
+  motionBlurStrength?: { value: number };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prevViewProjection?: any;
+  dofFocusDistance?: { value: number };
+  dofAperture?: { value: number };
 }
 
 export interface PostProcessingProps {
@@ -151,6 +262,16 @@ export interface PostProcessingProps {
   chromaticAberrationEnabled?: boolean;
   /** Chromatic aberration offset (default 0.003). */
   chromaticAberrationOffset?: number;
+  /** Enable camera motion blur. Default false. */
+  motionBlurEnabled?: boolean;
+  /** Motion blur strength multiplier (default 1.0). */
+  motionBlurStrength?: number;
+  /** Enable bokeh depth of field. Default false. */
+  depthOfFieldEnabled?: boolean;
+  /** DoF focus distance in world units (default 50). */
+  dofFocusDistance?: number;
+  /** DoF aperture size — larger = more blur (default 2.0). */
+  dofAperture?: number;
   /** R8 DataTexture from useFogOfWar (CPU path). Omit to disable fog-of-war. */
   fogTexture?: DataTexture | null;
   /** GPU compute resources from useFogOfWar (GPU path). Omit for CPU path. */
@@ -175,6 +296,11 @@ export function PostProcessingEffects({
   filmGrainAmount = POST_PROCESSING_DEFAULTS.filmGrainAmount,
   chromaticAberrationEnabled = false,
   chromaticAberrationOffset = POST_PROCESSING_DEFAULTS.chromaticAberrationOffset,
+  motionBlurEnabled = false,
+  motionBlurStrength = POST_PROCESSING_DEFAULTS.motionBlurStrength,
+  depthOfFieldEnabled = false,
+  dofFocusDistance = POST_PROCESSING_DEFAULTS.dofFocusDistance,
+  dofAperture = POST_PROCESSING_DEFAULTS.dofAperture,
   fogTexture,
   fogComputeResources,
   fogUniforms,
@@ -183,6 +309,9 @@ export function PostProcessingEffects({
   const renderer = gl as unknown as WebGPURenderer;
   const pipelineRef = useRef<PostProcessing | null>(null);
   const uniformsRef = useRef<PipelineUniforms | null>(null);
+  const prevVPRef = useRef(new Matrix4());
+  /** Previous camera position for teleport detection (motion blur). */
+  const prevCamPosRef = useRef<[number, number, number]>([0, 0, 0]);
 
   // ── Pipeline construction — only on structural changes ──
   // Boolean toggles and fog resources change the node graph → rebuild required.
@@ -295,9 +424,28 @@ export function PostProcessingEffects({
         devLog.success('PostFX', 'Fog of War CPU path enabled (depth reconstruction)');
       }
 
+      // ── Motion Blur (camera-based velocity reconstruction) ──
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let uMotionBlurStrength: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let uPrevVP: any;
+      let motionBlurredColor = scenePassColor;
+
+      if (motionBlurEnabled) {
+        const mbDepth = scenePass.getTextureNode('depth');
+        uMotionBlurStrength = uniform(motionBlurStrength);
+        // Initialize prevVP uniform from current camera matrices
+        const cam = camera as PerspectiveCamera;
+        const initVP = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+        prevVPRef.current.copy(initVP);
+        uPrevVP = uniform(initVP);
+        motionBlurredColor = buildMotionBlurNode(scenePassColor, mbDepth, uPrevVP, uMotionBlurStrength);
+        devLog.success('PostFX', `Motion blur enabled (${MOTION_BLUR_SAMPLES} samples)`);
+      }
+
       // ── Viewmodel compositing ──
       const vmRef = getViewmodelScene();
-      let worldWithViewmodel = scenePassColor.add(bloomPass).mul(fogFactor).mul(aoFactor);
+      let worldWithViewmodel = motionBlurredColor.add(bloomPass).mul(fogFactor).mul(aoFactor);
 
       // Track viewmodel bloom uniforms if present
       let uVmBloomThreshold: { value: number } | undefined;
@@ -327,6 +475,18 @@ export function PostProcessingEffects({
         worldWithViewmodel = mix(worldWithViewmodel, vmWithBloom, vmMask);
 
         devLog.success('PostFX', 'Viewmodel compositing enabled');
+      }
+
+      // ── Depth of Field (bokeh disc blur) ──
+      let uDofFocusDist: { value: number } | undefined;
+      let uDofAperture: { value: number } | undefined;
+
+      if (depthOfFieldEnabled) {
+        const dofDepth = scenePass.getTextureNode('depth');
+        uDofFocusDist = uniform(dofFocusDistance);
+        uDofAperture = uniform(dofAperture);
+        worldWithViewmodel = buildDofNode(worldWithViewmodel, dofDepth, uDofFocusDist, uDofAperture);
+        devLog.success('PostFX', `Depth of Field enabled (${DOF_SAMPLES} samples, bokeh disc)`);
       }
 
       // Apply vignette
@@ -418,6 +578,10 @@ export function PostProcessingEffects({
         colorTemperature: uColorTemp,
         filmGrainAmount: uGrainAmount,
         chromaticAberrationOffset: uCaOffset,
+        motionBlurStrength: uMotionBlurStrength,
+        prevViewProjection: uPrevVP,
+        dofFocusDistance: uDofFocusDist,
+        dofAperture: uDofAperture,
       };
 
       const features: string[] = ['Bloom', 'Vignette', 'ACES'];
@@ -425,6 +589,8 @@ export function PostProcessingEffects({
       if (colorGradingEnabled) features.push('ColorGrade');
       if (filmGrainEnabled) features.push('FilmGrain');
       if (chromaticAberrationEnabled) features.push('ChromAb');
+      if (motionBlurEnabled) features.push('MotionBlur');
+      if (depthOfFieldEnabled) features.push('DoF');
       if (fogComputeResources) features.push('FoW-GPU');
       else if (fogTexture) features.push('FoW-CPU');
       if (vmRef) features.push('Viewmodel');
@@ -446,6 +612,7 @@ export function PostProcessingEffects({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderer, scene, camera,
     ssaoEnabled, colorGradingEnabled, filmGrainEnabled, chromaticAberrationEnabled,
+    motionBlurEnabled, depthOfFieldEnabled,
     fogTexture, fogComputeResources, fogUniforms]);
 
   // ── Uniform updates — no pipeline rebuild ──
@@ -469,13 +636,45 @@ export function PostProcessingEffects({
     if (u.colorTemperature) u.colorTemperature.value = colorTemperature;
     if (u.filmGrainAmount) u.filmGrainAmount.value = filmGrainAmount;
     if (u.chromaticAberrationOffset) u.chromaticAberrationOffset.value = chromaticAberrationOffset;
+    if (u.motionBlurStrength) u.motionBlurStrength.value = motionBlurStrength;
+    if (u.dofFocusDistance) u.dofFocusDistance.value = dofFocusDistance;
+    if (u.dofAperture) u.dofAperture.value = dofAperture;
   }, [bloomThreshold, bloomStrength, bloomRadius,
     vignetteIntensity, vignetteSoftness,
     exposure, contrast, saturation, colorTemperature,
-    filmGrainAmount, chromaticAberrationOffset]);
+    filmGrainAmount, chromaticAberrationOffset,
+    motionBlurStrength, dofFocusDistance, dofAperture]);
 
   // renderPriority=1 disables R3F auto-rendering; pipeline handles render + post
   useFrame(() => {
+    // Update previous VP matrix for motion blur before rendering
+    const u = uniformsRef.current;
+    if (u?.prevViewProjection) {
+      const cam = camera as PerspectiveCamera;
+      const cx = cam.position.x;
+      const cy = cam.position.y;
+      const cz = cam.position.z;
+      const dx = cx - prevCamPosRef.current[0];
+      const dy = cy - prevCamPosRef.current[1];
+      const dz = cz - prevCamPosRef.current[2];
+      const distSq = dx * dx + dy * dy + dz * dz;
+
+      if (distSq > MOTION_BLUR_TELEPORT_THRESHOLD_SQ) {
+        // Camera teleported — set prevVP to current VP so velocity = 0
+        const currentVP = prevVPRef.current;
+        currentVP.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+        u.prevViewProjection.value.copy(currentVP);
+      } else {
+        // Normal: set uniform to previous frame's VP, store current for next frame
+        u.prevViewProjection.value.copy(prevVPRef.current);
+        prevVPRef.current.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+      }
+
+      prevCamPosRef.current[0] = cx;
+      prevCamPosRef.current[1] = cy;
+      prevCamPosRef.current[2] = cz;
+    }
+
     frameTiming.begin('Render');
     const pipeline = pipelineRef.current;
     if (pipeline) {

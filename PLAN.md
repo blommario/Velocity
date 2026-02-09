@@ -20,10 +20,10 @@
 - ✅ Volumetrisk dimma — TSL ray march fog volumes (box/sphere), depth-baserad density
 - ✅ Rök/eld-emitters — använda particlePresets (smoke/ash) med trigger-zoner i MapData
 
-### O3 — Motion Blur & DoF
-- 🔲 Per-object motion blur via velocity buffer — TSL passNode med previousModelMatrix
-- 🔲 Valfri DoF — bokeh-stil, avståndsbaserad (mest för replays/spectator)
-- 🔲 Settings-integration: `motionBlur: boolean`, `depthOfField: boolean` i settingsStore
+### O3 — Motion Blur & DoF ✅
+- ✅ Camera motion blur via depth-buffer velocity reconstruction — TSL previousViewProjection, 8 samples along velocity vector
+- ✅ Valfri DoF — bokeh-stil disc kernel (12 samples), avståndsbaserad CoC
+- ✅ Settings-integration: `motionBlur: boolean`, `depthOfField: boolean` i settingsStore
 
 ---
 
