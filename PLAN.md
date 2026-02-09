@@ -1,316 +1,262 @@
-# VELOCITY — Engine & Gameplay Plan
+# VELOCITY — Gameplay & Content Plan
 
-> Fokus: Slutför engine-systems (J–N) innan game-specifika features (B–F).
-> Ljud (Fas D) är **on hold**. Gameplay-faser **parkerade** tills engine är klar.
+> Engine-arbete (Fas A, G–N) är klart. Fokus nu: gameplay polish, content, ljud, banor, multiplayer.
 > ✅ = klart | 🔲 = kvar | 🔧 = pågår
 
 ---
 
-## Fas J — Animation & Asset Upgrade
-*Utan animation kan vi inte ha weapon viewmodels, animerade miljöobjekt eller karaktärer.*
-
-**Förutsättning:** Ingen (asset pipeline redan klar i Fas A)
-
-### J1 — Animation Extraction i Asset Pipeline
-- ✅ Utöka `services/assetManager.ts` — spara `gltf.animations` (AnimationClip[]) i ny `animationCache`
-- ✅ Ny export `loadModelWithAnimations(url)` → `{ scene: Group, animations: AnimationClip[] }`
-- ✅ Ny typ `ModelAsset = { scene: Group; animations: AnimationClip[] }`
-
-### J2 — Animation Playback Hook
-*React hook som wrapprar Three.js AnimationMixer.*
-
-**Förutsättning:** J1
-
-- ✅ `engine/effects/useAnimation.ts` — hook med input: Group ref + AnimationClip[]
-- ✅ Output: `{ play(name), stop(), crossFade(from, to, duration), mixer }`
-- ✅ Uppdatering via `useFrame` delta, stödjer loop/clamp/ping-pong
-
-### J3 — Animated Object Component
-*Generisk komponent för animerade modeller i scenen.*
-
-**Förutsättning:** J1, J2
-
-- ✅ `engine/effects/AnimatedModel.tsx` — props: `url`, `animation`, `loop`, `speed`, `onComplete`
-- ✅ Använder J1 (asset loading) + J2 (playback) internt
-
----
-
-## Fas K — Shadows & Lighting Quality
-*Inga shadows just nu. En persistent DirectionalLight triggar aldrig LightsNode recompile (light count ändras inte). Point lights fortsätter med tile-clustered emissive sprites.*
+## Fas O — Grafik & Visuell Polish
+*Engine har shadows (K), SSAO/color grading/film grain (M), decals/particles (N). Kvar: material, miljöeffekter, motion blur.*
 
 **Förutsättning:** Ingen
 
-### K1 — Directional Shadow (Single Light)
-- ✅ `engine/rendering/useShadowLight.ts` — hook: skapar persistent DirectionalLight + shadow config
-- ✅ `engine/rendering/shadowConfig.ts` — quality presets (mapSize: 512/1024/2048/4096, bias, cascade distances)
-- ✅ Shadow quality kopplad till `settingsStore.shadowQuality`
-- ✅ CSM via Three.js `CSMShadowNode` med practical mode, fade enabled
+### O1 — Material Upgrade
+- 🔲 Per-block PBR i InstancedBlocks — normal map, roughness, metalness per visuell grupp
+- 🔲 Emissive material stöd — glow-block typ (neon strips, warning lights)
+- 🔲 Texture blending — TSL blend mellan two texture sets baserat på height/mask
 
-### K2 — Shadow Quality Settings
-- ✅ Utöka `stores/settingsStore.ts` — `shadowQuality: 'off' | 'low' | 'medium' | 'high'`
-- ✅ Koppla till shadow map resolution och cascade count
-- ✅ Default: `'medium'`, Settings UI: dropdown istället för toggle
+### O2 — Miljöeffekter
+- 🔲 Vatten/lava-yta — TSL animated plane med refraktion, flow-direction, vertex displacement
+- 🔲 Volumetrisk dimma — TSL ray march fog volumes (box/sphere), depth-baserad density
+- 🔲 Rök/eld-emitters — använda particlePresets (smoke/ash) med trigger-zoner i MapData
 
----
-
-## Fas L — Viewmodel & First-Person Rendering
-*Weapon viewmodel renderas i en separat scene/kamera ovanpå huvudscenen — standard FPS-teknik.*
-
-**Förutsättning:** Fas J (animation behövs för viewmodel)
-
-### L1 — Viewmodel Render Layer
-- ✅ `engine/rendering/ViewmodelLayer.tsx` — `createPortal` till separat scene
-- ✅ Egen kamera (viewmodel FOV ~70° vs gameplay ~100°)
-- ✅ Extra `pass()` i PostProcessing pipeline efter scenePass
-- ✅ Depth clear mellan passes — viewmodel alltid framför world geometry
-
-### L2 — Viewmodel Animation Support
-- ✅ `engine/rendering/useViewmodelAnimation.ts` — hook för viewmodel-specifik animation
-- ✅ Stödjer: idle sway, bob (kopplat till velocity), recoil, draw/holster
-- ✅ Input via props (velocity, isFiring, isDrawing) — INTE game store
-
-### L3 — Muzzle Flash
-- ✅ `engine/effects/MuzzleFlash.tsx` — GPU sprite burst (återanvänder GpuParticles-mönster)
-- ✅ Emissive ×8.0 + bloom, 2-3 frames duration, additive blending
+### O3 — Motion Blur & DoF
+- 🔲 Per-object motion blur via velocity buffer — TSL passNode med previousModelMatrix
+- 🔲 Valfri DoF — bokeh-stil, avståndsbaserad (mest för replays/spectator)
+- 🔲 Settings-integration: `motionBlur: boolean`, `depthOfField: boolean` i settingsStore
 
 ---
 
-## Fas M — Post-Processing Pipeline
-*Utöka PostProcessing med SSAO, color grading, och valfria effekter.*
-
-**Förutsättning:** Ingen (men bäst efter K då SSAO drar nytta av depth/normals)
-
-### M1 — SSAO (Screen-Space Ambient Occlusion)
-- ✅ Använd `GTAONode` från `three/addons` (WebGPU-ready)
-- ✅ Lägg till MRT `normalView` output från scenePass i `PostProcessingEffects.tsx`
-- ✅ Kopplad till `settingsStore` toggle (`ssao: boolean`)
-
-### M2 — Color Grading & Film Effects
-- ✅ Color grading via TSL: exposure, contrast, saturation, color temperature
-- ✅ Valfri chromatic aberration (TSL UV offset per kanal)
-- ✅ Valfri film grain (TSL noise)
-- ✅ Alla effekter toggle-bara via settingsStore
-
-### M3 — PostFX Settings
-- ✅ Utöka `stores/settingsStore.ts` — `ssao`, `colorGrading`, `filmGrain`, `chromaticAberration` booleans
-- ✅ Koppla till kvalitetspreset (ultra → alla på, low → alla av)
-
----
-
-## Fas N — Decals & Particle Variety
-*Impact marks och partikelvariation ger visual polish.*
+## Fas P — Movement & Game Feel
+*Kärnrörelse (bhop, strafe, ramp) + avancerad rörelse (wall run, surf, grapple) redan implementerad. Kvar: weapon movement, hit feedback, edge grab.*
 
 **Förutsättning:** Ingen
 
-### N1 — Decal System
-- ✅ `engine/effects/DecalPool.tsx` — poolad decal-manager (64 aktiva, ring-buffer)
-- ✅ Instanced PlaneGeometry med instancedDynamicBufferAttribute (1 draw call)
-- ✅ Input: position, normal, size, color, lifetime via `spawnDecal()` trigger
-- ✅ Auto-fade (sista 2s) + ring-buffer recycle äldsta vid pool exhaustion
-- ✅ Integrerad i `usePhysicsTick.ts` — rocket/grenade impacts spawnar decals
+### P1 — Weapon Movement Mechanics
+- 🔲 Rocket jump — apply self-damage + knockback impulse från explosion proximity
+- 🔲 Shotgun jump — hitscan spread med knockback i motsatt riktning
+- 🔲 Plasma surf — kontinuerlig knockback vid plasma impact (self-hit = boost)
+- 🔲 Grenade boost — timed detonation med proximity knockback
 
-### N2 — Particle Presets
-- ✅ `engine/effects/particlePresets.ts` — konfigurationsobjekt per partikeltyp
-- ✅ Presets: `smoke`, `sparks`, `dust`, `debris`, `trail`, `snow`, `ash`, `pollen`
-- ✅ Varje preset: count, lifetime, speed, spread, gravity, color, drag, spriteSize, direction
-- ✅ `engine/effects/EnvironmentalParticles.tsx` — GPU compute ambient particles (prop-driven)
-- ✅ Följer kamera, TSL compute med gravity/drag/wind, automatisk respawn
+### P2 — Hit Feedback & Game Feel
+- 🔲 Hit marker — visuell + audio feedback vid projectile hit (korsikon + ljud)
+- 🔲 Wall sparks — decal + sparks particle vid projectile-wall impact
+- 🔲 Kill feed — event log för eliminations (multiplayer-redo)
+- 🔲 Damage numbers — floating text med skadebelopp, decay + drift uppåt
+
+### P3 — Edge Grab & Mantling
+- 🔲 Edge detection — raycast framåt + nedåt vid vägg-kontakt, detektera grabbable kanter
+- 🔲 Mantle animation — lerp position till kantnivå + framåt, blockera input under mantle
+- 🔲 Settings toggle: `edgeGrab: boolean` (default on)
+
+---
+
+## Fas Q — Ljud & Audio
+*AudioManager finns med 26 synth-ljud. Kvar: spatial audio, musik, ambience.*
+
+**Förutsättning:** Ingen
+
+### Q1 — Spatial Audio (3D)
+- 🔲 `engine/audio/SpatialAudioManager.ts` — wrappa Web Audio PannerNode
+- 🔲 3D-positionering för alla world sounds (explosions, projectiles, pickups)
+- 🔲 Listener kopplad till kamera/spelare position + orientation
+- 🔲 Distance attenuation model (inverse, max distance, rolloff)
+- 🔲 Reverb via ConvolverNode — rum-storlek baserat på environment (ute/inne)
+
+### Q2 — Musik & Ambience
+- 🔲 Ambient loops — per-map ambient sound (wind, hum, machinery) via AudioManager
+- 🔲 Menu musik — synth-genererad loop (arpeggiator + pad) för main menu
+- 🔲 In-game musik — intensitetsbaserat layer system (idle → running → airborne → combat)
+- 🔲 Stingers — korta triggers vid events (PB, checkpoint, finish, countdown)
+
+### Q3 — SFX Upgrade
+- 🔲 Upgrade synth-presets — mer variation per ljud (footstep material detection)
+- 🔲 Projectile-flyby — doppler pitch shift vid nära miss
+- 🔲 Impact variation — 3-4 varianter per material (betong, metall, glas)
+
+---
+
+## Fas R — Banor & Content
+*En officiell bana ("First Steps"). Map editor komplett. Kvar: fler banor, teman, editor v2.*
+
+**Förutsättning:** Fas O (material/miljöeffekter ger visuell variation)
+
+### R1 — Officiella Banor (5 st)
+- 🔲 **Cliffside** (Medium) — utomhus, vertikala klippor, wind-boost, long falls
+- 🔲 **Neon District** (Medium) — neon-tema, trånga korridorer, wall-run sektioner
+- 🔲 **Gauntlet** (Hard) — stridsarena med kill zones, ammo management, timed doors
+- 🔲 **Skybreak** (Hard) — floating platforms, precision jumps, grapple points
+- 🔲 **The Furnace** (Expert) — lava-golv, moving platforms, surf ramps, speed gates
+
+### R2 — Map Teman & Prefabs
+- 🔲 Temapaket-system — `MapTheme` interface med texture sets, skybox, lighting, ambient
+- 🔲 3-4 teman: Industrial, Sci-Fi, Nature, Abstract
+- 🔲 Prefab-system — sparade block-grupper (corridors, rooms, jumps) importerbara i editorn
+- 🔲 Editor: prefab-panel med thumbnail preview + drag-to-place
+
+### R3 — Map Editor v2
+- 🔲 Modell-placering — browse assets/models/, place + scale + rotate i viewport
+- 🔲 Texture picker — per-block texture set selection i properties panel
+- 🔲 Decoration objects — non-collidable props (pipes, crates, lights, signs)
+- 🔲 Terrain brush — heightmap-baserad markyta (smooth/raise/lower/flatten)
+
+---
+
+## Fas S — Gameplay Loop & Onboarding
+*EndRunModal, replay/ghost system finns. Kvar: tutorial, progression, achievements.*
+
+**Förutsättning:** R1 (behöver banor att spela)
+
+### S1 — Tutorial System
+- 🔲 Tutorial overlay — context-sensitive tips (flytta, hoppa, bhop, strafe, wall run)
+- 🔲 Teknik-demos — isolerade mini-maps per movement teknik (bhop course, surf course)
+- 🔲 Progress tracking — vilka tekniker spelaren har "lärt sig" (localStorage)
+- 🔲 Skippable — erfarna spelare kan stänga av i settings
+
+### S2 — Progression & Stats
+- 🔲 Player stats dashboard — total playtime, runs completed, PBs, favorite maps
+- 🔲 Per-map stats — attempts, PB history (graph), rank percentile
+- 🔲 XP system — XP per completed run (baserat på map difficulty × performance)
+- 🔲 Player level — title/badge baserat på total XP (Rookie → Speedrunner → Legend)
+
+### S3 — Achievements
+- 🔲 Achievement system — `achievementStore.ts` med unlock conditions
+- 🔲 15-20 achievements: first run, first PB, sub-par time, all checkpoints, weapon kills
+- 🔲 Achievement popup — toast notification vid unlock
+- 🔲 Achievement showcase — profil-sida med grid av låsta/olåsta
+
+---
+
+## Fas T — Multiplayer & Community
+*SSE backend + race rooms + race store finns. Kvar: live race UX, matchmaking, community.*
+
+**Förutsättning:** Fas R1 (banor att tävla på)
+
+### T1 — Live Race Polish
+- 🔲 Ghost rendering av andra spelare — semi-transparent modeller via SSE position-stream
+- 🔲 Race HUD — position (1st/2nd/3rd), gap to leader, minimap med alla spelare
+- 🔲 Race countdown — synkroniserad 3-2-1-GO med server-clock
+- 🔲 Race results — podium-vy med tider, splits, placement animation
+- 🔲 Spectator mode — free-cam + player-follow under aktiv race
+
+### T2 — Matchmaking & Ranked
+- 🔲 ELO-system i backend — `PlayerRating` entity, Glicko-2 rating algorithm
+- 🔲 Ranked queue — auto-matchmake baserat på rating + map pool
+- 🔲 Seasons — 30-dagars season med leaderboard reset, season rewards (titles)
+- 🔲 Unranked quickplay — snabb matchmake utan rating impact
+
+### T3 — Community Features
+- 🔲 Map rating — 1-5 stjärnor + text review per map
+- 🔲 Map tags — community-driven tagging (trick, beginner, long, short, surf, etc.)
+- 🔲 Featured maps — weekly rotation av top-rated community maps
+- 🔲 Activity feed — SSE-driven global feed (nya PBs, maps published, achievements)
+- 🔲 Friends list — follow players, se online status, invite to race
+
+### T4 — Game Modes
+- 🔲 Time Attack — solo timed run (befintligt, men med dedicated mode + constraints)
+- 🔲 Ghost Race — race mot sparade ghosts (PB, WR, friends)
+- 🔲 Elimination — sista spelaren per checkpoint elimineras
+- 🔲 Tag — en spelare "it", fånga andra via proximity
+- 🔲 Relay — lag-baserat, spelare turas om per sektion
 
 ---
 
 ## Beroendeöversikt
 
 ```
-Fas J (Animation)           Fas K (Shadows)
-├── J1 Asset Pipeline       ├── K1 Directional Shadow
-├── J2 Playback Hook ← J1  ├── K2 Shadow Settings
-├── J3 Animated Model ← J2 │
-│                           │    ← kan köras parallellt →
-▼                           │
-Fas L (Viewmodel) ← J      │
-├── L1 Render Layer         │
-├── L2 Animation ← L1      │
-├── L3 Muzzle Flash         │
-                            │
-Fas M (PostFX)              │   Fas N (Decals & Particles)
-├── M1 SSAO                 │   ├── N1 Decal System
-├── M2 Color Grading        │   ├── N2 Particle Presets
-├── M3 Settings             │
-                            │
-    ← M + N kan köras parallellt, bäst efter K →
+Fas O (Grafik)              Fas P (Movement)        Fas Q (Audio)
+├── O1 Material             ├── P1 Weapon Movement  ├── Q1 Spatial
+├── O2 Miljöeffekter        ├── P2 Hit Feedback     ├── Q2 Musik
+├── O3 Motion Blur          ├── P3 Edge Grab        ├── Q3 SFX Upgrade
+│                           │                       │
+│   ← O, P, Q kan köras parallellt →               │
+│                                                   │
+▼                                                   │
+Fas R (Banor) ← O                                  │
+├── R1 Officiella banor                             │
+├── R2 Teman & Prefabs                              │
+├── R3 Editor v2                                    │
+│                                                   │
+▼                                                   │
+Fas S (Gameplay Loop) ← R1                          │
+├── S1 Tutorial                                     │
+├── S2 Progression                                  │
+├── S3 Achievements                                 │
+│                                                   │
+▼                                                   │
+Fas T (Multiplayer) ← R1                            │
+├── T1 Live Race Polish                             │
+├── T2 Matchmaking                                  │
+├── T3 Community                                    │
+├── T4 Game Modes                                   │
 ```
 
 **Rekommenderad ordning:**
-1. **J + K** parallellt (inga beroenden emellan)
-2. **L** (kräver J)
-3. **M + N** parallellt (visual polish)
-
----
-
-## Parkerat — Velocity Gameplay (framtida faser)
-
-Dessa faser är **inte borttagna**, bara parkerade tills engine-arbetet (J–N) är klart:
-
-### Fas B — Grafik & Visuell Kvalitet
-- B1 Material Upgrade (normal maps, roughness/metalness, emissive)
-- B2 Lighting Upgrade (SSR, area lights, light probes, volumetric)
-- B3 Miljöeffekter (vatten/lava, rök/dimma, damm/gnistor)
-- B4 Kamera & Post-Processing (motion blur, DoF)
-
-### Fas C — Physics & Movement Feel
-- C1 Kärnrörelse (bhop, air strafe, landing, ramp, slope)
-- C2 Avancerad Rörelse (wall run, surf, slide chain, grapple, edge grab)
-- C3 Vapenrörelse (rocket jump, shotgun jump, knife lunge, plasma surf, grenade boost)
-- C4 Game Feel (weapon viewmodel, muzzle flash, impact particles, wall sparks, hit marker)
-
-### Fas D — Ljud & Audio (ON HOLD)
-- D1 Sound Effects (CC0 SFX, sample migration)
-- D2 Spatial Audio (3D positionering, reverb, doppler)
-- D3 Musik & Ambience (ambient loops, dynamisk musik, menu, stingers)
-
-### Fas E — Banor & Level Design
-- E1 Uppgradera befintliga banor (First Steps, Cliffside, Neon District, Gauntlet, Skybreak)
-- E2 Nya banor (Orbital, Molten Core, Speedway, Vertigo, Frostbite)
-- E3 Map Editor v2 (prefabs, modell-placering, texture picker, decorations)
-
-### Fas F — Gameplay Loop Polish
-- F1 Tutorial & Onboarding
-- F2 Replay & Ghost System
-- F3 End-of-Run Experience
-
-### Multiplayer & Community
-- Multiplayer — Live race, ghost race, SSE broadcasting
-- Matchmaking — ELO, ranked, seasons
-- Socialt — Friends, activity feed, achievements
-- Game Modes — Elimination, tag, relay, time attack
-- Community — Map rating, tags, featured maps, comments
+1. **O + P + Q** parallellt (inga beroenden emellan)
+2. **R** (banor, kräver O för visuell variation)
+3. **S + T** parallellt (båda kräver R1 banor)
 
 ---
 
 <details>
-<summary>Arkiv — Klara faser (A, Engine Extraction, G, H, I)</summary>
+<summary>Arkiv — Klara faser (A, Engine Extraction, G–N, Fas 12)</summary>
 
 ## Fas A — Asset Pipeline & glTF Loading ✅
-*Innan vi kan höja grafiken behöver spelet kunna ladda riktiga 3D-modeller och texturer.*
-
-**Förutsättning:** Ingen
-
-### A1 — glTF Model Loader
-- ✅ GLTFLoader integration — `assetManager.ts` med GLTFLoader + DRACOLoader (WebGPU-kompatibel)
-- ✅ Asset manager — cache för laddade modeller, progress-callbacks, lazy loading
-- ✅ Model placement i MapData — `MapModel` interface med `modelUrl`, position, rotation, scale
-- ✅ Collider-generering från mesh — `ModelBlock` component med trimesh/hull via `MeshCollider`
-
-### A2 — PBR Texture System
-- ✅ Texture loader — `loadTexture()` med sRGB/linear color space, RepeatWrapping
-- ✅ Texture atlas / manager — `loadTextureSet()` med cache, undviker duplicerade laddningar
-- ✅ Material factory — `useTexturedMaterial` hook skapar MeshStandardMaterial från texture-set
-- ✅ Per-block texture override — MapBlock `textureSet` + `textureScale` fält
-
-### A3 — HDRI Skybox
-- ✅ RGBELoader — `loadHDRI()` i assetManager, laddar .hdr med EquirectangularReflectionMapping
-- ✅ Fallback — `HdriSkybox` component, ProceduralSkybox kvarstår som standard
-- ✅ Environment map reflection — `scene.environment` sätts via PMREMGenerator
-- ✅ Per-map skybox config — `SkyboxType = ProceduralSkyboxType | 'hdri:filename'`
-
-### A4 — Asset Downloads (CC0)
-- ✅ **Quaternius Modular Sci-Fi MEGAKIT** — 190 glTF modeller (CC0)
-- ✅ **Kenney Space Kit** — 153 FBX modeller (CC0)
-- ✅ **Poly Haven Night HDRI** — `satara_night_2k.hdr` + `dikhololo_night_2k.hdr` (CC0, 2K)
-- ✅ **3dtextures.me Sci-Fi Panels** — 6 PBR texture-set (CC0)
-- ✅ **ambientCG Metal/Concrete** — `metal-009` + `concrete-034` PBR texturer (CC0, 1K)
-- ✅ Organisera assets i `frontend/public/assets/` — models/, textures/, hdri/
-
----
+- ✅ A1 glTF Model Loader (GLTFLoader + DRACOLoader)
+- ✅ A2 PBR Texture System (loadTexture, loadTextureSet, useTexturedMaterial)
+- ✅ A3 HDRI Skybox (RGBELoader, PMREMGenerator, per-map config)
+- ✅ A4 Asset Downloads CC0 (Quaternius, Kenney, Poly Haven, 3dtextures, ambientCG)
 
 ## Engine Extraction ✅
-*Extraherat generisk, återanvändbar engine-kod till `src/engine/`.*
-
-- ✅ Core — `setup-webgpu.ts`, `PostProcessingEffects.tsx` → `engine/core/`
-- ✅ Physics — `useMovement.ts`, `useAdvancedMovement.ts`, `ENGINE_PHYSICS` konstanter → `engine/physics/`
-- ✅ Input — `useInputBuffer.ts` → `engine/input/`
-- ✅ Audio — `AudioManager.ts` → `engine/audio/`
-- ✅ Effects — `GpuParticles.tsx`, `ExplosionEffect.tsx`, `ScreenShake.tsx` (prop-injected) → `engine/effects/`
-- ✅ Stores — `devLogStore.ts`, `PerfMonitor.tsx`, `DevLogPanel.tsx` → `engine/stores/`
-- ✅ Types — `InputState`, `MovementState`, map-typer (`MapBlock`, `Vec3`, etc.) → `engine/types/`
-- ✅ Barrel exports — `engine/index.ts` + per-modul index
-- ✅ CLAUDE.md uppdaterad med engine/game boundary-regler
-
----
+- ✅ Core, Physics, Input, Audio, Effects, Stores, Types → `src/engine/`
+- ✅ Barrel exports, CLAUDE.md engine/game boundary rules
 
 ## Fas G — GPU Performance & Memory ✅
-*Reducera draw calls, fixa minnesläckor, optimera Rapier physics, förbered för stora världar.*
-
-**Förutsättning:** Fas A (asset pipeline klar)
-
-### G1 — Collider Merging ✅
-- ✅ `engine/physics/colliderBatch.ts` — `batchStaticColliders(blocks)` → `ColliderBatchGroup[]`
-- ✅ `components/game/map/InstancedBlocks.tsx` — batchade grupper
-- ✅ Exportera från `engine/physics/index.ts`
-
-### G2 — ModelBlock Dispose & Cache Eviction ✅
-- ✅ `engine/rendering/dispose.ts` — `disposeSceneGraph(obj)`
-- ✅ `components/game/map/ModelBlock.tsx` — dispose i useEffect cleanup
-- ✅ `services/assetManager.ts` — `clearAssetCache()`
-- ✅ `components/game/map/MapLoader.tsx` — cache cleanup vid kartbyte
-
-### G3 — DynamicPointLights → TSL Sprites ✅
-- ✅ `engine/effects/GpuLightSprites.tsx` — `instancedDynamicBufferAttribute` + `SpriteNodeMaterial` × 6.0
-- ✅ `components/game/map/MapLoader.tsx` — ersätt `<EmissivePointLight>` med `<GpuLightSprites>`
-- ✅ Deprecera `components/game/DynamicPointLights.tsx`
-
-### G4 — Spatial Partitioning (Grid Cells) ✅
-- ✅ `engine/rendering/SpatialGrid.ts` — `insert()`, `querySphere()`, `getCellsInRadius()`
-- ✅ `engine/rendering/useSpatialCulling.ts` — aktiva celler baserat på kameraposition
-- ✅ `components/game/map/InstancedBlocks.tsx` — filtrera synliga block (500+ block)
-
-### G5 — LOD (Level of Detail) ✅
-- ✅ `engine/rendering/LodManager.ts` — trösklar + hjälpfunktioner
-- ✅ `components/game/map/InstancedBlocks.tsx` — dubbla InstancedMesh (nära/fjärran)
-- ✅ `components/game/map/ModelBlock.tsx` — avståndbaserad laddning
-
----
+- ✅ G1 Collider Merging (batchStaticColliders)
+- ✅ G2 ModelBlock Dispose & Cache Eviction
+- ✅ G3 DynamicPointLights → TSL Sprites (GpuLightSprites)
+- ✅ G4 Spatial Partitioning (SpatialGrid + useSpatialCulling)
+- ✅ G5 LOD (LodManager, InstancedBlocks dual-mesh)
 
 ## Fas H — Camera, Interaction & Rendering ✅
-*RTS-kamera, GPU picking, instansad rendering, grid-snapping.*
-
-### H1 — RTS-kamera (Engine-Level) ✅
-- ✅ `engine/input/useRtsCamera.ts` — hook med config-props
-- ✅ `engine/input/useRtsInput.ts` — input utan pointer lock
-- ✅ `stores/settingsStore.ts` — RTS-inställningar
-- ✅ `components/game/RtsCameraController.tsx` — game-komponent
-
-### H2 — GPU Picking ✅
-- ✅ `engine/rendering/GpuPicker.ts` — pick render target, ID-tilldelning
-- ✅ `engine/rendering/usePickable.ts` — hook (24-bit, 16.7M objekt)
-
-### H3 — SurfRamp Instancing ✅
-- ✅ `components/game/map/InstancedSurfRamps.tsx` — gruppera per färg
-- ✅ `components/game/map/MapLoader.tsx` — ersätt per-ramp rendering
-
-### H4 — Snap-to-Grid ✅
-- ✅ `engine/rendering/snapToGrid.ts` — `snapToGrid()`, `snapPosition()`, `snapRotation()`
-
----
+- ✅ H1 RTS Camera (useRtsCamera + useRtsInput)
+- ✅ H2 GPU Picking (GpuPicker + usePickable)
+- ✅ H3 SurfRamp Instancing
+- ✅ H4 Snap-to-Grid
 
 ## Fas I — Atmosphere & D&D Systems ✅
-*Compute shader lighting, fog-of-war, fysiska tärningar.*
+- ✅ I1 Clustered TSL Lighting (tile clustering, 512 lights, Frostbite PBR)
+- ✅ I2 Fog of War (GPU compute ray march)
+- ✅ I3 Physical Dice (Rapier dynamic bodies)
 
-### I1 — Clustered TSL Lighting (100+ ljus) ✅
-- ✅ `engine/rendering/ClusteredLights.ts` — `selectNearestLights()` brute-force sort
-- ✅ `engine/rendering/useClusteredLighting.ts` — PointLight pool (8 st) + LightsNode ~4Hz
-- ✅ `engine/rendering/lightMaterial.ts` — lightsNode helpers
-- ✅ Integration: MapLoader → useClusteredLighting → InstancedBlocks
-- ✅ Steg 2: Full tile clustering (512 lights, 20×12 tiles, 32/tile, GPU compute binning, Frostbite PBR)
+## Fas J — Animation & Asset Upgrade ✅
+- ✅ J1 Animation Extraction (animationCache, loadModelWithAnimations)
+- ✅ J2 Animation Playback Hook (useAnimation)
+- ✅ J3 Animated Object Component (AnimatedModel)
 
-### I2 — Line of Sight / Fog of War ✅
-- ✅ `engine/effects/FogOfWar.ts` — CPU visibility grid (128×128)
-- ✅ `engine/effects/useFogOfWar.ts` — DataTexture (R8) ~4Hz
-- ✅ `engine/core/PostProcessingEffects.tsx` — FoW post-processing pass
-- ✅ Steg 2: GPU compute ray march mot heightmap (DDA, dual-path)
+## Fas K — Shadows & Lighting Quality ✅
+- ✅ K1 Directional Shadow (CSM, useShadowLight)
+- ✅ K2 Shadow Quality Settings (4 presets, settingsStore)
 
-### I3 — Physical Dice ✅
-- ✅ `engine/effects/diceGeometry.ts` — polyeder-generatorer (d4–d20) + cache
-- ✅ `engine/effects/PhysicsDice.tsx` — Rapier dynamic bodies, settling, face-normal resultat
+## Fas L — Viewmodel & First-Person Rendering ✅
+- ✅ L1 Viewmodel Render Layer (createPortal, separate camera)
+- ✅ L2 Viewmodel Animation (idle sway, bob, recoil, draw/holster)
+- ✅ L3 Muzzle Flash (GPU sprite burst, emissive ×8)
+
+## Fas M — Post-Processing Pipeline ✅
+- ✅ M1 SSAO (inline TSL, 8-sample spiral)
+- ✅ M2 Color Grading & Film Effects (exposure, contrast, saturation, grain, chromatic)
+- ✅ M3 PostFX Settings (quality preset mapping)
+
+## Fas N — Decals & Particle Variety ✅
+- ✅ N1 Decal System (64-pool, ring-buffer, instancedDynamicBufferAttribute)
+- ✅ N2 Particle Presets (8 types: smoke, sparks, dust, debris, trail, snow, ash, pollen)
+- ✅ N3 Environmental Particles (GPU compute, camera-follow, wind)
+
+## Fas 12 — Multiplayer & SSE ✅
+- ✅ Backend SSE endpoints (leaderboard, race, activity)
+- ✅ Race rooms API (create, join, ready, start)
+- ✅ Frontend SSE client (auto-reconnect)
+- ✅ Race store + lobby UI (RoomBrowser, RoomLobby, CountdownOverlay)
 
 </details>
