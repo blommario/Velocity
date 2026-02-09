@@ -37,10 +37,6 @@ const DIFFICULTY_HOVER: Record<MapDifficulty, string> = {
 
 const MAP_ICONS: Record<string, string> = {
   'first-steps': 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
-  'cliffside': 'M3 21l6-6 4 4 8-8M17 7h4v4',
-  'neon-district': 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
-  'the-gauntlet': 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
-  'skybreak': 'M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z',
 } as const;
 
 const DIFFICULTY_OPTIONS: (MapDifficulty | 'All')[] = ['All', 'Easy', 'Medium', 'Hard', 'Expert'];
@@ -143,17 +139,6 @@ export function MainMenu() {
       <div className="shooting-star" style={{ top: '12%' }} />
       <div className="shooting-star" style={{ top: '35%', animationDelay: '5s' }} />
       <div className="shooting-star" style={{ top: '65%', animationDelay: '12s' }} />
-
-      {/* Sci-fi panel texture overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none opacity-[0.07]"
-        style={{
-          backgroundImage: 'url(/assets/textures/scifi-metal-panel-007/Sci_fi_Metal_Panel_007_basecolor.png)',
-          backgroundSize: '256px 256px',
-          backgroundRepeat: 'repeat',
-          filter: 'brightness(0.6)',
-        }}
-      />
 
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-white/[0.06] backdrop-blur-sm">
