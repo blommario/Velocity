@@ -21,7 +21,7 @@ export function handleWeaponFire(ctx: TickContext): void {
   const { refs, velocity, rapierWorld, rb, recoilState } = ctx;
   const combat = useCombatStore.getState();
   const weapon = combat.activeWeapon;
-  const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
+  const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0 && !combat.isReloading;
   const eyeOff = refs.isProne.current ? PHYSICS.PLAYER_EYE_OFFSET_PRONE
     : refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
 
@@ -35,16 +35,17 @@ export function handleWeaponFire(ctx: TickContext): void {
 
   switch (weapon) {
     case WEAPONS.ROCKET: {
-      if (combat.ammo.rocket.current > 0) {
+      const rocketMag = combat.ammo.rocket.magazine ?? combat.ammo.rocket.current;
+      if (rocketMag > 0 && !combat.isReloading) {
         const sx = _playerPos.x + _fireDir.x;
         const sy = _playerPos.y + eyeOff + _fireDir.y;
         const sz = _playerPos.z + _fireDir.z;
         spawnProjectile(WEAPONS.ROCKET, sx, sy, sz,
           _fireDir.x * PHYSICS.ROCKET_SPEED, _fireDir.y * PHYSICS.ROCKET_SPEED, _fireDir.z * PHYSICS.ROCKET_SPEED);
-        const newAmmo = combat.ammo.rocket.current - 1;
+        const newMag = rocketMag - 1;
         useCombatStore.setState((s) => ({
           fireCooldown: PHYSICS.ROCKET_FIRE_COOLDOWN,
-          ammo: { ...s.ammo, rocket: { ...s.ammo.rocket, current: newAmmo } },
+          ammo: { ...s.ammo, rocket: { ...s.ammo.rocket, magazine: newMag } },
         }));
         audioManager.play(SOUNDS.ROCKET_FIRE);
         const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.rocket,
@@ -53,21 +54,22 @@ export function handleWeaponFire(ctx: TickContext): void {
           nextRandom() * 2 - 1);
         refs.pitch.current += rk.dpitch;
         refs.yaw.current += rk.dyaw;
-        devLog.info('Combat', `Rocket fired → ammo=${newAmmo}`);
+        devLog.info('Combat', `Rocket fired → mag=${newMag}`);
       }
       break;
     }
     case WEAPONS.GRENADE: {
-      if (combat.ammo.grenade.current > 0) {
+      const grenadeMag = combat.ammo.grenade.magazine ?? combat.ammo.grenade.current;
+      if (grenadeMag > 0 && !combat.isReloading) {
         const sx = _playerPos.x + _fireDir.x * PHYSICS.GRENADE_SPAWN_OFFSET;
         const sy = _playerPos.y + eyeOff + _fireDir.y * PHYSICS.GRENADE_SPAWN_OFFSET;
         const sz = _playerPos.z + _fireDir.z * PHYSICS.GRENADE_SPAWN_OFFSET;
         spawnProjectile(WEAPONS.GRENADE, sx, sy, sz,
           _fireDir.x * PHYSICS.GRENADE_SPEED, _fireDir.y * PHYSICS.GRENADE_SPEED + PHYSICS.GRENADE_UPWARD_BOOST, _fireDir.z * PHYSICS.GRENADE_SPEED);
-        const newAmmo = combat.ammo.grenade.current - 1;
+        const newMag = grenadeMag - 1;
         useCombatStore.setState((s) => ({
           fireCooldown: PHYSICS.GRENADE_FIRE_COOLDOWN,
-          ammo: { ...s.ammo, grenade: { ...s.ammo.grenade, current: newAmmo } },
+          ammo: { ...s.ammo, grenade: { ...s.ammo.grenade, magazine: newMag } },
         }));
         audioManager.play(SOUNDS.GRENADE_THROW);
         const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.grenade,
@@ -76,7 +78,7 @@ export function handleWeaponFire(ctx: TickContext): void {
           nextRandom() * 2 - 1);
         refs.pitch.current += rk.dpitch;
         refs.yaw.current += rk.dyaw;
-        devLog.info('Combat', `Grenade thrown → ammo=${newAmmo}`);
+        devLog.info('Combat', `Grenade thrown → mag=${newMag}`);
       }
       break;
     }

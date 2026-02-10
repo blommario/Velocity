@@ -33,6 +33,9 @@ export interface ViewmodelAnimationConfig {
   inspectOffsetY: number;
   inspectOffsetZ: number;
   inspectSpinSpeed: number;
+  reloadDipY: number;
+  reloadDipZ: number;
+  reloadRotX: number;
 }
 
 export const VM_ANIM_DEFAULTS: ViewmodelAnimationConfig = {
@@ -57,6 +60,9 @@ export const VM_ANIM_DEFAULTS: ViewmodelAnimationConfig = {
   inspectOffsetY: 0.15,
   inspectOffsetZ: -0.08,
   inspectSpinSpeed: 0.8,
+  reloadDipY: -0.25,
+  reloadDipZ: 0.05,
+  reloadRotX: 0.3,
 };
 
 export interface ViewmodelAnimationInput {
@@ -76,6 +82,8 @@ export interface ViewmodelAnimationInput {
   adsProgress?: number;
   /** Inspect progress (0 = hip, 1 = fully inspecting). Overrides bob/sway. */
   inspectProgress?: number;
+  /** Reload progress (0 = start, 1 = complete). Dips weapon down during reload. */
+  reloadProgress?: number;
 }
 
 export interface ViewmodelAnimationOutput {
@@ -182,21 +190,36 @@ export function useViewmodelAnimation(
       inspectSpinRef.current = 0;
     }
 
+    // ── Reload dip ──
+    // Progress 0→0.4: weapon dips down, 0.4→0.7: stays low, 0.7→1.0: comes back up
+    const reload = input.reloadProgress ?? 0;
+    let reloadDipAmount = 0;
+    if (reload > 0) {
+      if (reload < 0.4) {
+        reloadDipAmount = reload / 0.4;                     // ramp down
+      } else if (reload < 0.7) {
+        reloadDipAmount = 1;                                 // hold low
+      } else {
+        reloadDipAmount = (1 - reload) / 0.3;               // ramp back up
+      }
+    }
+
     // ── Combine ──
     const hipPosX = swayX + bobX + lookSwayXRef.current;
-    const hipPosY = swayY - bobY + drawOffset + lookSwayYRef.current;
-    const hipPosZ = -recoilZ;
-    const hipRotX = -recoilRotX;
+    const hipPosY = swayY - bobY + drawOffset + lookSwayYRef.current + reloadDipAmount * c.reloadDipY;
+    const hipPosZ = -recoilZ + reloadDipAmount * c.reloadDipZ;
+    const hipRotX = -recoilRotX + reloadDipAmount * c.reloadRotX;
     const hipRotY = 0;
     const hipRotZ = -tiltRef.current;
 
-    // Blend between hip and inspect pose
-    const targetPosX = hipPosX + (c.inspectOffsetX - hipPosX) * inspect;
-    const targetPosY = hipPosY + (c.inspectOffsetY - hipPosY) * inspect;
-    const targetPosZ = hipPosZ + (c.inspectOffsetZ - hipPosZ) * inspect;
-    const targetRotX = hipRotX * (1 - inspect);
-    const targetRotY = hipRotY + inspectSpinRef.current * inspect;
-    const targetRotZ = hipRotZ * (1 - inspect);
+    // Blend between hip and inspect pose (no inspect during reload)
+    const effectiveInspect = reload > 0 ? 0 : inspect;
+    const targetPosX = hipPosX + (c.inspectOffsetX - hipPosX) * effectiveInspect;
+    const targetPosY = hipPosY + (c.inspectOffsetY - hipPosY) * effectiveInspect;
+    const targetPosZ = hipPosZ + (c.inspectOffsetZ - hipPosZ) * effectiveInspect;
+    const targetRotX = hipRotX * (1 - effectiveInspect);
+    const targetRotY = hipRotY + inspectSpinRef.current * effectiveInspect;
+    const targetRotZ = hipRotZ * (1 - effectiveInspect);
 
     // Smooth final values
     const lerpFactor = 1 - Math.exp(-c.lerpSpeed * dt);

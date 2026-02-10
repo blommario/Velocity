@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { PHYSICS } from '@game/components/game/physics/constants';
+import { PHYSICS, RELOAD_CONFIG } from '@game/components/game/physics/constants';
 import type { WeaponType } from '@game/components/game/physics/types';
 import { WEAPON_SLOTS } from '@game/components/game/physics/types';
 
@@ -24,13 +24,13 @@ interface AmmoState {
 }
 
 const DEFAULT_AMMO: Record<WeaponType, AmmoState> = {
-  rocket:  { current: 10, max: 10 },
-  grenade: { current: 3, max: 3 },
-  sniper:  { current: PHYSICS.SNIPER_MAX_AMMO, max: PHYSICS.SNIPER_MAX_AMMO },
+  rocket:  { current: 10, max: 10, magazine: RELOAD_CONFIG.rocket.magSize, magSize: RELOAD_CONFIG.rocket.magSize },
+  grenade: { current: 3, max: 3, magazine: RELOAD_CONFIG.grenade.magSize, magSize: RELOAD_CONFIG.grenade.magSize },
+  sniper:  { current: PHYSICS.SNIPER_MAX_AMMO, max: PHYSICS.SNIPER_MAX_AMMO, magazine: RELOAD_CONFIG.sniper.magSize, magSize: RELOAD_CONFIG.sniper.magSize },
   assault: { current: PHYSICS.ASSAULT_MAX_AMMO, max: PHYSICS.ASSAULT_MAX_AMMO, magazine: PHYSICS.ASSAULT_MAG_SIZE, magSize: PHYSICS.ASSAULT_MAG_SIZE },
-  shotgun: { current: PHYSICS.SHOTGUN_MAX_AMMO, max: PHYSICS.SHOTGUN_MAX_AMMO },
+  shotgun: { current: PHYSICS.SHOTGUN_MAX_AMMO, max: PHYSICS.SHOTGUN_MAX_AMMO, magazine: RELOAD_CONFIG.shotgun.magSize, magSize: RELOAD_CONFIG.shotgun.magSize },
   knife:   { current: Infinity, max: Infinity },
-  plasma:  { current: PHYSICS.PLASMA_MAX_AMMO, max: PHYSICS.PLASMA_MAX_AMMO },
+  plasma:  { current: PHYSICS.PLASMA_MAX_AMMO, max: PHYSICS.PLASMA_MAX_AMMO, magazine: RELOAD_CONFIG.plasma.magSize, magSize: RELOAD_CONFIG.plasma.magSize },
 };
 
 function cloneAmmo(): Record<WeaponType, AmmoState> {
@@ -67,6 +67,11 @@ interface CombatState {
   // Recoil bloom (for HUD crosshair spread indicator)
   recoilBloom: number;      // 0 = no bloom, higher = wider crosshair spread
 
+  // Reload
+  isReloading: boolean;
+  reloadProgress: number;  // 0 = just started, 1 = complete
+  reloadWeapon: WeaponType | null; // weapon being reloaded (null = none)
+
   // Weapon inspect
   isInspecting: boolean;
   inspectProgress: number;  // 0 = hip, 1 = fully inspecting
@@ -100,6 +105,9 @@ interface CombatState {
   stopPlasma: () => void;
   tickPlasma: (dt: number) => void;
   pickupAmmo: (type: WeaponType, amount: number) => void;
+  startReload: (weapon: WeaponType) => void;
+  completeReload: () => void;
+  cancelReload: () => void;
   tickCooldown: (dt: number) => void;
   canFire: () => boolean;
 
@@ -139,6 +147,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   scopeTime: 0,
 
   recoilBloom: 0,
+
+  isReloading: false,
+  reloadProgress: 0,
+  reloadWeapon: null,
 
   isInspecting: false,
   inspectProgress: 0,
@@ -195,6 +207,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       adsProgress: 0,
       isPlasmaFiring: false,
       recoilBloom: 0,
+      isReloading: false,
+      reloadProgress: 0,
+      reloadWeapon: null,
       isInspecting: false,
       inspectProgress: 0,
       scopeSwayX: 0,
@@ -219,13 +234,19 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   fireHitscan: (weapon) => {
     const state = get();
-    if (state.fireCooldown > 0 || state.swapCooldown > 0) return false;
+    if (state.fireCooldown > 0 || state.swapCooldown > 0 || state.isReloading) return false;
     const a = state.ammo[weapon];
-    if (!a || a.current <= 0) return false;
+    if (!a) return false;
+    // Check magazine if present, otherwise check reserve
+    const hasMag = a.magazine !== undefined && a.magSize !== undefined;
+    if (hasMag && (a.magazine ?? 0) <= 0) return false;
+    if (!hasMag && a.current <= 0) return false;
 
-    const newA = { ...a, current: a.current - 1 };
-    if (weapon === 'assault' && newA.magazine !== undefined) {
+    const newA = { ...a };
+    if (hasMag) {
       newA.magazine = (newA.magazine ?? 1) - 1;
+    } else {
+      newA.current = a.current - 1;
     }
 
     const cooldown = weapon === 'sniper' ? PHYSICS.SNIPER_FIRE_COOLDOWN
@@ -275,6 +296,55 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     });
   },
 
+  startReload: (weapon) => {
+    const state = get();
+    if (state.isReloading || state.swapCooldown > 0) return;
+    const cfg = RELOAD_CONFIG[weapon];
+    if (!cfg.canReload) return;
+    const a = state.ammo[weapon];
+    if (!a || a.magazine === undefined || a.magSize === undefined) return;
+    // Don't reload if magazine is full or no reserve ammo
+    if (a.magazine >= a.magSize) return;
+    if (a.current <= 0 && !cfg.perShell) return;
+    set({ isReloading: true, reloadProgress: 0, reloadWeapon: weapon });
+  },
+
+  completeReload: () => {
+    const state = get();
+    if (!state.isReloading || !state.reloadWeapon) return;
+    const weapon = state.reloadWeapon;
+    const cfg = RELOAD_CONFIG[weapon];
+    const a = state.ammo[weapon];
+    if (!a || a.magazine === undefined || a.magSize === undefined) { set({ isReloading: false, reloadProgress: 0, reloadWeapon: null }); return; }
+
+    let newMag: number;
+    let newCurrent: number;
+    if (cfg.perShell) {
+      // Shotgun: add one shell from reserve to magazine
+      const toAdd = Math.min(1, a.current, a.magSize - a.magazine);
+      newMag = a.magazine + toAdd;
+      newCurrent = a.current - toAdd;
+    } else {
+      // Standard: fill magazine from reserve
+      const needed = a.magSize - a.magazine;
+      const toTransfer = Math.min(needed, a.current);
+      newMag = a.magazine + toTransfer;
+      newCurrent = a.current - toTransfer;
+    }
+
+    const stillReloading = cfg.perShell && newMag < a.magSize && newCurrent > 0;
+    set({
+      ammo: { ...state.ammo, [weapon]: { ...a, magazine: newMag, current: newCurrent } },
+      isReloading: stillReloading,
+      reloadProgress: stillReloading ? 0 : 0,
+      reloadWeapon: stillReloading ? weapon : null,
+    });
+  },
+
+  cancelReload: () => {
+    set({ isReloading: false, reloadProgress: 0, reloadWeapon: null });
+  },
+
   tickCooldown: (dt) => {
     const state = get();
     const updates: Partial<CombatState> = {};
@@ -286,10 +356,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   canFire: () => {
     const state = get();
-    if (state.fireCooldown > 0 || state.swapCooldown > 0) return false;
+    if (state.fireCooldown > 0 || state.swapCooldown > 0 || state.isReloading) return false;
     const w = state.activeWeapon;
     if (w === 'knife') return true;
-    return state.ammo[w].current > 0;
+    const a = state.ammo[w];
+    if (a.magazine !== undefined) return a.magazine > 0;
+    return a.current > 0;
   },
 
   startGrapple: (target, length) => set({ isGrappling: true, grappleTarget: target, grappleLength: length }),
@@ -340,6 +412,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       adsProgress: 0,
       isPlasmaFiring: false,
       recoilBloom: 0,
+      isReloading: false,
+      reloadProgress: 0,
+      reloadWeapon: null,
       isInspecting: false,
       inspectProgress: 0,
       scopeSwayX: 0,

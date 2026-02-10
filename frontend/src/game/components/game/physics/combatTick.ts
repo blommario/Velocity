@@ -1,18 +1,25 @@
 /**
- * Combat tick -- manages ADS transitions, sniper scope sway, weapon inspect, recoil recovery, knife lunge, and plasma beam per physics frame.
- * Depends on: combatStore, engine scopeSway/recoil modules, PHYSICS/ADS_CONFIG/RECOIL_CONFIG constants
+ * Combat tick -- manages ADS transitions, sniper scope sway, weapon inspect, reload state machine, recoil recovery, knife lunge, and plasma beam per physics frame.
+ * Depends on: combatStore, engine scopeSway/recoil modules, PHYSICS/ADS_CONFIG/RECOIL_CONFIG/RELOAD_CONFIG constants, AudioManager
  * Used by: PlayerController (physics tick)
  */
-import { PHYSICS, ADS_CONFIG, RECOIL_CONFIG } from './constants';
+import { PHYSICS, ADS_CONFIG, RECOIL_CONFIG, RELOAD_CONFIG } from './constants';
 import { WEAPONS } from './types';
 import type { TickContext } from './state';
 import { _fireDir } from './scratch';
 import { useCombatStore } from '@game/stores/combatStore';
 import { tickScopeSway, resetScopeSwayState, type ScopeSwayConfig } from '@engine/physics/scopeSway';
 import { tickRecoil } from '@engine/physics/recoil';
+import { audioManager, SOUNDS } from '@engine/audio/AudioManager';
 
 const HUD_UPDATE_HZ = 30;
 const HUD_UPDATE_INTERVAL = 1000 / HUD_UPDATE_HZ;
+
+// ── Module-level reload state (128Hz tick, throttled store writes) ──
+let _reloadTimer = 0;           // seconds remaining in current reload phase
+let _reloadDuration = 0;        // total duration for current reload (for progress calc)
+let _autoReloadDelay = 0;       // countdown before auto-reload triggers
+let _lastReloadProgress = -1;   // last written progress (avoids redundant writes)
 
 const scopeSwayConfig: ScopeSwayConfig = {
   swayBase: PHYSICS.SCOPE_SWAY_BASE,
@@ -25,6 +32,14 @@ const scopeSwayConfig: ScopeSwayConfig = {
   forceUnscopeTime: PHYSICS.SCOPE_FORCE_UNSCOPE_TIME,
   driftMult: PHYSICS.SCOPE_DRIFT_MULT,
 };
+
+/** Reset module-level reload state. Called by resetPhysicsTickState. */
+export function resetReloadTickState(): void {
+  _reloadTimer = 0;
+  _reloadDuration = 0;
+  _autoReloadDelay = 0;
+  _lastReloadProgress = -1;
+}
 
 export function handleCombatState(ctx: TickContext, dx: number, dy: number): void {
   const { s, swayState: scopeSwayState, refs, input, velocity, dt } = ctx;
@@ -90,6 +105,84 @@ export function handleCombatState(ctx: TickContext, dx: number, dy: number): voi
   if (Math.abs(s.inspectProgress - prevInspect) > 0.001) {
     const isInspecting = s.inspectProgress > 0.1;
     useCombatStore.setState({ inspectProgress: s.inspectProgress, isInspecting });
+  }
+
+  // ── Reload state machine ──
+  const reloadCfg = RELOAD_CONFIG[weapon];
+  const ammoState = combat.ammo[weapon];
+  const hasMag = ammoState.magazine !== undefined && ammoState.magSize !== undefined;
+  const magEmpty = hasMag && (ammoState.magazine ?? 0) <= 0;
+  const magFull = hasMag && (ammoState.magazine ?? 0) >= (ammoState.magSize ?? 0);
+  const hasReserve = ammoState.current > 0;
+  const isSprinting = (input.forward && input.crouch && refs.grounded.current && !refs.isProne.current);
+
+  if (combat.isReloading) {
+    // Interrupt checks: weapon switch (handled in store), sprint, fire for shotgun with shells
+    const shouldCancelReload = isSprinting
+      || (reloadCfg.perShell && input.fire && !magEmpty);
+    if (shouldCancelReload) {
+      combat.cancelReload();
+      _reloadTimer = 0;
+      _reloadDuration = 0;
+      _lastReloadProgress = -1;
+      audioManager.play(SOUNDS.RELOAD_START, 0.1);
+    } else {
+      // Tick reload timer
+      _reloadTimer -= dt;
+      if (_reloadTimer <= 0) {
+        // Complete one reload cycle
+        combat.completeReload();
+        audioManager.play(SOUNDS.RELOAD_FINISH);
+        _reloadTimer = 0;
+        _lastReloadProgress = -1;
+        // For per-shell: check if store started another reload cycle
+        const afterReload = useCombatStore.getState();
+        if (afterReload.isReloading && reloadCfg.perShell) {
+          _reloadDuration = reloadCfg.reloadTime;
+          _reloadTimer = reloadCfg.reloadTime;
+        } else {
+          _reloadDuration = 0;
+        }
+      } else {
+        // Update progress (throttled)
+        const progress = _reloadDuration > 0 ? 1 - (_reloadTimer / _reloadDuration) : 0;
+        if (Math.abs(progress - _lastReloadProgress) > 0.02) {
+          _lastReloadProgress = progress;
+          useCombatStore.setState({ reloadProgress: progress });
+        }
+      }
+    }
+  } else {
+    // Check for manual reload input
+    if (input.reload && reloadCfg.canReload && !magFull && hasReserve
+        && combat.swapCooldown <= 0 && s.adsProgress < 0.01 && !combat.isInspecting) {
+      combat.startReload(weapon);
+      _reloadDuration = reloadCfg.reloadTime;
+      _reloadTimer = _reloadDuration;
+      _lastReloadProgress = 0;
+      audioManager.play(SOUNDS.RELOAD_START);
+    }
+    // Auto-reload when magazine is empty
+    else if (magEmpty && hasReserve && reloadCfg.canReload && combat.fireCooldown <= 0) {
+      _autoReloadDelay += dt;
+      if (_autoReloadDelay >= PHYSICS.AUTO_RELOAD_DELAY) {
+        combat.startReload(weapon);
+        _reloadDuration = reloadCfg.reloadTime;
+        _reloadTimer = _reloadDuration;
+        _lastReloadProgress = 0;
+        _autoReloadDelay = 0;
+        audioManager.play(SOUNDS.RELOAD_START);
+      }
+    } else {
+      _autoReloadDelay = 0;
+    }
+  }
+
+  // Cancel ADS when reloading
+  if (combat.isReloading && s.adsProgress > 0.01) {
+    s.adsProgress *= Math.exp(-10 * dt);
+    if (s.adsProgress < 0.005) s.adsProgress = 0;
+    useCombatStore.setState({ adsProgress: s.adsProgress });
   }
 
   // Recoil recovery tick

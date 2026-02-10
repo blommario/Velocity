@@ -17,6 +17,7 @@ export interface CombatHudProps {
   activeWeapon: WeaponDisplay;
   ammo: AmmoDisplay | null;
   isZoomed?: boolean;
+  isReloading?: boolean;
   swapCooldown?: number;
   /** Weapon slots bar (ordered) */
   slots?: readonly { weapon: WeaponDisplay; hasAmmo: boolean }[];
@@ -42,6 +43,7 @@ export function CombatHud({
   activeWeapon,
   ammo,
   isZoomed,
+  isReloading,
   swapCooldown = 0,
   slots,
   className,
@@ -84,7 +86,10 @@ export function CombatHud({
             }
           </div>
         )}
-        {isZoomed && (
+        {isReloading && (
+          <div className="font-mono text-[10px] text-yellow-400 uppercase animate-pulse">RELOAD</div>
+        )}
+        {isZoomed && !isReloading && (
           <div className="font-mono text-[10px] text-purple-400 uppercase">ZOOM</div>
         )}
       </div>

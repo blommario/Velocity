@@ -45,3 +45,6 @@ export type { ScopeOverlayProps, ScopeOverlayConfig } from './ScopeOverlay';
 
 export { StanceIndicator } from './StanceIndicator';
 export type { StanceIndicatorProps, StanceType } from './StanceIndicator';
+
+export { ReloadIndicator } from './ReloadIndicator';
+export type { ReloadIndicatorProps } from './ReloadIndicator';

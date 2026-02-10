@@ -54,7 +54,7 @@ export const WEAPON_MODELS: Record<WeaponType, WeaponModelConfig> = {
   assault: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
   sniper:  { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
   shotgun: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
-  rocket:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
+  rocket:  { path: 'weapons/rocket_launcher.glb', scale: 0.065, rotationY: Math.PI, offsetX: 0.00, offsetY: -0.10, offsetZ: -0.35 },
   grenade: { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
   plasma:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
   knife:   { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.20 },

@@ -26,6 +26,7 @@ export function CombatHud() {
   const ammo = useCombatStore((s) => s.ammo);
   const swapCooldown = useCombatStore((s) => s.swapCooldown);
   const adsProgress = useCombatStore((s) => s.adsProgress);
+  const isReloading = useCombatStore((s) => s.isReloading);
 
   const activeDisplay = WEAPON_LABELS[activeWeapon];
   const activeAmmo = ammo[activeWeapon];
@@ -40,7 +41,7 @@ export function CombatHud() {
   const slots = useMemo(() =>
     WEAPON_SLOTS.map((w) => ({
       weapon: WEAPON_LABELS[w],
-      hasAmmo: w === 'knife' || ammo[w].current > 0,
+      hasAmmo: w === 'knife' || (ammo[w].magazine ?? ammo[w].current) > 0 || ammo[w].current > 0,
     })),
   [ammo]);
 
@@ -51,6 +52,7 @@ export function CombatHud() {
       activeWeapon={activeDisplay}
       ammo={ammoDisplay}
       isZoomed={adsProgress > 0.9}
+      isReloading={isReloading}
       swapCooldown={swapCooldown}
       slots={slots}
     />

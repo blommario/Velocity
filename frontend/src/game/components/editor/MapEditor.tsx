@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { EditorToolbar } from './EditorToolbar';
 import { ObjectPalette } from './ObjectPalette';
 import { PropertiesPanel } from './PropertiesPanel';
 import { EditorViewport } from './EditorViewport';
@@ -81,7 +80,6 @@ export function MapEditor() {
 
   return (
     <div className="w-screen h-screen flex flex-col bg-gray-950 text-white">
-      <EditorToolbar />
       <div className="flex flex-1 overflow-hidden">
         <ObjectPalette />
         <div className="flex-1 relative">

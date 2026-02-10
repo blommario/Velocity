@@ -106,6 +106,16 @@ export const PHYSICS = {
   INSPECT_TRANSITION_SPEED: 5,  // lerp speed for hip↔inspect transition
   INSPECT_SPIN_SPEED: 0.8,     // Y-axis rotation speed (radians/sec)
 
+  // ── Reload ──
+  RELOAD_TRANSITION_SPEED: 6,     // viewmodel lerp speed during reload
+  AUTO_RELOAD_DELAY: 0.5,         // seconds before auto-reload on empty mag
+  ASSAULT_RELOAD_TIME: 2.0,       // mag swap
+  SNIPER_RELOAD_TIME: 2.5,
+  SHOTGUN_RELOAD_TIME_PER_SHELL: 0.5, // per shell, interruptible
+  PLASMA_RELOAD_TIME: 3.0,       // full recharge
+  ROCKET_RELOAD_TIME: 1.5,
+  GRENADE_RELOAD_TIME: 1.0,
+
   // ── Weapon switching ──
   WEAPON_SWAP_TIME: 0.3,        // seconds to switch weapons
 
@@ -182,6 +192,24 @@ export const ADS_CONFIG: Record<WeaponType, AdsWeaponConfig> = {
   grenade: { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
   plasma:  { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
   knife:   { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+} as const;
+
+/** Per-weapon reload configuration. */
+export interface ReloadWeaponConfig {
+  canReload: boolean;
+  reloadTime: number;      // total seconds (or per-shell for shotgun)
+  magSize: number;          // magazine capacity (Infinity = no magazine distinction)
+  perShell: boolean;        // true = shotgun-style interruptible shell-by-shell reload
+}
+
+export const RELOAD_CONFIG: Record<WeaponType, ReloadWeaponConfig> = {
+  assault: { canReload: true,  reloadTime: PHYSICS.ASSAULT_RELOAD_TIME,           magSize: PHYSICS.ASSAULT_MAG_SIZE, perShell: false },
+  sniper:  { canReload: true,  reloadTime: PHYSICS.SNIPER_RELOAD_TIME,            magSize: 5,                         perShell: false },
+  shotgun: { canReload: true,  reloadTime: PHYSICS.SHOTGUN_RELOAD_TIME_PER_SHELL, magSize: 8,                         perShell: true },
+  rocket:  { canReload: true,  reloadTime: PHYSICS.ROCKET_RELOAD_TIME,            magSize: 5,                         perShell: false },
+  grenade: { canReload: true,  reloadTime: PHYSICS.GRENADE_RELOAD_TIME,           magSize: 3,                         perShell: false },
+  plasma:  { canReload: true,  reloadTime: PHYSICS.PLASMA_RELOAD_TIME,            magSize: 100,                       perShell: false },
+  knife:   { canReload: false, reloadTime: 0,                                     magSize: Infinity,                  perShell: false },
 } as const;
 
 /** Per-weapon recoil patterns. */

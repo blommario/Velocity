@@ -99,7 +99,7 @@ function ViewmodelContent() {
     const [mx, my] = mouseDeltaRef.current;
     mouseDeltaRef.current[0] = 0;
     mouseDeltaRef.current[1] = 0;
-    return { speed, grounded, isFiring, isDrawing: state.drawTimer > 0, mouseDeltaX: mx, mouseDeltaY: my, adsProgress: combat.adsProgress, inspectProgress: combat.inspectProgress };
+    return { speed, grounded, isFiring, isDrawing: state.drawTimer > 0, mouseDeltaX: mx, mouseDeltaY: my, adsProgress: combat.adsProgress, inspectProgress: combat.inspectProgress, reloadProgress: combat.isReloading ? combat.reloadProgress : 0 };
   }, []);
 
   const anim = useViewmodelAnimation(getInput);

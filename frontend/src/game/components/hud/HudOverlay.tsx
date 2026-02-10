@@ -21,6 +21,7 @@ import { HitMarker } from './HitMarker';
 import { KillFeed } from './KillFeed';
 import { ScopeOverlay } from './ScopeOverlay';
 import { StanceIndicator } from './StanceIndicator';
+import { ReloadIndicator } from './ReloadIndicator';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 
 export function HudOverlay() {
@@ -29,6 +30,7 @@ export function HudOverlay() {
   return (
     <div className="absolute inset-0 pointer-events-none text-white">
       <Crosshair />
+      <ReloadIndicator />
       <ScopeOverlay />
       <Timer />
       <SpeedMeter />

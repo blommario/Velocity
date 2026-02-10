@@ -10,6 +10,7 @@ import type { WallRunState } from '@engine/physics/useAdvancedMovement';
 import type { InputState } from './types';
 import { createScopeSwayState, resetScopeSwayState } from '@engine/physics/scopeSway';
 import { resetRecoilState, type RecoilState } from '@engine/physics/recoil';
+import { resetReloadTickState } from './combatTick';
 
 // ── Physics tick state — single struct replaces ~30 let vars ──
 
@@ -105,6 +106,7 @@ export function resetPhysicsTickState(): void {
   if (_activeState) Object.assign(_activeState, createPhysicsTickState());
   if (_activeSwayState) resetScopeSwayState(_activeSwayState);
   if (_activeRecoilState) resetRecoilState(_activeRecoilState);
+  resetReloadTickState();
 }
 
 // ── Refs & context interfaces ──

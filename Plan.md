@@ -101,10 +101,10 @@
 - ✅ Prone reducerar recoil ytterligare: `PRONE_RECOIL_MULT: 0.3`
 - ✅ Movement ökar spread: `MOVING_SPREAD_MULT: 1.5` (ground), `AIR_SPREAD_MULT: 2.0`
 
-### V6 — Reload System
+### V6 — Reload System ✅
 *Faktisk reload-mekanik med animation och timing.*
-- 🔲 Reload-state i combatStore: `isReloading: boolean`, `reloadTimer: number`
-- 🔲 Reload-tid per vapen:
+- ✅ Reload-state i combatStore: `isReloading: boolean`, `reloadProgress: number`, `reloadWeapon`
+- ✅ Reload-tid per vapen:
   - Assault: 2.0s (mag-baserad)
   - Sniper: 2.5s
   - Shotgun: 0.5s per shell (interruptible)
@@ -112,11 +112,14 @@
   - Rocket: 1.5s
   - Grenade: 1.0s
   - Knife: ingen reload
-- 🔲 Viewmodel reload-animation: weapon dips down → comes back up
-- 🔲 Auto-reload vid tom mag (med 0.5s fördröjning)
-- 🔲 Reload avbryts av: weapon switch, fire (om shells kvar, shotgun), sprint
-- 🔲 Reload-progress bar i CombatHud (cirkulär runt crosshair)
-- 🔲 Ammo pickup → direkt till reserve, inte mag
+- ✅ Viewmodel reload-animation: weapon dips down → comes back up
+- ✅ Auto-reload vid tom mag (med 0.5s fördröjning)
+- ✅ Reload avbryts av: weapon switch, fire (om shells kvar, shotgun), sprint
+- ✅ Reload-progress bar i CombatHud (cirkulär runt crosshair)
+- ✅ Ammo pickup → direkt till reserve, inte mag
+- ✅ Magazine-system för alla vapen (inte bara assault rifle)
+- ✅ Reload-ljud (RELOAD_START, RELOAD_FINISH synth-sounds)
+- ✅ ADS auto-cancel vid reload, inspect blockeras under reload
 
 ### V7 — Headshots & Hitboxes
 *Zonbaserad skada med headshot-multiplikator.*
