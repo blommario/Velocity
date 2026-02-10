@@ -32,7 +32,8 @@ export function spawnImpactEffects(
   );
 
   // Impact decal
-  spawnDecal(x, y, z, nx, ny, nz, DECAL_SIZES[intensity], 0.1, 0.1, 0.1, 6.0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- literal type from `as const` default param
+  (spawnDecal as any)(x, y, z, nx, ny, nz, DECAL_SIZES[intensity], 0.1, 0.1, 0.1, 6.0);
 
   // Impact audio
   audioManager.play(SOUNDS.WALL_IMPACT, 0.06);

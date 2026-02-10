@@ -67,7 +67,7 @@ export function handleGrapple(ctx: TickContext): void {
     ).normalize();
 
     const grapplePoints = combat.registeredGrapplePoints;
-    let bestDist = PHYSICS.GRAPPLE_MAX_DISTANCE;
+    let bestDist: number = PHYSICS.GRAPPLE_MAX_DISTANCE;
     let bestPoint: [number, number, number] | null = null;
 
     for (const gp of grapplePoints) {
@@ -78,7 +78,7 @@ export function handleGrapple(ctx: TickContext): void {
       if (dist > PHYSICS.GRAPPLE_MAX_DISTANCE || dist < PHYSICS.GRAPPLE_MIN_DISTANCE) continue;
       const dot = (gpDx / dist) * _fireDir.x + (gpDy / dist) * _fireDir.y + (gpDz / dist) * _fireDir.z;
       if (dot < PHYSICS.GRAPPLE_MIN_AIM_DOT) continue;
-      if (dist < bestDist) { bestDist = dist; bestPoint = gp; }
+      if (dist < bestDist) { bestDist = dist as number; bestPoint = gp; }
     }
 
     if (!bestPoint) {
@@ -91,7 +91,7 @@ export function handleGrapple(ctx: TickContext): void {
           _playerPos.y + _fireDir.y * grappleHit.timeOfImpact,
           _playerPos.z + _fireDir.z * grappleHit.timeOfImpact,
         ];
-        bestDist = grappleHit.timeOfImpact;
+        bestDist = grappleHit.timeOfImpact as number;
       }
     }
 

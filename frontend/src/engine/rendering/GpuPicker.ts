@@ -292,7 +292,8 @@ export class GpuPicker {
     let cached = this.instancedMaterials.get(mesh);
     if (!cached) {
       const baseIdUniform = { value: 0 };
-      const uBaseId = uniform(baseIdUniform, 'uint');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three uniform() gap
+      const uBaseId = uniform(baseIdUniform as any, 'uint');
       const id = uBaseId.add(uint(instanceIndex));
 
       // GPU-side ID → RGB color encoding (24-bit uint, matching CPU pixelToId decode)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { WeaponType } from '../../components/game/physics/types';
 
 const KILL_FEED = {

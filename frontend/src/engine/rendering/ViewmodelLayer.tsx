@@ -137,5 +137,5 @@ export function ViewmodelLayer({
 
   // Portal children into the camera — they inherit camera rotation automatically,
   // so viewmodel code works in camera-local space (no manual quaternion transforms).
-  return <>{createPortal(children, vmCamera as unknown as THREE.Object3D)}</>;
+  return <>{createPortal(children, vmCamera as any)}</>;
 }

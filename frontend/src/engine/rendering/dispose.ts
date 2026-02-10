@@ -27,7 +27,7 @@ export function disposeSceneGraph(obj: Object3D): void {
 }
 
 function disposeMaterialTextures(material: Material): void {
-  const mat = material as Record<string, unknown>;
+  const mat = material as unknown as Record<string, unknown>;
   for (const key of Object.keys(mat)) {
     const value = mat[key];
     if (isTexture(value)) {

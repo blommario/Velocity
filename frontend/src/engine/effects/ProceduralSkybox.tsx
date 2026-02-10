@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import {
-  Fn, float, vec3, vec4, uniform, positionLocal,
+  Fn, float, vec3, uniform, positionLocal,
   dot, pow, mix, smoothstep, abs,
   sin, cos, normalize,
 } from 'three/tsl';

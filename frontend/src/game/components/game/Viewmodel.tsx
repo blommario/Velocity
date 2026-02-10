@@ -121,7 +121,7 @@ function useWeaponModel(config: WeaponModelConfig): Group | null {
 }
 
 function ViewmodelContent() {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<any>(null);
   const mouseDeltaRef = useRef<[number, number]>([0, 0]);
 
   // Capture mouse movement for weapon look-sway and tilt
@@ -146,7 +146,7 @@ function ViewmodelContent() {
 
   const getInput = useCallback((): ViewmodelAnimationInput => {
     const speed = useGameStore.getState().speed;
-    const grounded = useGameStore.getState().grounded;
+    const grounded = useGameStore.getState().isGrounded;
     const combat = useCombatStore.getState();
     const state = stateRef.current;
 

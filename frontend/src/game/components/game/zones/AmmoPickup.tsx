@@ -13,6 +13,11 @@ interface AmmoPickupProps {
 const AMMO_COLORS: Record<WeaponType, string> = {
   rocket: '#ff4444',
   grenade: '#44ff44',
+  sniper: '#4488ff',
+  assault: '#ffaa22',
+  shotgun: '#cc8844',
+  knife: '#cccccc',
+  plasma: '#aa44ff',
 };
 
 const DEFAULT_RESPAWN_TIME = 10;

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
-import { DirectionalLight, Vector3 } from 'three';
+import { DirectionalLight } from 'three';
 import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
 import { devLog } from '../stores/devLogStore';
 import { SHADOW_PRESETS, type ShadowQuality } from './shadowConfig';

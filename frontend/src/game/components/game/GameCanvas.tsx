@@ -102,7 +102,7 @@ function DynamicFov() {
 
     // ADS FOV override — lerp between speed-based FOV and weapon ADS FOV
     const combat = useCombatStore.getState();
-    const weaponAdsFov = ADS_CONFIG[combat.activeWeapon].fov;
+    const weaponAdsFov = ADS_CONFIG[combat.activeWeapon].fov as number;
     targetFovRef.current = MathUtils.lerp(speedFov, weaponAdsFov, combat.adsProgress);
 
     const cam = camera as PerspectiveCamera;
@@ -197,7 +197,7 @@ export function GameCanvas() {
           useGameStore.getState().setLoadProgress(0.4, 'Setting up physics...');
 
           // Monitor GPU device loss (OOM, driver crash, TDR, etc.)
-          const device = renderer.backend.device as GPUDevice | undefined;
+          const device = (renderer.backend as any).device as GPUDevice | undefined;
           if (device?.lost) {
             device.lost.then((info) => {
               const msg = `WebGPU device lost: ${info.message} (reason: ${info.reason})`;

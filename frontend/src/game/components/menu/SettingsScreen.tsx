@@ -1,12 +1,20 @@
-import { useState, useEffect } from 'react';
+/**
+ * Settings screen — tabbed layout with sidebar navigation. Each settings
+ * category is rendered by a dedicated tab component in settings/.
+ *
+ * Depends on: gameStore (screen navigation), settingsStore (resetAll)
+ * Used by: App (screen routing)
+ */
+import { useState } from 'react';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
-import {
-  useSettingsStore,
-  CROSSHAIR_STYLES, QUALITY_PRESETS,
-  DEFAULT_KEY_BINDINGS,
-  type CrosshairStyle, type QualityPreset,
-} from '@game/stores/settingsStore';
-import { SHADOW_QUALITY_LEVELS, type ShadowQuality } from '@engine/rendering/shadowConfig';
+import { useSettingsStore } from '@game/stores/settingsStore';
+import { MouseSettings } from './settings/MouseSettings';
+import { VideoSettings } from './settings/VideoSettings';
+import { AudioSettings } from './settings/AudioSettings';
+import { GameplaySettings } from './settings/GameplaySettings';
+import { CameraSettings } from './settings/CameraSettings';
+import { HudSettings } from './settings/HudSettings';
+import { KeyBindSettings } from './settings/KeyBindSettings';
 
 const SETTINGS_TABS = {
   MOUSE: 'mouse',
@@ -30,10 +38,21 @@ const TAB_LABELS: { tab: SettingsTab; label: string; icon: string }[] = [
   { tab: SETTINGS_TABS.KEYBINDS, label: 'Key Binds', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
 ];
 
+const TAB_COMPONENTS: Record<SettingsTab, React.FC> = {
+  [SETTINGS_TABS.MOUSE]: MouseSettings,
+  [SETTINGS_TABS.VIDEO]: VideoSettings,
+  [SETTINGS_TABS.AUDIO]: AudioSettings,
+  [SETTINGS_TABS.GAMEPLAY]: GameplaySettings,
+  [SETTINGS_TABS.CAMERA]: CameraSettings,
+  [SETTINGS_TABS.HUD]: HudSettings,
+  [SETTINGS_TABS.KEYBINDS]: KeyBindSettings,
+};
+
 export function SettingsScreen() {
   const [tab, setTab] = useState<SettingsTab>(SETTINGS_TABS.MOUSE);
   const setScreen = useGameStore((s) => s.setScreen);
   const resetAll = useSettingsStore((s) => s.resetAll);
+  const TabContent = TAB_COMPONENTS[tab];
 
   return (
     <div className="w-screen h-screen bg-[#06060c] text-white flex flex-col relative overflow-hidden">
@@ -98,410 +117,9 @@ export function SettingsScreen() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 max-w-2xl">
-          {tab === SETTINGS_TABS.MOUSE && <MouseSettings />}
-          {tab === SETTINGS_TABS.VIDEO && <VideoSettings />}
-          {tab === SETTINGS_TABS.AUDIO && <AudioSettings />}
-          {tab === SETTINGS_TABS.GAMEPLAY && <GameplaySettings />}
-          {tab === SETTINGS_TABS.CAMERA && <CameraSettings />}
-          {tab === SETTINGS_TABS.HUD && <HudSettings />}
-          {tab === SETTINGS_TABS.KEYBINDS && <KeyBindSettings />}
+          <TabContent />
         </div>
       </div>
     </div>
   );
-}
-
-// ── Mouse ──
-
-function MouseSettings() {
-  const sensitivity = useSettingsStore((s) => s.sensitivity);
-  const setSensitivity = useSettingsStore((s) => s.setSensitivity);
-
-  return (
-    <div className="space-y-4">
-      <SectionTitle>Mouse</SectionTitle>
-      <SliderSetting
-        label="Sensitivity"
-        value={sensitivity}
-        min={0.1}
-        max={10}
-        step={0.1}
-        onChange={setSensitivity}
-        displayValue={sensitivity.toFixed(1)}
-      />
-    </div>
-  );
-}
-
-// ── Video ──
-
-function VideoSettings() {
-  const fov = useSettingsStore((s) => s.fov);
-  const setFov = useSettingsStore((s) => s.setFov);
-  const qualityPreset = useSettingsStore((s) => s.qualityPreset);
-  const setQualityPreset = useSettingsStore((s) => s.setQualityPreset);
-  const shadowQuality = useSettingsStore((s) => s.shadowQuality);
-  const setShadowQuality = useSettingsStore((s) => s.setShadowQuality);
-  const bloom = useSettingsStore((s) => s.bloom);
-  const setBloom = useSettingsStore((s) => s.setBloom);
-  const particles = useSettingsStore((s) => s.particles);
-  const setParticles = useSettingsStore((s) => s.setParticles);
-  const speedLines = useSettingsStore((s) => s.speedLines);
-  const setSpeedLines = useSettingsStore((s) => s.setSpeedLines);
-  const screenShake = useSettingsStore((s) => s.screenShake);
-  const setScreenShake = useSettingsStore((s) => s.setScreenShake);
-  const ssao = useSettingsStore((s) => s.ssao);
-  const setSsao = useSettingsStore((s) => s.setSsao);
-  const colorGrading = useSettingsStore((s) => s.colorGrading);
-  const setColorGrading = useSettingsStore((s) => s.setColorGrading);
-  const filmGrain = useSettingsStore((s) => s.filmGrain);
-  const setFilmGrain = useSettingsStore((s) => s.setFilmGrain);
-  const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
-  const setChromaticAberration = useSettingsStore((s) => s.setChromaticAberration);
-  const motionBlur = useSettingsStore((s) => s.motionBlur);
-  const setMotionBlur = useSettingsStore((s) => s.setMotionBlur);
-  const depthOfField = useSettingsStore((s) => s.depthOfField);
-  const setDepthOfField = useSettingsStore((s) => s.setDepthOfField);
-
-  return (
-    <div className="space-y-4">
-      <SectionTitle>Video</SectionTitle>
-      <SliderSetting label="FOV" value={fov} min={80} max={130} step={1} onChange={setFov} displayValue={`${fov}`} />
-      <SelectSetting
-        label="Quality"
-        value={qualityPreset}
-        options={Object.values(QUALITY_PRESETS)}
-        onChange={(v) => setQualityPreset(v as QualityPreset)}
-      />
-      <SelectSetting
-        label="Shadows"
-        value={shadowQuality}
-        options={Object.values(SHADOW_QUALITY_LEVELS)}
-        onChange={(v) => setShadowQuality(v as ShadowQuality)}
-      />
-      <ToggleSetting label="Bloom" value={bloom} onChange={setBloom} />
-      <ToggleSetting label="Particles" value={particles} onChange={setParticles} />
-      <ToggleSetting label="Speed Lines" value={speedLines} onChange={setSpeedLines} />
-      <ToggleSetting label="Screen Shake" value={screenShake} onChange={setScreenShake} />
-
-      <div className="pt-4">
-        <SubSectionTitle>Post-Processing</SubSectionTitle>
-      </div>
-      <ToggleSetting label="SSAO" value={ssao} onChange={setSsao} />
-      <ToggleSetting label="Color Grading" value={colorGrading} onChange={setColorGrading} />
-      <ToggleSetting label="Film Grain" value={filmGrain} onChange={setFilmGrain} />
-      <ToggleSetting label="Chromatic Aberration" value={chromaticAberration} onChange={setChromaticAberration} />
-      <ToggleSetting label="Motion Blur" value={motionBlur} onChange={setMotionBlur} />
-      <ToggleSetting label="Depth of Field" value={depthOfField} onChange={setDepthOfField} />
-    </div>
-  );
-}
-
-// ── Audio ──
-
-function AudioSettings() {
-  const masterVolume = useSettingsStore((s) => s.masterVolume);
-  const setMasterVolume = useSettingsStore((s) => s.setMasterVolume);
-  const sfxVolume = useSettingsStore((s) => s.sfxVolume);
-  const setSfxVolume = useSettingsStore((s) => s.setSfxVolume);
-  const musicVolume = useSettingsStore((s) => s.musicVolume);
-  const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
-  const ambientVolume = useSettingsStore((s) => s.ambientVolume);
-  const setAmbientVolume = useSettingsStore((s) => s.setAmbientVolume);
-
-  return (
-    <div className="space-y-4">
-      <SectionTitle>Audio</SectionTitle>
-      <SliderSetting label="Master" value={masterVolume} min={0} max={1} step={0.05} onChange={setMasterVolume} displayValue={`${Math.round(masterVolume * 100)}%`} />
-      <SliderSetting label="SFX" value={sfxVolume} min={0} max={1} step={0.05} onChange={setSfxVolume} displayValue={`${Math.round(sfxVolume * 100)}%`} />
-      <SliderSetting label="Music" value={musicVolume} min={0} max={1} step={0.05} onChange={setMusicVolume} displayValue={`${Math.round(musicVolume * 100)}%`} />
-      <SliderSetting label="Ambient" value={ambientVolume} min={0} max={1} step={0.05} onChange={setAmbientVolume} displayValue={`${Math.round(ambientVolume * 100)}%`} />
-    </div>
-  );
-}
-
-// ── Gameplay ──
-
-function GameplaySettings() {
-  const autoBhop = useSettingsStore((s) => s.autoBhop);
-  const setAutoBhop = useSettingsStore((s) => s.setAutoBhop);
-  const edgeGrab = useSettingsStore((s) => s.edgeGrab);
-  const setEdgeGrab = useSettingsStore((s) => s.setEdgeGrab);
-  const crosshairStyle = useSettingsStore((s) => s.crosshairStyle);
-  const setCrosshairStyle = useSettingsStore((s) => s.setCrosshairStyle);
-  const crosshairColor = useSettingsStore((s) => s.crosshairColor);
-  const setCrosshairColor = useSettingsStore((s) => s.setCrosshairColor);
-  const crosshairSize = useSettingsStore((s) => s.crosshairSize);
-  const setCrosshairSize = useSettingsStore((s) => s.setCrosshairSize);
-
-  return (
-    <div className="space-y-4">
-      <SectionTitle>Gameplay</SectionTitle>
-      <ToggleSetting label="Auto Bunny Hop" value={autoBhop} onChange={setAutoBhop} />
-      <ToggleSetting label="Edge Grab" value={edgeGrab} onChange={setEdgeGrab} />
-
-      <div className="pt-4">
-        <SubSectionTitle>Crosshair</SubSectionTitle>
-      </div>
-      <SelectSetting
-        label="Style"
-        value={crosshairStyle}
-        options={Object.values(CROSSHAIR_STYLES)}
-        onChange={(v) => setCrosshairStyle(v as CrosshairStyle)}
-      />
-      <ColorSetting label="Color" value={crosshairColor} onChange={setCrosshairColor} />
-      <SliderSetting label="Size" value={crosshairSize} min={1} max={20} step={1} onChange={setCrosshairSize} displayValue={`${crosshairSize}px`} />
-    </div>
-  );
-}
-
-// ── Camera ──
-
-function CameraSettings() {
-  const headBob = useSettingsStore((s) => s.headBob);
-  const setHeadBob = useSettingsStore((s) => s.setHeadBob);
-  const cameraSmoothing = useSettingsStore((s) => s.cameraSmoothing);
-  const setCameraSmoothing = useSettingsStore((s) => s.setCameraSmoothing);
-  const viewmodelVisible = useSettingsStore((s) => s.viewmodelVisible);
-  const setViewmodelVisible = useSettingsStore((s) => s.setViewmodelVisible);
-  const viewmodelBob = useSettingsStore((s) => s.viewmodelBob);
-  const setViewmodelBob = useSettingsStore((s) => s.setViewmodelBob);
-  const fovScaling = useSettingsStore((s) => s.fovScaling);
-  const setFovScaling = useSettingsStore((s) => s.setFovScaling);
-  const rtsPanSpeed = useSettingsStore((s) => s.rtsPanSpeed);
-  const setRtsPanSpeed = useSettingsStore((s) => s.setRtsPanSpeed);
-  const rtsZoomSpeed = useSettingsStore((s) => s.rtsZoomSpeed);
-  const setRtsZoomSpeed = useSettingsStore((s) => s.setRtsZoomSpeed);
-  const rtsRotateSpeed = useSettingsStore((s) => s.rtsRotateSpeed);
-  const setRtsRotateSpeed = useSettingsStore((s) => s.setRtsRotateSpeed);
-  const rtsEdgeScrollEnabled = useSettingsStore((s) => s.rtsEdgeScrollEnabled);
-  const setRtsEdgeScrollEnabled = useSettingsStore((s) => s.setRtsEdgeScrollEnabled);
-
-  return (
-    <div className="space-y-4">
-      <SectionTitle>Camera</SectionTitle>
-      <ToggleSetting label="Head Bob" value={headBob} onChange={setHeadBob} />
-      <SliderSetting label="Smoothing" value={cameraSmoothing} min={0} max={1} step={0.05} onChange={setCameraSmoothing} displayValue={cameraSmoothing === 0 ? 'Off' : `${Math.round(cameraSmoothing * 100)}%`} />
-      <ToggleSetting label="FOV Scaling" value={fovScaling} onChange={setFovScaling} />
-
-      <div className="pt-4">
-        <SubSectionTitle>Viewmodel</SubSectionTitle>
-      </div>
-      <ToggleSetting label="Show Weapon" value={viewmodelVisible} onChange={setViewmodelVisible} />
-      <SliderSetting label="Weapon Bob" value={viewmodelBob} min={0} max={2} step={0.1} onChange={setViewmodelBob} displayValue={`${Math.round(viewmodelBob * 100)}%`} />
-
-      <div className="pt-4">
-        <SubSectionTitle>Editor Camera</SubSectionTitle>
-      </div>
-      <SliderSetting label="Pan Speed" value={rtsPanSpeed} min={10} max={100} step={5} onChange={setRtsPanSpeed} displayValue={`${rtsPanSpeed}`} />
-      <SliderSetting label="Zoom Speed" value={rtsZoomSpeed} min={0.01} max={0.5} step={0.01} onChange={setRtsZoomSpeed} displayValue={rtsZoomSpeed.toFixed(2)} />
-      <SliderSetting label="Rotate Speed" value={rtsRotateSpeed} min={0.5} max={5} step={0.5} onChange={setRtsRotateSpeed} displayValue={rtsRotateSpeed.toFixed(1)} />
-      <ToggleSetting label="Edge Scrolling" value={rtsEdgeScrollEnabled} onChange={setRtsEdgeScrollEnabled} />
-    </div>
-  );
-}
-
-// ── HUD ──
-
-function HudSettings() {
-  const showSpeedMeter = useSettingsStore((s) => s.showSpeedMeter);
-  const setShowSpeedMeter = useSettingsStore((s) => s.setShowSpeedMeter);
-  const showTimer = useSettingsStore((s) => s.showTimer);
-  const setShowTimer = useSettingsStore((s) => s.setShowTimer);
-  const showCheckpoints = useSettingsStore((s) => s.showCheckpoints);
-  const setShowCheckpoints = useSettingsStore((s) => s.setShowCheckpoints);
-  const showTrackProgress = useSettingsStore((s) => s.showTrackProgress);
-  const setShowTrackProgress = useSettingsStore((s) => s.setShowTrackProgress);
-  const hudScale = useSettingsStore((s) => s.hudScale);
-  const setHudScale = useSettingsStore((s) => s.setHudScale);
-  const hudOpacity = useSettingsStore((s) => s.hudOpacity);
-  const setHudOpacity = useSettingsStore((s) => s.setHudOpacity);
-
-  return (
-    <div className="space-y-4">
-      <SectionTitle>HUD</SectionTitle>
-      <SliderSetting label="Scale" value={hudScale} min={0.5} max={2.0} step={0.1} onChange={setHudScale} displayValue={`${Math.round(hudScale * 100)}%`} />
-      <SliderSetting label="Opacity" value={hudOpacity} min={0.1} max={1.0} step={0.05} onChange={setHudOpacity} displayValue={`${Math.round(hudOpacity * 100)}%`} />
-
-      <div className="pt-4">
-        <SubSectionTitle>Elements</SubSectionTitle>
-      </div>
-      <ToggleSetting label="Speed Meter" value={showSpeedMeter} onChange={setShowSpeedMeter} />
-      <ToggleSetting label="Timer" value={showTimer} onChange={setShowTimer} />
-      <ToggleSetting label="Checkpoints" value={showCheckpoints} onChange={setShowCheckpoints} />
-      <ToggleSetting label="Track Progress" value={showTrackProgress} onChange={setShowTrackProgress} />
-    </div>
-  );
-}
-
-// ── Key Binds ──
-
-function KeyBindSettings() {
-  const keyBindings = useSettingsStore((s) => s.keyBindings);
-  const setKeyBinding = useSettingsStore((s) => s.setKeyBinding);
-  const resetKeyBindings = useSettingsStore((s) => s.resetKeyBindings);
-  const [rebinding, setRebinding] = useState<string | null>(null);
-
-  // Attach listeners via useEffect so they're cleaned up on unmount
-  useEffect(() => {
-    if (!rebinding) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
-      if (e.code === 'Escape') {
-        setRebinding(null);
-        return;
-      }
-      // Conflict resolution (swap) is handled inside settingsStore.setKeyBinding
-      setKeyBinding(rebinding, e.code);
-      setRebinding(null);
-    };
-
-    const onMouseDown = (e: MouseEvent) => {
-      e.preventDefault();
-      setKeyBinding(rebinding, `Mouse${e.button}`);
-      setRebinding(null);
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('mousedown', onMouseDown);
-
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('mousedown', onMouseDown);
-    };
-  }, [rebinding, setKeyBinding]);
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between mb-4">
-        <SectionTitle>Key Bindings</SectionTitle>
-        <button
-          onClick={resetKeyBindings}
-          className="text-[10px] text-gray-600 hover:text-rose-400 transition-colors font-mono uppercase tracking-widest cursor-pointer"
-        >
-          Reset Defaults
-        </button>
-      </div>
-
-      {Object.entries(DEFAULT_KEY_BINDINGS).map(([action]) => (
-        <div key={action} className="flex items-center justify-between py-2 border-b border-white/[0.04]">
-          <span className="text-gray-400 capitalize text-sm">{formatActionName(action)}</span>
-          <button
-            onClick={() => setRebinding(action)}
-            className={`px-3 py-1.5 rounded-lg font-mono text-xs min-w-[100px] text-center transition-all cursor-pointer ${
-              rebinding === action
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse'
-                : 'bg-white/[0.04] text-gray-400 border border-white/[0.06] hover:border-white/15 hover:bg-white/[0.06]'
-            }`}
-          >
-            {rebinding === action ? 'Press key...' : formatKeyName(keyBindings[action])}
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Shared components ──
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-sm font-bold tracking-[0.15em] uppercase text-white/80 mb-4">{children}</h2>
-  );
-}
-
-function SubSectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-[10px] text-gray-600 uppercase tracking-[0.2em] font-mono mb-2">{children}</h3>
-  );
-}
-
-function SliderSetting({ label, value, min, max, step, onChange, displayValue }: {
-  label: string; value: number; min: number; max: number; step: number;
-  onChange: (v: number) => void; displayValue: string;
-}) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="text-gray-400 w-28 flex-shrink-0 text-sm">{label}</span>
-      <input
-        type="range"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="flex-1 accent-cyan-500"
-      />
-      <span className="text-gray-500 font-mono w-16 text-right text-xs">{displayValue}</span>
-    </div>
-  );
-}
-
-function ToggleSetting({ label, value, onChange }: {
-  label: string; value: boolean; onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between py-1.5 cursor-pointer group">
-      <span className="text-gray-400 text-sm group-hover:text-gray-300 transition-colors">{label}</span>
-      <button
-        onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full transition-all cursor-pointer ${
-          value
-            ? 'bg-cyan-500/80 shadow-sm shadow-cyan-500/30'
-            : 'bg-white/[0.08] border border-white/[0.06]'
-        }`}
-      >
-        <div className={`w-4 h-4 bg-white rounded-full transition-transform mx-0.5 ${value ? 'translate-x-5' : ''}`} />
-      </button>
-    </label>
-  );
-}
-
-function SelectSetting({ label, value, options, onChange }: {
-  label: string; value: string; options: string[]; onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="text-gray-400 w-28 flex-shrink-0 text-sm">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-cyan-500/40"
-      >
-        {options.map((opt) => (
-          <option key={opt} value={opt} className="bg-[#12121a]">{opt}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function ColorSetting({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="text-gray-400 w-28 flex-shrink-0 text-sm">{label}</span>
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-10 h-6 rounded border border-white/[0.08] cursor-pointer bg-transparent"
-      />
-      <span className="text-gray-600 font-mono text-xs">{value}</span>
-    </div>
-  );
-}
-
-function formatActionName(action: string): string {
-  return action.replace(/([A-Z])/g, ' $1').trim();
-}
-
-function formatKeyName(key: string | undefined): string {
-  if (!key) return '—';
-  if (key.startsWith('Key')) return key.slice(3);
-  if (key.startsWith('Mouse')) return `Mouse ${key.slice(5)}`;
-  if (key === 'Space') return 'Space';
-  return key.replace(/([A-Z])/g, ' $1').trim();
 }

@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import {
-  float, vec3, vec4, positionWorld, positionLocal,
-  normalLocal, cameraPosition, time, sin, clamp, mix, uniform,
+  float, vec3, positionWorld, positionLocal,
+  time, clamp,
 } from 'three/tsl';
 import {
-  MeshStandardNodeMaterial, AdditiveBlending, DoubleSide, BackSide,
+  MeshStandardNodeMaterial, DoubleSide,
 } from 'three/webgpu';
 import { BoxGeometry, SphereGeometry } from 'three';
-import { fbm2D, valueNoise3D } from '../rendering/tslNoise';
+import { valueNoise3D } from '../rendering/tslNoise';
 import type { FogVolumeData } from '../types/map';
 
 const FOG_DEFAULTS = {

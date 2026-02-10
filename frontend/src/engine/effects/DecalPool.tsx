@@ -74,7 +74,6 @@ export function spawnDecal(
 }
 
 // Pre-allocated math objects — zero GC
-const _up = new Vector3(0, 1, 0);
 const _normal = new Vector3();
 const _quat = new Quaternion();
 const _dummy = new Object3D();

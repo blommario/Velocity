@@ -15,7 +15,7 @@ import {
   float, vec3, uniform, sin, step, pow, hash, floor, fract, mix, clamp,
   positionWorld,
 } from 'three/tsl';
-import type { ShaderNodeObject, Node, UniformNode } from 'three/tsl';
+// ShaderNodeObject, Node, UniformNode not exported from three/tsl — use any
 import { MeshStandardNodeMaterial, Color as ThreeColor } from 'three/webgpu';
 import type { ProceduralMaterialType, EmissiveAnimation, BlendMode } from '../types/map';
 import { valueNoise2D, fbm2D } from './tslNoise';
@@ -24,9 +24,9 @@ import { createBlendFactorNode, blendPbrNodes } from './textureBlendNode';
 // ── Types ──
 
 export interface PbrPresetNodes {
-  colorNode: ShaderNodeObject<Node>;
-  roughnessNode: ShaderNodeObject<Node>;
-  metalnessNode: ShaderNodeObject<Node>;
+  colorNode: any;
+  roughnessNode: any;
+  metalnessNode: any;
 }
 
 export interface ProceduralMaterialConfig {
@@ -48,7 +48,7 @@ export interface ProceduralMaterialConfig {
 
 export interface ProceduralMaterialResult {
   material: MeshStandardNodeMaterial;
-  timeUniform: UniformNode<number> | null;
+  timeUniform: any | null;
 }
 
 // ── Emissive animation ──
@@ -56,8 +56,8 @@ export interface ProceduralMaterialResult {
 export function buildEmissiveAnimationNode(
   animation: EmissiveAnimation,
   speed: number,
-  timeU: UniformNode<number>,
-): ShaderNodeObject<Node> | null {
+  timeU: any,
+): any | null {
   const t = timeU.mul(speed);
   switch (animation) {
     case 'pulse': return sin(t).mul(0.5).add(0.5);
@@ -197,7 +197,7 @@ export function createProceduralMaterial(config: ProceduralMaterialConfig): Proc
     ? float(config.metalnessOverride) : nodes.metalnessNode;
 
   // 4. Emissive + animation
-  let timeUniform: UniformNode<number> | null = null;
+  let timeUniform: any | null = null;
   const emissiveColor = new ThreeColor(config.emissive || '#000000');
   const intensity = config.emissiveIntensity ?? (config.type === 'neon' ? 4.0 : 0.0);
 

@@ -234,9 +234,7 @@ function PlatformMesh({ data, isSelected, onClick }: {
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
-              count={data.waypoints.length}
-              array={new Float32Array(data.waypoints.flat())}
-              itemSize={3}
+              args={[new Float32Array(data.waypoints.flat()), 3]}
             />
           </bufferGeometry>
           <lineBasicMaterial color={isSelected ? SELECTION_COLOR : '#ffff00'} />

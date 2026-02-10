@@ -122,7 +122,8 @@ export function useTileClusteredLighting({
     }
     const warmup = async () => {
       try {
-        await renderer.computeAsync(resources.computeClear);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three ComputeNode gap
+        await renderer.computeAsync(resources.computeClear as any);
         readyRef.current = true;
         devLog.success('Lighting', 'Tile binning compute pipelines compiled');
       } catch (err) {
@@ -189,8 +190,10 @@ export function useTileClusteredLighting({
 
     // 3. GPU compute: clear + bin — runs every frame (cheap for GPU)
     try {
-      renderer.compute(resources.computeClear);
-      renderer.compute(resources.computeBin);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three ComputeNode gap
+      renderer.compute(resources.computeClear as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderer.compute(resources.computeBin as any);
     } catch (err) {
       devLog.error('Lighting', `Tile binning compute error: ${err}`);
     }

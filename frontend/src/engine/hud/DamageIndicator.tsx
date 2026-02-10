@@ -39,7 +39,6 @@ export function DamageIndicator({
   const flash = flashRef.current;
   if (!flash || flash.opacity <= 0.01) return null;
 
-  const r = color ?? 'rgba(220, 30, 30, 1)';
   // Extract rgb values or use default for gradient
   const gradientColor = color
     ? color.replace(/[\d.]+\)$/, `${flash.opacity})`)

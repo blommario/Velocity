@@ -6,10 +6,10 @@
  */
 
 import { Fn, float, vec2, vec3, hash, floor, fract, mix } from 'three/tsl';
-import type { ShaderNodeObject, Node } from 'three/tsl';
+// ShaderNodeObject, Node not exported from three/tsl — use any
 
 /** 2D value noise with smoothstep interpolation. Input: vec2, output: float [0,1]. */
-export const valueNoise2D = Fn(([p_immutable]: [ShaderNodeObject<Node>]) => {
+export const valueNoise2D = Fn(([p_immutable]: [any]) => {
   const p = vec2(p_immutable);
   const i = floor(p);
   const f = fract(p);
@@ -25,7 +25,7 @@ export const valueNoise2D = Fn(([p_immutable]: [ShaderNodeObject<Node>]) => {
 });
 
 /** 3D value noise. Input: vec3, output: float [0,1]. */
-export const valueNoise3D = Fn(([p_immutable]: [ShaderNodeObject<Node>]) => {
+export const valueNoise3D = Fn(([p_immutable]: [any]) => {
   const p = vec3(p_immutable);
   const i = floor(p);
   const f = fract(p);
@@ -47,7 +47,7 @@ export const valueNoise3D = Fn(([p_immutable]: [ShaderNodeObject<Node>]) => {
 });
 
 /** Fractal Brownian Motion (2D). Octaves fixed at 3 for performance. */
-export const fbm2D = Fn(([p_immutable]: [ShaderNodeObject<Node>]) => {
+export const fbm2D = Fn(([p_immutable]: [any]) => {
   const p = vec2(p_immutable);
   let value = valueNoise2D(p).mul(0.5);
   value = value.add(valueNoise2D(p.mul(2.0)).mul(0.25));

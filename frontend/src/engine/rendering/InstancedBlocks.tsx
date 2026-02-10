@@ -1,7 +1,8 @@
 import { useRef, useMemo, useState } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
 import type { LightsNode, MeshStandardNodeMaterial } from 'three/webgpu';
-import type { UniformNode } from 'three/tsl';
+// UniformNode not exported from three/tsl — use any for type reference
+
 import { useFrame } from '@react-three/fiber';
 import { batchStaticColliders } from '../physics/colliderBatch';
 import { useSpatialCulling } from './useSpatialCulling';
@@ -45,7 +46,7 @@ export interface TexturedMaterialOptions {
 
 export interface TexturedMaterialResult {
   material: MeshStandardNodeMaterial;
-  timeUniform: UniformNode<number> | null;
+  timeUniform: any | null;
 }
 
 export type UseTexturedMaterialHook = (options: TexturedMaterialOptions | null) => TexturedMaterialResult | null;

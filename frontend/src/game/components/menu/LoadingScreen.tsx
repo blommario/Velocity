@@ -12,7 +12,7 @@ const STAGES = [
 export function LoadingScreen() {
   const progress = useGameStore((s) => s.loadProgress);
   const status = useGameStore((s) => s.loadStatus);
-  const mapName = useGameStore((s) => s.currentMapData?.name ?? 'Loading');
+  const mapName = useGameStore((s) => s.currentMapId ?? 'Loading');
   const barRef = useRef<HTMLDivElement>(null);
   const [fadeOut, setFadeOut] = useState(false);
 

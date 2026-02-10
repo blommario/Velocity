@@ -87,10 +87,12 @@ export function useAnimation({
       devLog.info('Animation', `Clip finished: "${name}"`);
       onCompleteRef.current?.(name);
     };
-    mixer.addEventListener('finished', onFinished as EventListener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Three.js EventListener type gap
+    mixer.addEventListener('finished', onFinished as any);
 
     return () => {
-      mixer.removeEventListener('finished', onFinished as EventListener);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mixer.removeEventListener('finished', onFinished as any);
       mixer.stopAllAction();
       mixer.uncacheRoot(root);
       mixerRef.current = null;

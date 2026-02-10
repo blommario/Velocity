@@ -8,7 +8,7 @@
  */
 
 import { float, clamp, mix, positionWorld } from 'three/tsl';
-import type { ShaderNodeObject, Node } from 'three/tsl';
+// ShaderNodeObject, Node not exported from three/tsl — use any
 import type { BlendMode } from '../types/map';
 import { fbm2D } from './tslNoise';
 
@@ -22,7 +22,7 @@ export interface TextureBlendConfig {
  * Build a TSL float node (0..1) representing the blend factor.
  * 0 = fully base material, 1 = fully blend material.
  */
-export function createBlendFactorNode(config: TextureBlendConfig): ShaderNodeObject<Node> {
+export function createBlendFactorNode(config: TextureBlendConfig): any {
   const sharpness = config.sharpness ?? 4.0;
 
   switch (config.mode) {
@@ -35,16 +35,16 @@ export function createBlendFactorNode(config: TextureBlendConfig): ShaderNodeObj
       return clamp(n.mul(sharpness).sub(float(sharpness).mul(0.5)).add(0.5), float(0.0), float(1.0));
     }
     default: {
-      const _exhaustive: never = config.mode;
+      const _exhaustive: never = config.mode; void _exhaustive;
       return float(0.0);
     }
   }
 }
 
 export interface PbrNodes {
-  colorNode: ShaderNodeObject<Node>;
-  roughnessNode: ShaderNodeObject<Node>;
-  metalnessNode: ShaderNodeObject<Node>;
+  colorNode: any;
+  roughnessNode: any;
+  metalnessNode: any;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface PbrNodes {
 export function blendPbrNodes(
   base: PbrNodes,
   blend: PbrNodes,
-  factor: ShaderNodeObject<Node>,
+  factor: any,
 ): PbrNodes {
   return {
     colorNode: mix(base.colorNode, blend.colorNode, factor),

@@ -2,7 +2,6 @@ import { Vector3 } from 'three';
 import { ENGINE_PHYSICS as PHYSICS, DEG2RAD } from './constants';
 
 const _wallNormal = new Vector3();
-const _wallRight = new Vector3();
 const _grappleDir = new Vector3();
 const _surfNormal = new Vector3();
 const _gravityVec = new Vector3();
@@ -117,7 +116,7 @@ export function wallJump(state: WallRunState, velocity: Vector3): void {
 /**
  * Check if a surface normal indicates a surf ramp (30-60 degrees).
  */
-export function isSurfSurface(normalX: number, normalY: number, normalZ: number): boolean {
+export function isSurfSurface(_normalX: number, normalY: number, _normalZ: number): boolean {
   const angle = Math.acos(normalY) / DEG2RAD;
   return angle >= PHYSICS.SURF_MIN_ANGLE && angle <= PHYSICS.SURF_MAX_ANGLE;
 }

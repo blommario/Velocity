@@ -34,7 +34,6 @@ export interface DeltaFrame {
 
 const KEYFRAME_INTERVAL = 32; // keyframe every 32 frames (~250ms at 128Hz)
 const DOWNSAMPLE_HZ = 30;    // ghost playback at 30Hz (interpolated)
-const DOWNSAMPLE_RATIO = Math.round(128 / DOWNSAMPLE_HZ); // ~4 frames
 
 interface ReplayState {
   // Recording

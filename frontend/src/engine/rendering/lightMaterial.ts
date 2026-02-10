@@ -75,9 +75,11 @@ export function applyTileLighting(
   // Combine: tile lighting + existing emissive (if any)
   if (originalEmissive) {
     // TSL nodes support .add() for additive composition
-    nodeMat.emissiveNode = (tileLightingNode as { add: (n: unknown) => unknown }).add(originalEmissive);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three TSL node gap
+    nodeMat.emissiveNode = (tileLightingNode as any).add(originalEmissive);
   } else {
-    nodeMat.emissiveNode = tileLightingNode;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    nodeMat.emissiveNode = tileLightingNode as any;
   }
   nodeMat._tileLightingApplied = true;
 }

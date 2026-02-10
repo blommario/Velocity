@@ -14,7 +14,7 @@
  */
 
 import {
-  Fn, float, uint, vec3, vec4, Loop, If, mix,
+  Fn, float, uint, vec3, Loop, If, mix,
   uniform, screenUV,
 } from 'three/tsl';
 import { positionWorld, normalWorld } from 'three/tsl';
@@ -58,9 +58,12 @@ export function createTileLightingNode(res: TileBinningResources): TileLightingN
   const roLightPos = lightPositions.toReadOnly();
   const roLightCol = lightColors.toReadOnly();
 
-  const uTileCols = uniform(unis.tileCols, 'uint');
-  const uViewW = uniform(unis.viewportWidth, 'float');
-  const uViewH = uniform(unis.viewportHeight, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three uniform() gap
+  const uTileCols = uniform(unis.tileCols as any, 'uint');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewW = uniform(unis.viewportWidth as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewH = uniform(unis.viewportHeight as any, 'float');
   const uMaxPerTile = uint(TILE_CONFIG.MAX_PER_TILE);
 
   /**
@@ -171,9 +174,12 @@ export function createTileDebugNode(res: TileBinningResources): TileDebugNode {
   const { tileLightCounts, uniforms: unis } = res;
 
   const roTileCounts = tileLightCounts.toReadOnly();
-  const uTileCols = uniform(unis.tileCols, 'uint');
-  const uViewW = uniform(unis.viewportWidth, 'float');
-  const uViewH = uniform(unis.viewportHeight, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three uniform() gap
+  const uTileCols = uniform(unis.tileCols as any, 'uint');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewW = uniform(unis.viewportWidth as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewH = uniform(unis.viewportHeight as any, 'float');
   const maxPerTile = float(TILE_CONFIG.MAX_PER_TILE);
 
   const tileDebugFn = Fn(() => {

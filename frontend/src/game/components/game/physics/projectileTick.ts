@@ -65,7 +65,7 @@ export function handleProjectiles(ctx: TickContext): void {
         const nx = hitWithNormal?.normal.x ?? 0;
         const ny = hitWithNormal?.normal.y ?? 1;
         const nz = hitWithNormal?.normal.z ?? 0;
-        spawnDecal(_hitPos[0], _hitPos[1], _hitPos[2], nx, ny, nz, PHYSICS.ROCKET_DECAL_RADIUS, PHYSICS.ROCKET_DECAL_LIFETIME, PHYSICS.ROCKET_DECAL_FADE_IN, PHYSICS.ROCKET_DECAL_FADE_OUT);
+        spawnDecal(_hitPos[0], _hitPos[1], _hitPos[2], nx, ny, nz, PHYSICS.ROCKET_DECAL_RADIUS as number, PHYSICS.ROCKET_DECAL_LIFETIME as number, PHYSICS.ROCKET_DECAL_FADE_IN as number, PHYSICS.ROCKET_DECAL_FADE_OUT as number);
         deactivateAt(i);
         devLog.info('Combat', `Rocket exploded at [${_hitPos[0].toFixed(1)}, ${_hitPos[1].toFixed(1)}, ${_hitPos[2].toFixed(1)}] dmg=${damage.toFixed(0)}`);
       }
@@ -84,7 +84,7 @@ export function handleProjectiles(ctx: TickContext): void {
         }
         audioManager.play(SOUNDS.GRENADE_EXPLODE);
         useExplosionStore.getState().spawnExplosion(_gPos, PHYSICS.GRENADE_EXPLOSION_COLOR, PHYSICS.GRENADE_EXPLOSION_SIZE);
-        spawnDecal(_gPos[0], _gPos[1], _gPos[2], 0, 1, 0, PHYSICS.GRENADE_DECAL_RADIUS, PHYSICS.GRENADE_DECAL_LIFETIME, PHYSICS.GRENADE_DECAL_FADE_IN, PHYSICS.GRENADE_DECAL_FADE_OUT);
+        spawnDecal(_gPos[0], _gPos[1], _gPos[2], 0, 1, 0, PHYSICS.GRENADE_DECAL_RADIUS as number, PHYSICS.GRENADE_DECAL_LIFETIME as number, PHYSICS.GRENADE_DECAL_FADE_IN as number, PHYSICS.GRENADE_DECAL_FADE_OUT as number);
         deactivateAt(i);
         continue;
       }
@@ -121,7 +121,7 @@ export function handleProjectiles(ctx: TickContext): void {
           const gnx = hitWithNormal?.normal.x ?? 0;
           const gny = hitWithNormal?.normal.y ?? 1;
           const gnz = hitWithNormal?.normal.z ?? 0;
-          spawnDecal(_gPos[0], _gPos[1], _gPos[2], gnx, gny, gnz, PHYSICS.GRENADE_DECAL_RADIUS, PHYSICS.GRENADE_DECAL_LIFETIME, PHYSICS.GRENADE_DECAL_FADE_IN, PHYSICS.GRENADE_DECAL_FADE_OUT);
+          spawnDecal(_gPos[0], _gPos[1], _gPos[2], gnx, gny, gnz, PHYSICS.GRENADE_DECAL_RADIUS as number, PHYSICS.GRENADE_DECAL_LIFETIME as number, PHYSICS.GRENADE_DECAL_FADE_IN as number, PHYSICS.GRENADE_DECAL_FADE_OUT as number);
           deactivateAt(i);
         } else if (hitWithNormal) {
           const normal = hitWithNormal.normal;

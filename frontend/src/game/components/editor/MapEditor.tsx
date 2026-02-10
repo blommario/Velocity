@@ -100,7 +100,7 @@ function TestPlayMode() {
 
   useEffect(() => {
     const mapData = exportMapData();
-    useGameStore.getState().loadMap('editor-test', mapData);
+    useGameStore.getState().loadMap('editor-test', mapData as any);
   }, [exportMapData]);
 
   // Listen for Tab to exit test play

@@ -63,7 +63,6 @@ export function disposeDieGeometries(): void {
 
 const _v0 = new Vector3();
 const _v1 = new Vector3();
-const _v2 = new Vector3();
 const _normal = new Vector3();
 
 function triNormal(
@@ -349,7 +348,7 @@ function createD20(size: number): DieGeometryData {
  */
 function assignOppositeValues(
   normals: [number, number, number][],
-  numFaces: number,
+  _numFaces: number,
   oppositeSum: number,
   startVal = 1,
 ): number[] {
@@ -386,7 +385,6 @@ function assignOppositeValues(
   for (const [a, b] of pairs) {
     // Find next unused low value
     while (usedValues.has(nextLow)) nextLow++;
-    const highVal = oppositeSum - nextLow + (startVal === 0 ? 0 : 0);
     // For d10 with startVal=0: pairs should sum to oppositeSum (9): 0+9, 1+8, ...
     const low = nextLow;
     const high = startVal === 0 ? oppositeSum - low : oppositeSum - low;

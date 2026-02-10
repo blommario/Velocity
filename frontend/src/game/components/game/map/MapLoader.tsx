@@ -143,7 +143,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         blocks={data.blocks}
         lightsNode={hasLights && !isTileClustered ? lightsNode : undefined}
         tileLightingNode={hasLights && isTileClustered && tileLightingNode ? tileLightingNode : undefined}
-        useTexturedMaterial={useTexturedMaterial}
+        useTexturedMaterial={useTexturedMaterial as any}
       />
 
       {/* glTF models */}
@@ -272,7 +272,7 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         <HdriSkybox loadHdri={loadHDRI} filename={data.skybox.slice(5)} />
       ) : (
         <>
-          <ProceduralSkybox preset={data.skybox ?? 'day'} />
+          <ProceduralSkybox preset={(data.skybox ?? 'day') as any} />
           <color attach="background" args={[bgColor]} />
         </>
       )}

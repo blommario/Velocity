@@ -1,8 +1,8 @@
 import { useEditorStore, type EditorObject } from '@game/stores/editorStore';
 import type {
-  MapBlock, CheckpointData, FinishZoneData, KillZoneData,
-  BoostPadData, LaunchPadData, SpeedGateData, AmmoPickupData,
-  GrapplePointData, SurfRampData, MovingPlatformData, Vec3, BlockShape,
+  MapBlock, CheckpointData,
+  BoostPadData, SpeedGateData, AmmoPickupData,
+  MovingPlatformData, Vec3, BlockShape,
 } from '../game/map/types';
 import type { WeaponType } from '../game/physics/types';
 

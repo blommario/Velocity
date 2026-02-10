@@ -141,7 +141,8 @@ export function EnvironmentalParticles({
       lifeBuffer.element(idx).assign(life);
     })().compute(count);
 
-    computeUpdateRef.current = computeUpdate;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three ComputeNode gap
+    computeUpdateRef.current = computeUpdate as any;
 
     // Parse preset color
     const cr = parseInt(preset.color.slice(1, 3), 16) / 255;
@@ -206,7 +207,8 @@ export function EnvironmentalParticles({
     emitterPosRef.current.value.copy(cameraRef.current.position);
 
     const renderer = gl as unknown as WebGPURenderer;
-    renderer.compute(computeUpdateRef.current);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three ComputeNode gap
+    renderer.compute(computeUpdateRef.current as any);
   });
 
   return null;

@@ -19,7 +19,7 @@ import {
 import type { WebGPURenderer } from 'three/webgpu';
 import { FogOfWarGrid, FOG_DEFAULTS, type FogOfWarConfig } from './FogOfWar';
 import { buildHeightmap, fogConfigToHeightmapConfig } from './FogOfWarHeightmap';
-import { createFogComputeResources, type FogComputeResources, type FogGridConfig } from './fogOfWarCompute';
+import { createFogComputeResources, type FogComputeResources } from './fogOfWarCompute';
 import type { MapBlock } from '../types/map';
 import { devLog } from '../stores/devLogStore';
 
@@ -160,7 +160,8 @@ export function useFogOfWar({
     let mounted = true;
     const warmup = async () => {
       try {
-        await renderer.computeAsync(resources.computeRayMarch);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three ComputeNode gap
+        await renderer.computeAsync(resources.computeRayMarch as any);
         if (!mounted) return;
         gpuReadyRef.current = true;
         devLog.success('FogOfWar', 'Compute pipeline compiled');
@@ -174,8 +175,10 @@ export function useFogOfWar({
     return () => {
       mounted = false;
       // Dispose GPU storage buffers to free VRAM
-      resources.heightmapBuffer.value?.dispose?.();
-      resources.visibilityBuffer.value?.dispose?.();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three dispose gap
+      (resources.heightmapBuffer.value as any)?.dispose?.();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (resources.visibilityBuffer.value as any)?.dispose?.();
       gpuResourcesRef.current = null;
       gpuReadyRef.current = false;
       gridRef.current = null;
@@ -203,7 +206,8 @@ export function useFogOfWar({
       resources.uniforms.viewerZ.value = vz;
 
       try {
-        renderer.compute(resources.computeRayMarch);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three ComputeNode gap
+        renderer.compute(resources.computeRayMarch as any);
       } catch (err) {
         devLog.error('FogOfWar', `Compute dispatch failed: ${err}`);
       }

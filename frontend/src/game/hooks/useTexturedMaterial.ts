@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MeshStandardNodeMaterial, RepeatWrapping } from 'three/webgpu';
-import type { UniformNode } from 'three/tsl';
+// UniformNode not exported from three/tsl — use any
 import { loadTextureSet, type TextureSet } from '@game/services/assetManager';
 import { buildEmissiveAnimationNode } from '@engine/rendering/proceduralMaterials';
 import { createBlendFactorNode, blendPbrNodes } from '@engine/rendering/textureBlendNode';
@@ -28,7 +28,7 @@ export interface TexturedMaterialOptions {
 
 export interface TexturedMaterialResult {
   material: MeshStandardNodeMaterial;
-  timeUniform: UniformNode<number> | null;
+  timeUniform: any | null;
 }
 
 /**
@@ -106,7 +106,7 @@ export function useTexturedMaterial(
         }
 
         // Emissive animation — must sample emissive texture in TSL if present
-        let timeUniform: UniformNode<number> | null = null;
+        let timeUniform: any | null = null;
         const anim = options.emissiveAnimation ?? 'none';
         if (anim !== 'none' && mat.emissiveIntensity > 0) {
           timeUniform = uniform(0.0);

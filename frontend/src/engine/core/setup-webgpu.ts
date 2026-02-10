@@ -4,7 +4,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 
 // Register WebGPU-aware Three.js classes with R3F's JSX catalogue.
 // Must be called before any <Canvas> renders.
-extend(THREE);
+extend(THREE as any);
 
 // Pre-initialize Rapier WASM so subsequent init() from @react-three/rapier is a no-op.
 // Top-level await is safe here: target=esnext + Vite handles it correctly.

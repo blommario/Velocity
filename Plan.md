@@ -160,35 +160,35 @@
 **Förutsättning:** Ingen (kan köras parallellt med V/R/T)
 
 ### Q1 — PostProcessingEffects.tsx (689 rader)
-- 🔲 Extrahera effekt-byggare till separata moduler (bloom, SSAO, vignette, fog, etc.)
-- 🔲 Eliminera magic numbers → `as const` config-objekt
-- 🔲 Mål: huvudkomponent <150 rader, hooks/builders i egna filer
+- ✅ Extrahera effekt-byggare till separata moduler (bloom, SSAO, vignette, fog, etc.)
+- ✅ Eliminera magic numbers → `as const` config-objekt
+- ✅ Mål: huvudkomponent <150 rader, hooks/builders i egna filer
 
 ### Q2 — SettingsScreen.tsx (507 rader)
-- 🔲 Extrahera varje settings-tab till egen komponent (VideoTab, AudioTab, InputTab, etc.)
-- 🔲 Eliminera magic strings (tab-namn, labels) → `as const` lookup
-- 🔲 Mål: huvudkomponent <150 rader, tabs i `components/menu/settings/`
+- ✅ Extrahera varje settings-tab till egen komponent (VideoTab, AudioTab, InputTab, etc.)
+- ✅ Eliminera magic strings (tab-namn, labels) → `as const` lookup
+- ✅ Mål: huvudkomponent <150 rader, tabs i `components/menu/settings/`
 
 ### Q3 — DevLogPanel.tsx (465 rader)
-- 🔲 Extrahera log-filtrering, perf-bar, och log-rendering till hooks/subkomponenter
-- 🔲 Eliminera magic strings/numbers → config-objekt
-- 🔲 Mål: huvudkomponent <150 rader
+- ✅ Extrahera log-filtrering, perf-bar, och log-rendering till hooks/subkomponenter
+- ✅ Eliminera magic strings/numbers → config-objekt
+- ✅ Mål: huvudkomponent <150 rader
 
 ### Q4 — ExplosionEffect.tsx (426 rader)
-- 🔲 Extrahera TSL shader-byggare och partikel-logik till egna moduler
-- 🔲 Eliminera magic numbers (partikel-counts, durations, colors) → `as const`
-- 🔲 Mål: huvudkomponent <150 rader
+- ✅ Extrahera TSL shader-byggare och partikel-logik till egna moduler
+- ✅ Eliminera magic numbers (partikel-counts, durations, colors) → `as const`
+- ✅ Mål: huvudkomponent <150 rader
 
 ### Q5 — MainMenu.tsx (419 rader)
-- 🔲 Extrahera varje meny-sektion till egen komponent (title, buttons, overlays)
-- 🔲 Eliminera magic strings → `as const` lookup
-- 🔲 Mål: huvudkomponent <150 rader
+- ✅ Extrahera varje meny-sektion till egen komponent (title, buttons, overlays)
+- ✅ Eliminera magic strings → `as const` lookup
+- ✅ Mål: huvudkomponent <150 rader
 
 ### Q6 — TestMap.tsx (409 rader)
-- 🔲 Extrahera map-layout data till separat config-fil
-- 🔲 Extrahera zone-setup, block-generering till hooks
-- 🔲 Eliminera magic numbers (positioner, storlekar) → map config object
-- 🔲 Mål: huvudkomponent <150 rader
+- ✅ Extrahera map-layout data till separat config-fil
+- ✅ Extrahera zone-setup, block-generering till hooks
+- ✅ Eliminera magic numbers (positioner, storlekar) → map config object
+- ✅ Mål: huvudkomponent <150 rader
 
 ### Q7 — Övriga komponenter >150 rader (~24 st)
 - 🔲 Identifiera och lista alla återstående komponenter >150 rader

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import {
   Fn, instanceIndex, instancedArray, float, vec3, vec4,
-  hash, uniform, deltaTime, storage,
+  hash, uniform, deltaTime,
 } from 'three/tsl';
 import {
   AdditiveBlending, SpriteNodeMaterial, BufferGeometry,
@@ -67,7 +67,7 @@ export function GpuParticles({
     meshRef.current = mesh;
 
     // Run init compute
-    const renderer = gl as import('three/webgpu').WebGPURenderer;
+    const renderer = gl as unknown as import('three/webgpu').WebGPURenderer;
     devLog.info('Particles', `Initializing ${count} GPU particles via compute shader`);
     renderer.computeAsync(nodes.computeInit).then(() => {
       initializedRef.current = true;
@@ -90,7 +90,7 @@ export function GpuParticles({
     if (!particles) return;
 
     frameTiming.begin('Particles');
-    const renderer = gl as import('three/webgpu').WebGPURenderer;
+    const renderer = gl as unknown as import('three/webgpu').WebGPURenderer;
     renderer.compute(computeUpdateRef.current.computeUpdate);
     frameTiming.end('Particles');
   });

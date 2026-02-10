@@ -15,7 +15,7 @@ export function EditorViewport() {
   return (
     <Canvas
       gl={async (canvas) => {
-        const renderer = new WebGPURenderer({ canvas: canvas as HTMLCanvasElement, antialias: true });
+        const renderer = new WebGPURenderer({ canvas: canvas as unknown as HTMLCanvasElement, antialias: true });
         await renderer.init();
         return renderer;
       }}

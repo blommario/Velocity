@@ -83,13 +83,20 @@ export function createTileBinningResources(maxTiles: number): TileBinningResourc
     viewportHeight: { value: 720 },
   };
 
-  const uLightCount = uniform(unis.lightCount, 'uint');
-  const uViewMatrix = uniform(unis.viewMatrix, 'mat4');
-  const uProjMatrix = uniform(unis.projMatrix, 'mat4');
-  const uTileCols = uniform(unis.tileCols, 'uint');
-  const uTileRows = uniform(unis.tileRows, 'uint');
-  const uViewW = uniform(unis.viewportWidth, 'float');
-  const uViewH = uniform(unis.viewportHeight, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three uniform() gap
+  const uLightCount = uniform(unis.lightCount as any, 'uint');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewMatrix = uniform(unis.viewMatrix as any, 'mat4');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uProjMatrix = uniform(unis.projMatrix as any, 'mat4');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uTileCols = uniform(unis.tileCols as any, 'uint');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uTileRows = uniform(unis.tileRows as any, 'uint');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewW = uniform(unis.viewportWidth as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewH = uniform(unis.viewportHeight as any, 'float');
   const uTileSize = float(TILE_CONFIG.TILE_SIZE);
   const uMaxPerTile = uint(maxPerTile);
 

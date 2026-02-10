@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 import type { Object3D, InstancedMesh, Scene } from 'three';
 import type { WebGPURenderer } from 'three/webgpu';
 import { GpuPicker, type PickResult } from './GpuPicker';
@@ -33,7 +33,7 @@ export interface UseGpuPickingConfig {
  *
  * The picker is stable across re-renders (created once, disposed on unmount).
  */
-export function useGpuPicking(config?: UseGpuPickingConfig) {
+export function useGpuPicking(_config?: UseGpuPickingConfig) {
   const { gl, camera, scene } = useThree();
   const renderer = gl as unknown as WebGPURenderer;
   const pickerRef = useRef<GpuPicker | null>(null);

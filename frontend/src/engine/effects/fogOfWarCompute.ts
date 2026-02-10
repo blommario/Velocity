@@ -14,7 +14,7 @@
 
 import {
   Fn, uniform, float, uint, int, instanceIndex, If, Loop,
-  attributeArray, instancedArray, sqrt, abs, sign, floor, min, max, round,
+  attributeArray, instancedArray, sqrt, abs, sign, floor, min, round,
 } from 'three/tsl';
 import type { FogOfWarConfig } from './FogOfWar';
 import { FOG_DEFAULTS, VisibilityState } from './FogOfWar';
@@ -102,15 +102,24 @@ export function createFogComputeResources(
     totalRadius: { value: totalR },
   };
 
-  const uViewerX = uniform(unis.viewerX, 'float');
-  const uViewerY = uniform(unis.viewerY, 'float');
-  const uViewerZ = uniform(unis.viewerZ, 'float');
-  const uGridSize = uniform(unis.gridSize, 'uint');
-  const uCellWS = uniform(unis.cellWorldSize, 'float');
-  const uOriginX = uniform(unis.originX, 'float');
-  const uOriginZ = uniform(unis.originZ, 'float');
-  const uRevealR = uniform(unis.revealRadius, 'float');
-  const uTotalR = uniform(unis.totalRadius, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/three TSL uniform() gap
+  const uViewerX = uniform(unis.viewerX as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewerY = uniform(unis.viewerY as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uViewerZ = uniform(unis.viewerZ as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uGridSize = uniform(unis.gridSize as any, 'uint');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uCellWS = uniform(unis.cellWorldSize as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uOriginX = uniform(unis.originX as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uOriginZ = uniform(unis.originZ as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uRevealR = uniform(unis.revealRadius as any, 'float');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const uTotalR = uniform(unis.totalRadius as any, 'float');
 
   const VISIBLE = uint(VisibilityState.VISIBLE);
   const PREVIOUSLY_SEEN = uint(VisibilityState.PREVIOUSLY_SEEN);
@@ -119,7 +128,6 @@ export function createFogComputeResources(
   const computeRayMarch = Fn(() => {
     const cellIdx = instanceIndex;
     const gs = uGridSize;
-    const gsf = gs.toFloat();
     const totalC = gs.mul(gs);
 
     // Skip out-of-bounds (dispatch may overshoot to workgroup alignment)

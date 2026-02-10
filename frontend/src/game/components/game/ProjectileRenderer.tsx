@@ -9,7 +9,7 @@ import { GpuProjectiles, useGpuProjectileSlots } from '@engine/effects/GpuProjec
 import { getPool, getPoolSize } from './physics/projectilePool';
 import {
   InstancedMesh, ConeGeometry, CylinderGeometry,
-  MeshStandardMaterial, Vector3, Quaternion, Matrix4, Object3D,
+  MeshStandardMaterial, Vector3, Quaternion, Matrix4,
 } from 'three';
 
 /** Velocity projectile colors: 0=rocket, 1=grenade */
