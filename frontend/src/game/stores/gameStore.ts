@@ -45,6 +45,14 @@ export interface SplitPopupData {
 
 export type Stance = 'standing' | 'crouching' | 'sliding' | 'prone';
 
+/** Named stance constants — use instead of raw string literals. */
+export const STANCES = {
+  STANDING: 'standing',
+  CROUCHING: 'crouching',
+  SLIDING: 'sliding',
+  PRONE: 'prone',
+} as const satisfies Record<string, Stance>;
+
 const KILL_ZONE_Y = -50;
 const INITIAL_STATS: RunStats = {
   maxSpeed: 0,

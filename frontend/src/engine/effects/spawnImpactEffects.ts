@@ -7,6 +7,13 @@ const DECAL_SIZES: Record<string, number> = { light: 0.15, medium: 0.4, heavy: 1
 
 export type ImpactIntensity = 'light' | 'medium' | 'heavy';
 
+/** Named impact intensity constants — use instead of raw string literals. */
+export const IMPACT = {
+  LIGHT: 'light',
+  MEDIUM: 'medium',
+  HEAVY: 'heavy',
+} as const satisfies Record<string, ImpactIntensity>;
+
 /**
  * Spawn impact effects (spark burst + decal + audio) at a hit point.
  * Uses the existing explosion particle system with small scale + orange color.

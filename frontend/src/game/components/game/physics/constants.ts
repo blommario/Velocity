@@ -119,6 +119,48 @@ export const PHYSICS = {
   MANTLE_SPEED_BOOST: 80,         // forward speed after mantle
   MANTLE_COOLDOWN: 0.3,           // seconds before can mantle again
   MANTLE_MIN_APPROACH_SPEED: 50,  // must be moving toward wall
+  MANTLE_MAX_ENTRY_VEL_Y: 20,    // max upward velocity to start mantle
+
+  // ── Grenade physics ──
+  GRENADE_SPAWN_OFFSET: 0.8,     // spawn distance multiplier from player
+  GRENADE_UPWARD_BOOST: 100,     // upward velocity added to grenade throw
+
+  // ── Plasma physics ──
+  PLASMA_JUMP_UPLIFT: 60,        // min upward velocity when plasma surfing grounded
+  PLASMA_GROUND_DIR_THRESHOLD: -0.3, // fire direction Y threshold for plasma jump
+
+  // ── Grapple aiming ──
+  GRAPPLE_MIN_AIM_DOT: 0.3,      // min dot product to aim at grapple point
+  GRAPPLE_MIN_DISTANCE: 1,       // min distance to grapple target
+
+  // ── Projectile limits ──
+  PROJECTILE_MAX_AGE: 8,         // seconds before projectile despawns
+  PROJECTILE_VOID_Y: -60,        // Y threshold for projectile void kill
+
+  // ── World bounds ──
+  VOID_Y: -50,                   // Y threshold for player void respawn
+
+  // ── Physics thresholds ──
+  WALL_DOT_THRESHOLD: 0.3,       // dot product threshold for wall detection
+  VELOCITY_CORRECTION_RATIO: 0.3, // horizontal correction ratio for wall sliding
+  DOUBLE_TAP_WINDOW: 300,        // ms window for double-tap crouch→prone
+  HITSCAN_SPREAD_FACTOR: 2,      // spread multiplication factor for hitscan weapons
+
+  // ── Explosion FX ──
+  ROCKET_EXPLOSION_COLOR: '#ff6600' as const,
+  ROCKET_EXPLOSION_SIZE: 8.0,
+  GRENADE_EXPLOSION_COLOR: '#22c55e' as const,
+  GRENADE_EXPLOSION_SIZE: 3.5,
+
+  // ── Decal params ──
+  ROCKET_DECAL_RADIUS: 2.0,
+  ROCKET_DECAL_LIFETIME: 0.08,
+  ROCKET_DECAL_FADE_IN: 0.05,
+  ROCKET_DECAL_FADE_OUT: 0.03,
+  GRENADE_DECAL_RADIUS: 1.5,
+  GRENADE_DECAL_LIFETIME: 0.05,
+  GRENADE_DECAL_FADE_IN: 0.12,
+  GRENADE_DECAL_FADE_OUT: 0.04,
 } as const;
 
 export { _DEG2RAD as DEG2RAD, _RAD2DEG as RAD2DEG };
