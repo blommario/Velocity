@@ -1,7 +1,7 @@
 # VELOCITY — Gameplay & Content Plan
 
 > Engine-arbete (Fas A, G–N) + grafik (O) + movement (P) + engine-refaktorisering (E) klart.
-> Kvar: gameplay mechanics (V), banor (R), multiplayer (T), kodkvalitet/refaktorisering (Q).
+> Kvar: gameplay mechanics (V), kamera FPS/TPS (C), banor (R), multiplayer (T), kodkvalitet/refaktorisering (Q).
 > ✅ = klart | 🔲 = kvar | 🔧 = pågår
 
 ---
@@ -20,9 +20,9 @@
 ---
 
 ## Fas T — Multiplayer & Community
-*SSE-infrastruktur + race rooms + lobby UI finns (Fas 12 ✅). Kvar: realtidssynk, netcode, ghost rendering, game modes, chat, spectator, anti-cheat.*
+*Bleeding edge multiplayer: WebSocket + binärt protocol + room sharding. Mål: 10,000+ samtidiga spelare per server.*
 
-**Förutsättning:** Fas 12 (SSE infra) ✅
+**Förutsättning:** Fas 12 (SSE infra) ✅ — ersätts av WebSocket i T0
 
 **Nuläge (befintligt):**
 - Backend: SseConnectionManager (singleton, ConcurrentDictionary channels), SSE endpoints (leaderboard, race, activity)
@@ -30,272 +30,460 @@
 - Frontend: sseClient.ts (EventSource wrapper, auto-reconnect, typed dispatch)
 - Frontend: raceStore.ts (room CRUD, SSE connection, racePositions Map)
 - Frontend: RaceLobby → RoomBrowser + RoomLobby + CountdownOverlay
-- **Saknas:** Ingen position-streaming under race, ingen ghost-rendering, ingen countdown-timer backend, inget leave/kick, ingen chat
+- **Problem med SSE:** Enkelriktad (server→klient), JSON-only, ~400 bytes headers per POST, max 6 connections/origin (H1), ingen ping/pong, ingen binär data
+
+**Designbeslut:**
+- **Transport:** WebSocket (native i ASP.NET Core + alla browsers, 0 nya dependencies)
+- **Protocol:** Binärt (ArrayBuffer) för positionsdata (29 bytes vs ~180 bytes JSON = 6× mindre)
+- **Kontrollmeddelanden:** JSON över samma WebSocket (lobby events, chat, lifecycle)
+- **Server-modell:** Room-sharded — varje rum kör isolerad broadcast-loop, System.Threading.Channels för lock-free I/O
+- **Klient-modell:** Client-authoritative med server-relay (ingen server-physics), heuristisk anti-cheat
+- **Framtidssäkring:** Abstraktionslager (`IGameTransport`) som tillåter WebTransport-backend senare (QUIC/UDP)
 
 ---
 
-### T1 — Realtids Position-Sync (Netcode Grund)
-*Spelare skickar position via POST, servern broadcastar till alla i rummet via SSE.*
+### T0 — WebSocket Transport Layer (SSE-ersättning)
+*Byt ut SSE + POST med en enda WebSocket-anslutning per spelare. Noll nya dependencies.*
 
-**Arkitektur:** Client-authoritative med server-relay (SSE). Klienten äger sin physics — servern vidarebefordrar positionsdata utan simulering. Enkel modell som passar speedrunning (alla springer samma bana, ingen PvP-kollision).
+**Arkitekturöversikt:**
+```
+Browser                          ASP.NET Core (Kestrel)
+───────                          ──────────────────────
+GameTransport                    WebSocket middleware
+  ├─ connect(roomId, token)      ├─ JWT-validering vid upgrade
+  ├─ send(binary | json)         ├─ RoomManager (singleton)
+  ├─ onMessage(handler)          │   └─ Room (per rum, isolerad)
+  ├─ onClose(handler)            │       ├─ Channel<ReadOnlyMemory<byte>> inbound
+  └─ disconnect()                │       ├─ PlayerSocket[] (WebSocket refs)
+                                 │       ├─ PositionBuffer[] (pre-allokerat)
+                                 │       ├─ BroadcastLoop (20Hz bakgrundsuppgift)
+                                 │       └─ HeartbeatMonitor (5s intervall)
+                                 └─ AntiCheatValidator (per-room)
+```
+
+**Backend — WebSocket Endpoint:**
+- 🔲 **`/ws/race/{roomId}`** — WebSocket upgrade endpoint
+  - JWT-validering: token som query-param vid upgrade (samma som SSE idag), validera claims
+  - Vid accept: `RoomManager.JoinRoom(roomId, playerId, webSocket)`
+  - Vid close/error: `RoomManager.LeaveRoom(roomId, playerId)` + broadcast `player_left`
+  - Kestrel inbyggt: `app.UseWebSockets()` + `context.WebSockets.AcceptWebSocketAsync()`
+  - **Inga nya NuGet-paket** — allt inbyggt i `Microsoft.AspNetCore.WebSockets`
+
+- 🔲 **`RoomManager`** — singleton, äger alla aktiva rum
+  - `ConcurrentDictionary<Guid, Room>` — skapas vid första join, tas bort när tomt
+  - `JoinRoom(roomId, playerId, ws)` → skapa Room om ej finns, lägg till spelare
+  - `LeaveRoom(roomId, playerId)` → ta bort spelare, stäng rum om tomt
+  - Exponerar `GetRoomSnapshot(roomId)` för reconnect-scenario
+
+- 🔲 **`Room`** — isolerad per race-rum, egen bakgrundsuppgift
+  - `PlayerSocket[]` — pre-allokerat array (maxPlayers), håller WebSocket + playerId + metadata
+  - `PositionBuffer[]` — pre-allokerat, en `PositionSnapshot` struct per spelare-slot
+  - Inbound: receive-loop per spelare → skriver till `Channel<InboundMessage>` (bounded: 256)
+  - `BroadcastLoop` — kör som `Task.Run`, 20Hz tick (50ms):
+    1. Läs alla positioner från PositionBuffer (dirty-flag)
+    2. Serialisera till binär batch (se protocol nedan)
+    3. `Task.WhenAll(players.Select(p => p.Socket.SendAsync(batch)))` — parallell broadcast
+    4. Reset dirty-flags
+  - `ProcessInbound` — kör som `Task.Run`, drain Channel kontinuerligt:
+    1. Binary message → deserialisera position → skriv till PositionBuffer[slot]
+    2. JSON message → parsa → dispatcha (chat, ready, finish, etc.)
+  - `HeartbeatMonitor` — var 5:e sekund: check `LastSeenAt` per spelare, kick vid 15s timeout
+
+- 🔲 **Graceful shutdown** — `IHostedService` som stänger alla rum vid app-stopp
+  - Skicka `server_shutdown` meddelande → close alla WebSockets med 1001 (Going Away)
+
+**Backend — Behåll REST för lobby (icke-realtid):**
+- Room CRUD (create/list/get) förblir REST — ingen realtidsdata
+- Join/leave/ready/start → kan köras via REST ELLER via WebSocket JSON-meddelande
+- SSE endpoints (`/api/sse/leaderboard`, `/api/sse/activity`) behålls för icke-rum-data (låg frekvens)
+
+**Frontend — Transport Abstraction:**
+- 🔲 **`engine/networking/GameTransport.ts`** — interface + WebSocket-implementation
+  ```typescript
+  interface IGameTransport {
+    connect(url: string, token: string): Promise<void>;
+    sendBinary(buffer: ArrayBuffer): void;
+    sendJson<T>(type: string, data: T): void;
+    onBinary(handler: (buffer: ArrayBuffer) => void): void;
+    onJson<T>(type: string, handler: (data: T) => void): void;
+    onClose(handler: (code: number, reason: string) => void): void;
+    disconnect(): void;
+    readonly state: 'connecting' | 'open' | 'closed';
+    readonly latencyMs: number;
+  }
+  ```
+  - WebSocket-implementation: native `WebSocket` API
+  - Auto-reconnect: exponential backoff (1s → 2s → 4s → 8s → 16s max), max 10 försök
+  - Ping/pong: skicka ping var 5s, mät RTT, exponera `latencyMs`
+  - Message framing: första byte = 0x00 → binär position, 0x01 → JSON UTF-8
+
+- 🔲 **Migrera `sseClient.ts` → `GameTransport`**
+  - `raceStore.connectToRace(roomId)` → `transport.connect('/ws/race/' + roomId, token)`
+  - SSE event handlers → `transport.onJson('countdown', ...)`, `transport.onBinary(...)`
+  - `sseClient.ts` behålls BARA för leaderboard/activity (låg-frekvens SSE)
+
+**Binärt Positions-Protocol (29 bytes per spelare):**
+```
+Offset  Size  Field              Encoding
+──────  ────  ─────              ────────
+0       1     msgType            0x01 = position_update
+1       1     playerSlot         uint8 (0-31, index i rummet)
+2       4     posX               float32 LE
+6       4     posY               float32 LE
+10      4     posZ               float32 LE
+14      2     yaw                int16 LE (rad × 10000, ger ~0.0001 rad precision)
+16      2     pitch              int16 LE (rad × 10000)
+18      2     speed              uint16 LE (u/s × 10, max 6553.5 u/s)
+20      1     checkpoint         uint8 (0-255)
+21      4     timestamp          uint32 LE (server ms offset från race start, max ~49 dagar)
+─── Total: 25 bytes per spelare
+
+Batch-format (server → klient):
+[1 byte msgType=0x02][1 byte playerCount][25 bytes × N]
+= 2 + 25N bytes totalt
+= 202 bytes för 8 spelare (vs ~1440 bytes JSON = 7× mindre)
+```
+
+**Frontend — Binär Serializer:**
+- 🔲 **`engine/networking/PositionCodec.ts`** — encode/decode med DataView
+  - `encodePosition(pos, yaw, pitch, speed, checkpoint): ArrayBuffer` (klient → server)
+  - `decodeBatch(buffer: ArrayBuffer): PositionSnapshot[]` (server → klient)
+  - Använder pre-allokerad `ArrayBuffer` + `DataView` — noll GC per frame
+  - Quantized rotation: `int16(yaw * 10000)` → ~0.006° precision (osynlig skillnad)
+
+---
+
+### T1 — Room Lifecycle & Server-Driven Race Flow
+*Fullständig race-flow via WebSocket: countdown → racing → finish → results.*
 
 **Backend:**
-- 🔲 **POST `/api/rooms/{id}/position`** — tar emot `{ position: [x,y,z], yaw, pitch, speed, checkpoint }` från klient
-  - Validerar: spelaren är participant, rummet har status Racing
-  - Rate-limitat: max 20 req/s per spelare (throttle, inte reject)
-  - Broadcastar `position_update` SSE-event till `race:{roomId}` kanalen (exklusive avsändaren)
-  - Inkluderar serverns `timestamp` i broadcast (för interpolering)
-- 🔲 **Position-batchning** — samla 2-3 positioner och skicka som en batch-SSE-event för att minska overhead
-  - `PositionBatcher` service: `ConcurrentDictionary<Guid, PositionSnapshot>` per room
-  - Timer (50ms intervall) som broadcastar alla ackumulerade positioner som ett `positions_batch` event
-  - Minskar SSE-events från N×20/s till 1×20/s per rum
-- 🔲 **Heartbeat** — klient skickar heartbeat var 5:e sekund, server markerar inaktiva spelare efter 15s timeout
-  - `LastSeenAt` fält på RaceParticipant (in-memory, ej DB)
-  - Broadcast `player_disconnected` event vid timeout
+- 🔲 **Countdown-sekvens** — `Room.StartCountdown()` kör som bakgrundsuppgift:
+  - Broadcast JSON: `{ type: "countdown", value: 3 }` → 1s delay → `{ value: 2 }` → etc.
+  - Vid value=0: `room.Status = Racing`, broadcast `{ type: "race_start", raceStartTime: <epoch ms> }`
+  - `raceStartTime` är serverns klocka — alla klienter synkar mot denna
+  - Room.BroadcastLoop aktiveras först vid `race_start` (ingen position-streaming under countdown)
+
+- 🔲 **Finish-rapportering** — klient skickar JSON via WebSocket: `{ type: "finish", finishTime: <ms since raceStart> }`
+  - Server validerar: `finishTime > 0`, spelaren ej redan finished, status=Racing
+  - Server beräknar placering (ordning bland finished-spelare)
+  - Broadcast `{ type: "player_finished", playerId, playerName, finishTime, placement }`
+  - Om alla finished ELLER timeout (5 min): `room.Status = Finished`, broadcast `race_finished`
+  - Spara resultat till DB (`RaceResult` entity) för leaderboard/historik
+
+- 🔲 **Leave/Kick** — via WebSocket JSON eller REST
+  - Leave: `{ type: "leave" }` → server tar bort spelare, broadcast `player_left`
+  - Kick (host): `{ type: "kick", targetPlayerId }` → validera host, broadcast `player_kicked`
+  - Host-succession: äldsta kvarvarande → ny host, broadcast `host_changed`
+  - Under racing: leave → DNF (registreras i resultat)
+  - WebSocket close event → implicit leave (ingen explicit leave behövs vid tab-close)
+
+- 🔲 **Room cleanup** — `RoomCleanupService : IHostedService`
+  - Var 60:e sekund: iterera `RoomManager.GetAllRooms()`
+  - Waiting >30 min utan aktivitet → stäng rum + disconnect alla
+  - Racing >10 min → force-finish (broadcast timeout + resultat)
+  - Finished >2 min → ta bort rum från minne
+
+- 🔲 **RaceResult entity** — persistera race-resultat till DB
+  - `RaceResult { Id, RoomId, MapId, PlayerId, FinishTime?, Placement, GameMode, CreatedAt }`
+  - Möjliggör historik, stats, och matchmaking-data
 
 **Frontend:**
-- 🔲 **Position sender** — `usePositionSender` hook, skickar position via POST var 50ms (20 Hz)
-  - Aktiveras när `raceStore.currentRoom?.status === 'racing'`
-  - Läser position/yaw/pitch från playerController refs (ej store)
-  - Delta-komprimering: skippa om position ändrats <0.1 units och rotation <0.5°
-  - Använder `navigator.sendBeacon` vid tab-close för sista position
-- 🔲 **Position receiver** — uppdatera `racePositions` Map från `positions_batch` SSE-event
-  - Lagra `{ position, yaw, pitch, speed, checkpoint, timestamp, prevPosition, prevTimestamp }` per spelare
-  - Håll 2 senaste snapshots för interpolering
-- 🔲 **Interpolering** — smooth remote player movement i renderloop
-  - Lerp mellan prevPosition → position baserat på `(now - prevTimestamp) / (timestamp - prevTimestamp)`
-  - Clamp faktor till [0, 1.2] — tillåt lite extrapolering vid packet loss
-  - Yaw/pitch: slerp med samma faktor
-
-**Kontrakt:**
-```typescript
-// Frontend → Backend (POST body)
-interface PositionUpdate {
-  position: [number, number, number];
-  yaw: number;
-  pitch: number;
-  speed: number;
-  checkpoint: number; // senast passerade checkpoint-index
-}
-
-// Backend → Frontend (SSE batch event)
-interface PositionsBatchEvent {
-  players: Array<{
-    playerId: string;
-    playerName: string;
-    position: [number, number, number];
-    yaw: number;
-    pitch: number;
-    speed: number;
-    checkpoint: number;
-    timestamp: number; // server epoch ms
-  }>;
-}
-```
+- 🔲 **Synkroniserad timer** — vid `race_start` event: lagra `raceStartTime` i raceStore
+  - Timer: `elapsed = Date.now() - raceStartTime` (uppdateras i requestAnimationFrame)
+  - Clock-offset-kalibrering: vid WebSocket-connect, klient skickar `{ type: "ping", t: Date.now() }`
+    → server svarar `{ type: "pong", t: clientT, serverT: Date.now() }` → klient beräknar offset
+  - `correctedNow = Date.now() + clockOffset` — ger ~5ms precision
+- 🔲 **Finish-flow** — vid checkpoint = final: skicka finish via transport
+  - Visa "Waiting for others..." overlay med placering + resultat-lista
+  - Disable controls (pointerlock release), byt till spectator-cam
+- 🔲 **Results-skärm** — `RaceResults.tsx` (game/components/menu/race/)
+  - Sorterad: placering, namn, tid (mm:ss.ms), delta vs vinnare
+  - Knappar: "Play Again" (host skapar nytt rum) + "Back to Lobby"
+  - Progression: XP/ELO-change (om ranking-system implementeras)
+- 🔲 **Leave/disconnect UX** — leave-knapp i lobby + under race (bekräftelse-dialog)
+  - Transport.onClose → visa "Disconnected" overlay med retry-knapp
 
 ---
 
 ### T2 — Ghost Rendering (Remote Players i 3D)
-*Visa andra spelare som semi-transparenta "ghosts" i spelvärlden.*
+*Instanced rendering av alla remote-spelare — 1 draw call oavsett antal.*
 
 **Engine (`src/engine/`):**
-- 🔲 **`engine/effects/GhostPlayer.tsx`** — prop-injected komponent för en remote-spelare
-  - Props: `{ position, yaw, pitch, playerName, color, opacity }`
-  - Renderar: capsule-mesh (same dims som player collider) + `MeshStandardNodeMaterial` med `opacity` + `transparent: true`
-  - Player-namn: `<Html>` (drei) floating label ovanför capsule, alltid face-camera
-  - Färg: hash-baserad per `playerId` (deterministisk, unik per session)
-- 🔲 **`engine/effects/GhostTrail.tsx`** — valfri trail-effekt bakom ghost
-  - GPU line strip: senaste 20 positioner, fading opacity
-  - Använder `instancedDynamicBufferAttribute` (befintligt mönster)
+- 🔲 **`engine/effects/InstancedGhosts.tsx`** — renderar ALLA ghosts med en enda instanced mesh
+  - Props: `{ ghosts: GhostData[], localPlayerId: string }`
+  - `GhostData = { position, yaw, pitch, color, slot }`
+  - Capsule-geometri (CapsuleGeometry), instanced via `InstancedMesh` (max 32 instanser)
+  - Per-instance: transform matrix (position + rotation) + color attribute
+  - `MeshStandardNodeMaterial` med per-instance `color` via `instanceColor` + `opacity: 0.7`
+  - **1 draw call** oavsett antal ghosts (vs N draw calls med individuella meshes)
+  - useFrame: uppdatera `instanceMatrix` + `instanceColor` varje frame (mutate, inte recreate)
+
+- 🔲 **`engine/effects/GhostNameplates.tsx`** — GPU-renderade namnplattor (inte DOM `<Html>`)
+  - Instanced `SpriteNodeMaterial` med text → canvas texture atlas
+  - Pre-render alla spelares namn till en texture atlas vid join (max 32 namn × 128px = 4096px texture)
+  - Sprite per ghost: `instancedDynamicBufferAttribute` för position (billboard ovanför capsule)
+  - **0 DOM-element** — kritiskt för skalning (drei `<Html>` skapar 1 DOM-nod per ghost)
+
+- 🔲 **`engine/effects/GhostTrail.tsx`** — instanced trail-rendering
+  - Ringbuffer: 32 spelare × 20 trail-positioner = 640 points
+  - `instancedDynamicBufferAttribute` för position + opacity
+  - `LineBasicNodeMaterial` med per-vertex alpha fade
   - Toggleable via settingsStore: `showGhostTrails: boolean`
+  - **1 draw call** för alla trails
+
+- 🔲 **`engine/networking/Interpolation.ts`** — pure function, inga React-dependencies
+  - `interpolatePosition(prev, curr, t): Vec3` — lerp med clamp [0, 1.5]
+  - `interpolateRotation(prevYaw, currYaw, t): number` — shortest-arc lerp
+  - `calculateInterpolationT(prevTimestamp, currTimestamp, now): number`
+  - Extrapolering vid packet loss: om `t > 1.0`, använda velocity × (t - 1.0) × dt
+  - Exportera från `engine/networking/index.ts`
 
 **Game (`src/game/`):**
-- 🔲 **`game/components/game/RemotePlayers.tsx`** — wrapper som läser raceStore.racePositions
-  - Mappar `racePositions` → array av `<GhostPlayer>` (exkluderar lokal spelare)
-  - Applicerar interpolering per frame (engine util)
-  - Renderas som child av `<GameScene>` (vid sidan av `<PlayerController>`)
-- 🔲 **Viewmodel-vapen på ghost** — (stretch goal, kan skipas V1)
-  - Visa simplified weapon mesh på ghost baserat på participant data
-  - Kräver weapon-type i position update
+- 🔲 **`game/components/game/RemotePlayers.tsx`** — thin wrapper
+  - Selector: `useRaceStore(s => s.racePositions)` (shallow compare)
+  - Per frame (useFrame): interpolera alla positioner → mata `<InstancedGhosts>` + `<GhostNameplates>`
+  - Exkluderar lokal spelares slot
+  - Renderas i GameScene vid sidan av PlayerController
 
 **HUD:**
-- 🔲 **Minimap/positionsindikator** — visa remote players som prickar relativt till spelaren
-  - Engine: `engine/hud/Minimap.tsx` med prop `players: Array<{ position, color, name }>`
-  - Game: wrapper läser raceStore → props
-  - Valfritt: kompassriktning-pilar utanför skärmkant mot varje ghost
+- 🔲 **`engine/hud/RacePositionIndicator.tsx`** — pilar mot off-screen ghosts
+  - Props: `{ players: Array<{ screenPos, isOnScreen, direction, distance, color, name }> }`
+  - Pilar vid skärmkant som pekar mot ghosts utanför viewport
+  - Distance-label (50m, 120m etc.)
+  - Beräkning i useFrame: project ghost world-pos → NDC → screen
 
 ---
 
-### T3 — Race Lifecycle & Countdown
-*Fullständig race-flow: countdown → racing → finish → results.*
+### T3 — Chat & Social (via WebSocket)
+*All chat körs via samma WebSocket-anslutning — inga extra connections.*
 
-**Backend:**
-- 🔲 **Countdown-timer** — efter `StartRace`, servern skickar `countdown` events: 3→2→1→0
-  - Implementera som `Task.Delay`-kedja i handler (fire-and-forget bakgrundsjobb)
-  - Event: `{ countdown: 3 }`, sedan 1s delay, `{ countdown: 2 }`, etc.
-  - Vid countdown=0: uppdatera room.Status → Racing, broadcast `race_start` (med `raceStartTime` server-timestamp)
-  - Alla klienter ska starta sin lokala timer exakt vid `race_start` event
-- 🔲 **Finish-rapportering** — POST `/api/rooms/{id}/finish` med `{ finishTime: number }`
-  - Validerar: spelaren är participant, status=Racing, inte redan finished
-  - Sätter `participant.FinishTime`, broadcastar `player_finished` event
-  - Om alla finished: room.Status → Finished, broadcast `race_finished` med resultat
-- 🔲 **Leave room** — POST `/api/rooms/{id}/leave`
-  - Ta bort participant, broadcast `player_left` event
-  - Om host lämnar: nästa participant blir host (äldsta JoinedAt) ELLER stäng rummet om <2 kvar
-  - Om under racing: markera som DNF (Did Not Finish)
-- 🔲 **Kick-spelare** — POST `/api/rooms/{id}/kick/{playerId}` (host-only)
-  - Broadcast `player_kicked` event, ta bort participant
-- 🔲 **Room cleanup** — bakgrundstjänst (`IHostedService`) som rensa gamla rum
-  - Rum äldre än 30 min med status Waiting → ta bort
-  - Rum äldre än 60 min med status Racing → markera Finished (timeout)
-  - Kör var 5:e minut
-
-**Frontend:**
-- 🔲 **Synkroniserad timer** — `raceStartTime` från server bestämmer T=0
-  - Alla klienter räknar `elapsed = Date.now() - raceStartTime`
-  - Befintlig speedrun-timer (gameStore) adapterad att använda server-starttid i race-mode
-- 🔲 **Finish-logik** — vid målgång, POST finish-time + visa "Waiting for others..."
-  - Disable controls efter finish (spectator mode)
-  - Visa egen placering i realtid (baserat på checkpoint + finish events)
-- 🔲 **Results-skärm** — `RaceResults.tsx` efter alla finished/timeout
-  - Sorterad lista: placering, namn, tid, checkpoint-progress
-  - Knappar: "Play Again" (skapa nytt rum med samma map), "Back to Lobby"
-- 🔲 **Leave-knapp** — tillgänglig i lobby OCH under race (med bekräftelse-dialog under race)
-
-**SSE Events (nya):**
-```
-race_start       → { raceStartTime: number }          // server epoch ms
-player_finished  → { playerId, playerName, finishTime, placement }
-player_left      → { playerId, playerName }
-player_kicked    → { playerId, playerName }
-race_finished    → { results: Array<{ playerId, playerName, finishTime, placement }> }
-player_disconnected → { playerId, playerName }
-```
+- 🔲 **Lobby-chat** — JSON via transport: `{ type: "chat", message: string }`
+  - Server validerar: max 200 tecken, rate limit 2 msg/s per spelare, basic profanity-filter
+  - Broadcast: `{ type: "chat_message", playerId, playerName, message, timestamp }`
+  - Frontend: `ChatPanel.tsx` i RoomLobby sidebar — scrollbar list, input fält
+  - Behåll senaste 100 meddelanden i raceStore
+- 🔲 **In-race chat** — samma protocol, minimal UI
+  - Keybind: `T` → öppna chat-input (pausar inte spelet, släpper inte pointerlock)
+  - `Enter` → skicka, `Escape` → stäng input
+  - Meddelanden visas som fade-out overlay (5s) i övre vänstra hörnet
+  - Max 5 synliga meddelanden, äldre skrollar bort
+- 🔲 **Quick-emotes** — fördefinierade meddelanden
+  - `{ type: "emote", emoteId: number }` — 8 emotes (gg, glhf, nice, wp, lol, rip, ez, brb)
+  - Visas som bubble ovanför ghost-capsule (sprite, 2s fade)
+  - Keybind: radial menu (håll `V`) eller numpad 1-8
 
 ---
 
 ### T4 — Game Modes
-*Olika race-modi med unika regler. Alla bygger på T1-T3 infrastruktur.*
+*Alla modes körs via samma WebSocket-transport. Server enforcas mode-regler i Room.*
 
 **Gemensamt:**
-- 🔲 **Game mode selection** — ny fält `gameMode` på RaceRoom entity + CreateRoomRequest
-  - Enum: `TimeAttack | GhostRace | Elimination | Tag | Relay`
-  - Visas i RoomBrowser + RoomLobby
-  - Mode-specifika regler enforcas i backend handlers
+- 🔲 **`GameMode` enum** — `Race | TimeAttack | GhostRace | Elimination | Tag | Relay`
+  - Nytt fält på `RaceRoom` entity + `CreateRoomRequest`
+  - `Room` class dispatchar till mode-specifik `IGameModeHandler`
+  - Frontend: mode-val i room-create dialog, visas i RoomBrowser
 
-**Time Attack (solo, men med live-leaderboard):**
-- 🔲 Solo timed run — befintligt system men som explicit mode
-- 🔲 Live position på leaderboard via SSE (leaderboard-kanal)
-- 🔲 PB/WR-indikator under run (ahead/behind split-times per checkpoint)
+- 🔲 **`IGameModeHandler` interface** (backend):
+  ```csharp
+  interface IGameModeHandler {
+    void OnPlayerJoined(Room room, PlayerSocket player);
+    void OnPositionUpdate(Room room, int slot, PositionSnapshot pos);
+    void OnCheckpointReached(Room room, int slot, int checkpoint);
+    void OnPlayerFinished(Room room, int slot, float finishTime);
+    ValueTask<byte[]?> GetCustomBroadcast(Room room); // mode-specific batch data
+  }
+  ```
 
-**Ghost Race (race mot sparade replays):**
-- 🔲 Ladda ghost-data från replayStore (befintligt delta-komprimerat format)
-- 🔲 Visa PB/WR/friends som GhostPlayer i banan
-- 🔲 Selection UI: välj vilka ghosts att tävla mot (checkbox-lista)
-- 🔲 Kräver inga andra live-spelare — SSE används bara för leaderboard-updates
+**Race (default):**
+- Standard tävlingsläge — alla springer samma bana, först till mål vinner
+- Inga extra regler utöver T1 lifecycle
+
+**Time Attack (solo med live-leaderboard):**
+- 🔲 Solo — room med maxPlayers=1, bara spelare vs klockan
+- 🔲 Live leaderboard: vid finish → broadcast till `leaderboard:{mapId}` SSE-kanal
+- 🔲 Split-times per checkpoint: jämför mot PB/WR i realtid
+  - Server lagrar checkpoint-split-times per map+player i `SplitTime` entity
+  - Klient visar delta: "+1.23" (röd) eller "-0.45" (grön) vid varje checkpoint
+
+**Ghost Race (race mot replays):**
+- 🔲 Ladda ghost-data: GET `/api/replays/{mapId}/ghosts?type=pb,wr,friends`
+  - Returnerar komprimerade replay-data (befintligt delta-format från replayStore)
+- 🔲 Frontend: avkoda replay → spela upp som GhostData i InstancedGhosts
+  - Replay-ghosts renderas identiskt med live-ghosts (samma instanced pipeline)
+  - Replay-interpolering: exakt tidsstämplar (ej nätverks-jitter)
+- 🔲 Selection UI: checkbox-lista med ghost-typ (PB, WR, Friend-1, Friend-2)
 
 **Elimination:**
-- 🔲 Sista spelaren vid varje checkpoint elimineras
-  - Backend trackar checkpoint-order per spelare
-  - Vid checkpoint N: om alla passerat → broadcast `player_eliminated` med sista spelaren
-  - Eliminerad spelare → spectator mode
-- 🔲 Eliminerings-animation: röd flash + "ELIMINATED" text
-- 🔲 Spectator: fri kamera som följer kvarvarande spelare
+- 🔲 Server trackar checkpoint-ordning per spelare i `Room.checkpointOrder: int[][]`
+  - Vid checkpoint N: när alla passerat → sista spelaren elimineras
+  - Broadcast: `{ type: "player_eliminated", playerId, checkpoint }`
+  - Eliminerad: `PlayerSocket.isEliminated = true`, skickar fortfarande spectator-data
+- 🔲 Frontend: eliminerings-flash (röd fullscreen, "ELIMINATED") + auto-spectator
+- 🔲 Sista kvarvarande spelare vinner (broadcast `race_finished`)
 
 **Tag:**
-- 🔲 En spelare börjar som "it" (random vid race_start)
-- 🔲 Proximity-check: 3 units → tag transfer (broadcast `tag_transfer` event)
-  - Client-side detection, server validerar (båda spelares position nära nog)
-- 🔲 "It"-spelare har 10% speed penalty
-- 🔲 Timer: spelare ackumulerar tid som "it" — lägst tid vinner
-- 🔲 Visuell indikator: "it"-spelaren glöder röd, andra gröna
+- 🔲 "It"-spelare: server väljer random vid `race_start`, broadcast `{ type: "tag_it", playerId }`
+- 🔲 Tag-transfer: server kollar proximity (alla spelares positioner finns i PositionBuffer)
+  - Om distance(it, other) < 3.0 units: transfer tag, broadcast `tag_transfer`
+  - Server-auktoritativt (ingen client-side detection — server har alla positioner)
+- 🔲 "It" penalty: server markerar i PositionBuffer, klient visar rödglöd + speed overlay
+- 🔲 Timer: server trackar `timeAsIt` per spelare → vid game-end: lägst tid vinner
+- 🔲 Duration: 3 minuter, countdown visas i HUD
 
 **Relay:**
-- 🔲 2 lag à 2-4 spelare — host tilldelar lag i lobby
-- 🔲 Banan delad i sektioner (definieras per checkpoint)
-- 🔲 Spelare 1 kör sektion 1 → vid checkpoint: "baton pass" → spelare 2 spawnar
-  - Inaktiva spelare ser spectator-vy
-- 🔲 Lag-total-tid avgör vinnare
+- 🔲 Lag-tilldelning: host drag-and-drop i lobby (2 lag, 2-4 spelare per lag)
+  - `{ type: "set_team", playerId, team: 0|1 }` (host-only)
+- 🔲 Sections: checkpoints delar banan i lika sektioner (cp 0→1 = section 1, cp 1→2 = section 2, etc.)
+- 🔲 Baton pass: vid checkpoint N → nuvarande löpare freezas, nästa löpare i laget spawnar
+  - Server broadcast: `{ type: "baton_pass", team, fromPlayer, toPlayer, checkpoint }`
+  - Icke-aktiva spelare ser spectator-vy av sin lagkompis
+- 🔲 Resultat: lagvis total-tid (sum av sektioner)
 
 ---
 
-### T5 — Chat & Social
-*In-game kommunikation och social features.*
+### T5 — Spectator Mode
+*Zero-cost spectators — tar emot broadcast utan att skicka positionsdata.*
 
-- 🔲 **Lobby-chat** — textchat i RoomLobby
-  - POST `/api/rooms/{id}/chat` med `{ message: string }` (max 200 tecken)
-  - SSE event `chat_message` → `{ playerId, playerName, message, timestamp }`
-  - Frontend: `ChatPanel.tsx` komponent i lobby-sidebar
-  - Profanity-filter: basic blocklist server-side
-- 🔲 **In-race chat** — minimal chat under race (valfritt, kan vara distraherande)
-  - Keybind: `T` öppnar chat-input, `Enter` skickar, `Escape` stänger
-  - Visas som translucent overlay i övre vänstra hörnet, fade-out efter 5s
-- 🔲 **Quick-emotes** — fördefinierade meddelanden via numpad (gg, glhf, nice, wp)
-  - Broadcast via samma chat-kanal, visas som popup ovanför ghost
+- 🔲 **Spectator-join** — WebSocket till `/ws/race/{roomId}?spectate=true`
+  - Server: `Room.AddSpectator(ws)` — läggs till broadcast-mottagare men ej i PositionBuffer
+  - Spectators räknas inte mot maxPlayers
+  - Spectators får alla broadcasts (positions, lifecycle, chat) men servern ignorerar inbound (utom disconnect)
+  - Spectator-count exponeras i room-metadata (lobby visar "3 watching")
 
----
+- 🔲 **Spectator-kamera** — `engine/camera/SpectatorCamera.tsx`
+  - Props: `{ mode: 'free' | 'follow', targetPosition?: Vec3, targetYaw?: number }`
+  - Free mode: WASD + mus-look (samma som editor-kamera, utan pointer lock)
+  - Follow mode: smooth lerp mot target ghost position, offset bakom (3rd person)
+  - Tab-key: cykla genom spelare (nästa i slot-ordning)
+  - Klick på ghost: lock follow-mode till den spelaren
 
-### T6 — Spectator Mode
-*Titta på pågående races utan att delta.*
-
-- 🔲 **Spectator-join** — POST `/api/rooms/{id}/spectate`
-  - Ny roll: spectator (ej participant, syns ej i race)
-  - Får alla SSE-events (positions, finish, chat) men skickar inga
-- 🔲 **Spectator-kamera** — fri flyg-kamera (WASD + mus) eller follow-cam (click ghost → lock)
-  - Engine: `engine/camera/SpectatorCamera.tsx` med prop `{ target?: Vec3, mode: 'free' | 'follow' }`
-  - Tab-key cyklar mellan spelare
-- 🔲 **Spectator HUD** — visar alla spelares tid, checkpoint, placering
-  - Engine: `engine/hud/SpectatorOverlay.tsx` med prop `{ players: SpectatorPlayerInfo[] }`
-- 🔲 **Spectator-count** i lobby (visar "3 spectators watching")
+- 🔲 **Spectator HUD** — `engine/hud/SpectatorOverlay.tsx`
+  - Props: `{ players: SpectatorPlayerInfo[], selectedPlayer?: string }`
+  - Sidebar: alla spelare med placering, tid, checkpoint, speed
+  - Vald spelare: larger name + speed-meter i center
+  - Minimap med alla spelare (samma komponent som race HUD)
 
 ---
 
-### T7 — Server-Side Validering & Anti-Cheat (Grundnivå)
-*Enkel server-side kontroll — inte fullständig anti-cheat, men rimligt skydd.*
+### T6 — Server-Side Anti-Cheat & Validering
+*Heuristisk validering — servern har alla positioner i PositionBuffer och kan korsvalidera.*
 
-- 🔲 **Speed-validering** — server checkar att rapporterad speed ej överstiger fysisk max (1500 u/s)
-  - Om >1500 u/s: flagga spelaren, logga, men blockera ej (kan vara grapple/rocket jump)
-  - Om >3000 u/s konsekvent (5+ updates): broadcast `player_flagged` event
-- 🔲 **Teleport-detection** — om position hoppar >50 units mellan updates (50ms intervall)
-  - Tillåt enstaka hopp (respawn, grapple launch), flagga om det sker >3 gånger
-- 🔲 **Finish-time validering** — server jämför `finishTime` mot `raceStartTime`
-  - Om finishTime < realistisk minimum (bana-längd / max-speed): reject finish
-  - Realistisk minimum: lagras per map som `map.MinExpectedTime` (sätts manuellt)
-- 🔲 **Rate limiting per endpoint** — befintligt rate-limiting utökat:
-  - Position: 25 req/s (lite marginal över 20 Hz)
-  - Chat: 2 req/s
-  - Room actions (join/ready/start): 5 req/s
-- 🔲 **Replay-validering** (stretch) — vid run-submit, skicka komprimerad replay-data
-  - Server kan spela upp offline och verifiera att finish-time matchar physics-sim
-  - Kräver headless Rapier på server (framtida, ej V1)
+- 🔲 **`AntiCheatValidator`** — per-room instans, körs i Room.ProcessInbound
+  - Tar emot varje position-update INNAN den skrivs till PositionBuffer
+  - Returnerar `Allowed | Flagged | Rejected`
+
+- 🔲 **Speed-validering:**
+  - Beräkna `actual_speed = distance(prev_pos, curr_pos) / dt`
+  - Jämför med rapporterad `speed` ± 10% tolerans
+  - Om `actual_speed > 2000 u/s` konsekvent (5+ updates): flag
+  - Om `actual_speed > 5000 u/s`: reject (skriv ej till buffer)
+  - Logg: `devLog.warn('AntiCheat', 'Player {name} speed anomaly: {speed}')`
+
+- 🔲 **Teleport-detection:**
+  - `distance(prev, curr) > maxSpeed * dt * 2.0` → möjlig teleport
+  - Tillåt 3 teleports per race (respawn, grapple launch, rocket jump)
+  - 4:e → flag, 7:e → kick med `{ type: "kicked", reason: "teleport anomaly" }`
+
+- 🔲 **Finish-time validering:**
+  - `finishTime < map.MinExpectedTime` → reject
+  - `MinExpectedTime` beräknas: `totalCheckpointDistance / 1500` (max rimlig speed)
+  - Server lagrar `checkpoint_timestamps[]` per spelare — kan verifiera att split-times är realistiska
+
+- 🔲 **Rate limiting (inbyggt i Room):**
+  - Position-messages: max 25/s per spelare (Channel bounded backpressure)
+  - Chat: max 2/s (token bucket i Room)
+  - Lifecycle commands: max 5/s
+
+- 🔲 **Replay-submission (stretch):**
+  - Vid finish: klient skickar komprimerad replay-data via WebSocket binary
+  - Server sparar till DB (ReplayData blob)
+  - Offline-validering: bakgrundsjobb kan verifiera replay mot checkpoints
+  - Full physics replay-validering (headless Rapier) markerad som framtida mål
+
+---
+
+### T7 — Skalning & Horisontell Distribution
+*Från en server till cluster — Redis backplane + room-routing.*
+
+- 🔲 **Redis Pub/Sub backplane** — för multi-server deployment
+  - NuGet: `StackExchange.Redis`
+  - `RedisBackplane` service: subscribe/publish per room-kanal
+  - Scenario: om spelare A connectar till server 1 och spelare B till server 2 i samma rum
+    → server 1 publishar positioner till Redis → server 2 subscribar → broadcastar till B
+  - Fallback: utan Redis körs allt in-process (single-server, nuvarande modell)
+
+- 🔲 **Room-routing** — reverse proxy (nginx/YARP) routar WebSocket per roomId
+  - Konsistent hashing: `roomId → serverId` — alla spelare i samma rum hamnar på samma server
+  - Eliminerar Redis-overhead för position-data (95% av trafiken)
+  - Redis behövs bara för room-discovery (vilken server äger vilka rum) och cross-server events
+
+- 🔲 **Connection-pool limits:**
+  - Kestrel: `MaxConcurrentConnections: 50_000` (default unlimited, men explicit config)
+  - Per-room: `MaxPlayers: 32` (hard cap i Room)
+  - Per-server: `MaxRooms: 5000` (soft cap, monitoring)
+  - Memory budget: ~2KB per player socket + 32KB per room overhead → 80K spelare ≈ 2.5 GB
+
+- 🔲 **Monitoring & metrics:**
+  - Exponera: aktiva rum, spelare online, messages/s, genomsnittlig latency
+  - Endpoint: GET `/api/admin/metrics` (auth required)
+  - Integration: Prometheus-format (`IMetrics` interface)
+
+- 🔲 **Load testing:**
+  - `Velocity.LoadTest` projekt: simulera 1000+ WebSocket-klienter med fake position-streams
+  - Mät: latency P50/P95/P99, throughput, memory, CPU
+  - Identifiera breakpoint: vid vilken load degraderar latency >100ms?
 
 ---
 
 ### T8 — Multiplayer Polish & UX
-*Finputsning av multiplayer-upplevelsen.*
+*Finputsning — allt som gör multiplayer-upplevelsen smooth.*
 
-- 🔲 **Connection quality indicator** — visa latency (ms) och connection status i HUD
-  - Mät round-trip: timestamp i position POST → server echo i SSE → client diff
-  - Visa: grön <100ms, gul 100-200ms, röd >200ms
-- 🔲 **Reconnect-hantering** — om SSE tappar anslutning under race:
-  - Auto-reconnect (befintligt), men vid reconnect: begär fullständig state-snapshot
-  - GET `/api/rooms/{id}/snapshot` — returnerar alla spelares senaste position + room state
-  - Smooth transition: interpolera till korrekt state istället för teleport
-- 🔲 **Ljud-feedback** — synth-ljud för multiplayer-events:
-  - Player joined lobby: kort "pling"
-  - Countdown beep: stigande ton 3→2→1→GO
-  - Player finished: triumf-fanfar (kort)
-  - Player eliminated: dramatisk stinger
-- 🔲 **Race-progress bar** — visuell bar som visar alla spelares position längs banan
-  - Engine: `engine/hud/RaceProgressBar.tsx`
-  - Beräkna progress: `(passerade checkpoints / totala) + (distance till nästa / sektion-längd)`
-  - Visa som horisontell bar med färgade prickar per spelare
-- 🔲 **Player-lista under race** — kompakt sidebar med placering, namn, tid, checkpoint
-  - Sortera efter checkpoint-progress → tid
-  - Highlighta lokala spelaren
-- 🔲 **"Play Again" flow** — snabb rematch utan att gå via lobby
-  - Host klickar "Play Again" → nytt rum med samma map + auto-invite alla
-  - Spelare ser popup "Host wants rematch — Join?" med 15s timeout
+- 🔲 **Latency-indikator (HUD)**
+  - `transport.latencyMs` → exponeras via `raceStore.latency`
+  - Engine: `engine/hud/LatencyIndicator.tsx` — props: `{ latencyMs, quality }`
+  - Färg: grön <50ms, gul 50-100ms, orange 100-200ms, röd >200ms
+  - Visa: "23 ms" + färgad prick i övre hörnet
+
+- 🔲 **Reconnect-flow:**
+  - Transport auto-reconnect (exponential backoff, max 10 försök)
+  - Vid reconnect: skicka `{ type: "rejoin", roomId, lastTimestamp }` → server svarar med snapshot
+  - Snapshot: alla spelares senaste position + room state + chat-historik (senaste 20)
+  - Smooth reentry: interpolera till korrekt state (ingen teleport-känsla)
+  - Om room försvunnit (cleanup): visa "Race ended" dialog
+
+- 🔲 **Ljud-feedback (synth via AudioManager):**
+  - Player joined: stigande arpeggio (C-E-G, 50ms per ton)
+  - Player left: fallande ton (G→C, 100ms)
+  - Countdown: 3=C4 (200ms), 2=E4 (200ms), 1=G4 (200ms), GO=C5 (400ms, +octave)
+  - Player finished: kort fanfar (triumf-chord, C-E-G-C, 80ms staccato)
+  - Eliminated: mörk stinger (Cm diminished, 300ms)
+  - Chat received: kort "tick" (white noise burst, 20ms)
+
+- 🔲 **Race-progress bar** — `engine/hud/RaceProgressBar.tsx`
+  - Props: `{ players: Array<{ id, name, color, progress, isLocal }>, totalCheckpoints }`
+  - Horisontell bar: varje spelare = färgad prick som glider längs banan
+  - Progress: `(checkpointIndex + fractionToNext) / totalCheckpoints`
+  - Lokal spelare markerad med outline, namn alltid synligt
+
+- 🔲 **Player-lista under race** — `engine/hud/RaceLeaderboard.tsx`
+  - Props: `{ players: RacePlayerInfo[] }`
+  - Kompakt sidebar (höger): #1 PlayerA 01:23.45 CP 4/7, #2 PlayerB...
+  - Sorterad: checkpoint-progress → tid → speed
+  - Uppdateras ~4Hz (inte varje frame)
+  - Lokal spelare highlighted, finished spelare markerade med checkmark
+
+- 🔲 **"Play Again" rematch-flow:**
+  - Host klickar "Play Again" → `{ type: "rematch_request" }` via WebSocket
+  - Alla spelare ser popup: "Host wants rematch — Join? [Yes] [No]" (15s timeout)
+  - Accept: `{ type: "rematch_accept" }` → server auto-joins nytt rum
+  - Host som gets enough accepts: server skapar nytt rum, broadcast `{ type: "rematch_room", roomId }`
+  - Transport auto-reconnects till nytt rum
+
+- 🔲 **Quick-play matchmaking:**
+  - "Quick Play" knapp i main menu → POST `/api/matchmaking/queue` med `{ gameMode, mapId? }`
+  - Backend: `MatchmakingService` matchar spelare i kö (FIFO, 4-8 per rum)
+  - SSE: `/api/sse/matchmaking` → `{ type: "match_found", roomId }` → klient auto-joins
+  - Timeout: 60s → "No match found, try again?"
 
 ---
 
@@ -467,9 +655,84 @@ player_disconnected → { playerId, playerName }
 
 ---
 
+## Fas C — Camera Perspective (FPS / TPS)
+*Stöd för förstaperson (default) och tredjeperson. Spelaren väljer perspektiv i settings eller togglar med keybind.*
+
+| Läge | Kamera | Visar |
+|------|--------|-------|
+| FPS (default) | I ögonhöjd | Händer + vapen (ViewmodelLayer) |
+| TPS | Bakom ryggen | Hela karaktären |
+
+**Förutsättning:** Fas L (Viewmodel) ✅, Fas P (Movement) ✅
+
+### C1 — Camera Rig & Perspective Switch
+*Grundläggande kamerarig som stödjer båda perspektiven, med smooth transition.*
+
+**Engine (`src/engine/`):**
+- 🔲 **`engine/camera/CameraRig.tsx`** — perspektiv-agnostisk kamerarig
+  - Props: `{ mode: 'fps' | 'tps', target: Vector3, yaw, pitch, fpsEyeOffset, tpsDistance, tpsHeight, tpsSideOffset }`
+  - FPS: kameran i ögonhöjd (`fpsEyeOffset`), direkt kopplad till capsule-position
+  - TPS: kameran bakom ryggen (`tpsDistance: 3.5`, `tpsHeight: 1.5`, `tpsSideOffset: 0.5`)
+  - Smooth lerp vid perspektivbyte (0.3s transition)
+- 🔲 **TPS kamera-kollision** — raycast bakåt från target, pull camera forward vid vägg
+  - `rapierWorld.castRay()` från spelarposition → kameraposition
+  - Clamp kameraavstånd till ray-hit distance - 0.2 (offset)
+  - Smooth recovery när hindrande vägg försvinner (lerp tillbaka till `tpsDistance`)
+- 🔲 **`settingsStore` utökning** — `cameraPerspective: 'fps' | 'tps'` (default: `'fps'`)
+  - TPS-specifika settings: `tpsDistance`, `tpsHeight`, `tpsSideOffset`
+  - Keybind: `togglePerspective` (default: `V`) — toggle FPS↔TPS in-game
+
+### C2 — Third-Person Player Model
+*I TPS visas hela karaktärsmodellen istället för bara händer + vapen.*
+
+**Engine (`src/engine/`):**
+- 🔲 **`engine/rendering/PlayerModel.tsx`** — tredjepersons karaktärsmodell
+  - Props: `{ position, yaw, pitch, stance, isMoving, speed, animationState }`
+  - Renderar fullständig karaktärsmesh (capsule placeholder → utbytbar modell)
+  - Animationsblending: idle, run, crouch, prone, slide, jump, fall
+  - Vapen visas i karaktärens händer (world-space, ej viewmodel-lager)
+- 🔲 **Viewmodel-lager toggle** — FPS: visa ViewmodelLayer (händer + vapen), TPS: göm ViewmodelLayer + visa PlayerModel
+  - `ViewmodelLayer` visibility kopplad till `cameraPerspective === 'fps'`
+  - PlayerModel visibility kopplad till `cameraPerspective === 'tps'`
+
+**Game (`src/game/`):**
+- 🔲 **`game/components/game/PlayerVisuals.tsx`** — wrapper som läser stores
+  - Läser `settingsStore.cameraPerspective` + `gameStore`/`combatStore` state
+  - Passar props till engine `CameraRig` + `PlayerModel`
+
+### C3 — TPS Crosshair & Aiming
+*Tredjepersons sikte — over-the-shoulder aim med crosshair i skärmcenter.*
+
+- 🔲 **Over-the-shoulder aim** — TPS crosshair raycaster från skärmcenter (ej vapenposition)
+  - Raycast från kamera genom skärmens mittpunkt → world hit point
+  - Karaktären roterar överkroppen mot hit point (upper body IK, stretch goal)
+  - ADS i TPS: kameran zoomar in + närmar sig axel ("aim mode"), `tpsDistance: 1.5`
+- 🔲 **Crosshair anpassning** — crosshair synlig i båda lägen, men TPS-crosshair har dot-style default
+- 🔲 **Projectile origin** — FPS: skjuter från kameraposition, TPS: skjuter från vapenposition men riktar mot crosshair hit point
+  - Beräkna riktningsvektor: `normalize(crosshairHitPoint - weaponWorldPosition)`
+
+### C4 — TPS Movement & Camera Feel
+*Anpassa movement-feedback och kamera-feel för tredjeperson.*
+
+- 🔲 **Kamera-lag** — TPS-kameran följer med liten fördröjning (smooth damp, `tpsCameraLag: 0.1`)
+  - Position-lag: kameran "hänger efter" vid snabba rörelser
+  - Rotation-lag: kameran roterar mjukare (lerp yaw/pitch)
+- 🔲 **Sprint-kamera** — vid sprint: FOV +5°, kameran drar tillbaka något
+- 🔲 **Slide/prone-kamera** — TPS-kameran sänks vid crouch/prone, pull-back vid slide
+- 🔲 **Wall-run kamera-tilt** — vid wall-run: kameran tiltar mot väggen (anpassat för TPS-vy)
+- 🔲 **Grapple-kamera** — under grapple: kameran pulls back för att visa svängen bättre
+
+---
+
 ## Beroendeöversikt
 
 ```
+Fas C (Camera Perspective)           ← NY
+├── C1 Camera Rig & Switch           beroende: L (Viewmodel) ✅, P (Movement) ✅
+├── C2 Third-Person Player Model     beroende: C1
+├── C3 TPS Crosshair & Aiming       beroende: C1
+├── C4 TPS Movement & Camera Feel   beroende: C1
+
 Fas V (Gameplay Mechanics)          ← NY
 ├── V1 ADS (Aim Down Sights)        beroende: L (Viewmodel)
 ├── V2 Sniper Scope Overlay          beroende: V1
@@ -494,28 +757,42 @@ Fas Q (Refaktorisering)              ← NY
 Fas R (Banor)
 ├── R3 Editor v2
 
-Fas T (Multiplayer)                    ← UTÖKAD
-├── T1 Realtids Position-Sync          beroende: Fas 12 (SSE infra) ✅
-├── T2 Ghost Rendering                 beroende: T1
-├── T3 Race Lifecycle & Countdown      beroende: T1
-├── T4 Game Modes                      beroende: T2, T3
-├── T5 Chat & Social                   beroende: T1 (SSE)
-├── T6 Spectator Mode                  beroende: T2, T3
-├── T7 Anti-Cheat                      beroende: T1
-├── T8 Multiplayer Polish              beroende: T2, T3, T5
+Fas T (Multiplayer)                    ← BLEEDING EDGE REWRITE
+├── T0 WebSocket Transport Layer       beroende: Fas 12 (SSE infra) ✅ — ersätter SSE
+│   ├─ Backend: WS endpoint, RoomManager, Room (Channel<T>), BroadcastLoop
+│   ├─ Frontend: IGameTransport abstraction, binary PositionCodec
+│   └─ Binärt protocol: 25 bytes/spelare (vs ~180 bytes JSON = 7×)
+├── T1 Race Lifecycle & Countdown      beroende: T0
+├── T2 Ghost Rendering (Instanced)     beroende: T0
+│   └─ 1 draw call alla ghosts, GPU-text (ej DOM), instanced trails
+├── T3 Chat & Social                   beroende: T0
+├── T4 Game Modes                      beroende: T1, T2
+│   ├─ Race, TimeAttack, GhostRace, Elimination, Tag, Relay
+│   └─ IGameModeHandler — server-side mode-dispatch
+├── T5 Spectator Mode                  beroende: T2, T1
+├── T6 Anti-Cheat                      beroende: T0 (server har alla positioner)
+├── T7 Skalning & Distribution         beroende: T0
+│   └─ Redis backplane, room-routing, load testing
+├── T8 Multiplayer Polish              beroende: T1-T5
 
 Parallellism:
+  C1 kan starta direkt (alla förutsättningar ✅)
+  C2+C3+C4 parallellt efter C1
+  C kan köras parallellt med V, R, T och Q (inga beroenden emellan)
   V1+V3+V6+V7+V8+V9 kan alla starta parallellt
   V2 väntar på V1 (ADS krävs för scope)
   V4 och V10 kan starta parallellt med V1
   V5 bör komma efter V1 (ADS-recoil-multiplikator)
   Q kan köras helt parallellt med V, R och T (inga beroenden)
   R, T och V kan köras parallellt (inga beroenden emellan)
-  T1 kan starta direkt (bygger på befintlig Fas 12 infra)
-  T2 + T3 kan köras parallellt efter T1
-  T4 + T5 + T6 kan starta efter T2/T3
-  T7 kan starta efter T1 (oberoende av T2-T6)
-  T8 sist (polish, kräver allt annat)
+  T0 först (fundament — ersätter SSE för race)
+  T1 + T2 parallellt efter T0 (lifecycle + rendering oberoende)
+  T3 kan starta parallellt med T1/T2 (chat via WS direkt)
+  T4 kräver T1 + T2 (game modes bygger på race-flow + ghost-rendering)
+  T5 efter T2 (spectator behöver ghost-rendering)
+  T6 efter T0 (anti-cheat validerar i Room.ProcessInbound)
+  T7 kan starta efter T0 men bör vänta tills T1-T4 stabiliserat sig
+  T8 sist (polish — kräver allt annat fungerande)
 ```
 
 ---
