@@ -15,6 +15,7 @@ import { EventFeed } from './EventFeed';
 import { HitMarker } from './HitMarker';
 import { KillFeed } from './KillFeed';
 import { ScopeOverlay } from './ScopeOverlay';
+import { StanceIndicator } from './StanceIndicator';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 
 export function HudOverlay() {
@@ -36,6 +37,7 @@ export function HudOverlay() {
       <HitMarker />
       <EventFeed />
       <KillFeed />
+      <StanceIndicator />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}
 

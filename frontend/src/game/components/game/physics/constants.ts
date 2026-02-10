@@ -87,6 +87,9 @@ export const PHYSICS = {
   SCOPE_FORCE_UNSCOPE_TIME: 6.0, // force unscope after this many seconds
   SCOPE_DRIFT_MULT: 3.0,         // sway multiplier at max drift
 
+  // ── Prone accuracy ──
+  PRONE_SPREAD_MULT: 0.3,      // weapon spread multiplier when prone
+
   // ── Weapon inspect ──
   INSPECT_TRANSITION_SPEED: 5,  // lerp speed for hip↔inspect transition
   INSPECT_SPIN_SPEED: 0.8,     // Y-axis rotation speed (radians/sec)

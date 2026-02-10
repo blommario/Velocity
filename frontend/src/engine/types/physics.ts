@@ -7,6 +7,7 @@ export interface InputState {
   right: boolean;
   jump: boolean;
   crouch: boolean;
+  prone: boolean;
   fire: boolean;
   altFire: boolean;   // right click (zoom for sniper, alt-fire for others)
   grapple: boolean;
@@ -23,6 +24,7 @@ export interface MovementState {
   isGrounded: boolean;
   isCrouching: boolean;
   isSliding: boolean;
+  isProne: boolean;
   yaw: number;
   pitch: number;
   jumpBufferTime: number;

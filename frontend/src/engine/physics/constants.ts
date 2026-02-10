@@ -36,6 +36,17 @@ export const ENGINE_PHYSICS = {
   CROUCH_FRICTION: 1.2,
   CROUCH_SLIDE_MIN_SPEED: 100,
   CROUCH_SLIDE_BOOST: 40,
+  CROUCH_SLIDE_DURATION: 1.5,         // max slide duration before friction ramp-up
+  CROUCH_SLIDE_HOP_BOOST: 15,         // extra speed on slide-hop jump
+  CROUCH_SLIDE_TILT: -0.087,          // camera pitch offset during slide (~-5°)
+
+  // Prone
+  PLAYER_HEIGHT_PRONE: 0.85,          // prone capsule (must be ≥ 2×PLAYER_RADIUS)
+  PLAYER_EYE_OFFSET_PRONE: 0.05,
+  PRONE_MAX_SPEED: 30,
+  PRONE_FRICTION: 2.0,
+  PRONE_TRANSITION_TIME: 0.3,         // crouch→prone / prone→crouch
+  PRONE_STAND_UP_TIME: 0.4,           // prone→stand (slower)
 
   // Collision
   STAIR_STEP_HEIGHT: 0.45,

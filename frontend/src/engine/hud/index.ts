@@ -42,3 +42,6 @@ export type { CheckpointCounterProps } from './CheckpointCounter';
 
 export { ScopeOverlay } from './ScopeOverlay';
 export type { ScopeOverlayProps, ScopeOverlayConfig } from './ScopeOverlay';
+
+export { StanceIndicator } from './StanceIndicator';
+export type { StanceIndicatorProps, StanceType } from './StanceIndicator';

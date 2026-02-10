@@ -43,6 +43,8 @@ export interface SplitPopupData {
   timestamp: number;    // performance.now() when shown
 }
 
+export type Stance = 'standing' | 'crouching' | 'sliding' | 'prone';
+
 const KILL_ZONE_Y = -50;
 const INITIAL_STATS: RunStats = {
   maxSpeed: 0,
@@ -58,6 +60,7 @@ interface GameState {
   speed: number;
   position: [number, number, number];
   isGrounded: boolean;
+  stance: Stance;
 
   // Run state machine
   runState: RunState;
@@ -102,7 +105,7 @@ interface GameState {
   setScreen: (screen: Screen) => void;
   loadMap: (mapId: string, mapData: MapData) => void;
   playTestMap: () => void;
-  updateHud: (speed: number, position: [number, number, number], isGrounded: boolean) => void;
+  updateHud: (speed: number, position: [number, number, number], isGrounded: boolean, stance?: Stance) => void;
 
   // Run lifecycle
   initRun: (params: { checkpointCount: number; spawnPoint: [number, number, number]; spawnYaw: number; mapId?: string }) => void;
@@ -141,6 +144,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   speed: 0,
   position: [0, 0, 0],
   isGrounded: false,
+  stance: 'standing' as Stance,
 
   runState: RUN_STATES.READY,
   timerRunning: false,
@@ -199,7 +203,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     loadStatus: 'Initializing graphics...',
   }),
 
-  updateHud: (speed, position, isGrounded) => {
+  updateHud: (speed, position, isGrounded, stance) => {
     const state = get();
     // Track distance
     const dx = position[0] - state.previousPosition[0];
@@ -214,6 +218,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       speed,
       position,
       isGrounded,
+      stance: stance ?? 'standing',
       previousPosition: position,
       speedSamples: newSamples,
       speedSum: newSum,

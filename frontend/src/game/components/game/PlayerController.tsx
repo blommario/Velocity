@@ -10,7 +10,8 @@ import {
 import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
 import { PHYSICS, DEG2RAD } from './physics/constants';
 import { useInputBuffer } from '@engine/input/useInputBuffer';
-import { physicsTick } from './physics/usePhysicsTick';
+import { physicsTick, createPhysicsTickState, registerPhysicsTickState } from './physics/usePhysicsTick';
+import { createScopeSwayState } from '@engine/physics/scopeSway';
 import { useGameStore } from '@game/stores/gameStore';
 import { devLog, frameTiming } from '@engine/stores/devLogStore';
 
@@ -30,6 +31,11 @@ export function PlayerController() {
   const isJumpingRef = useRef(false);
   const isCrouchingRef = useRef(false);
   const isSlidingRef = useRef(false);
+  const isProneRef = useRef(false);
+  const physicsStateRef = useRef(createPhysicsTickState());
+  const scopeSwayStateRef = useRef(createScopeSwayState());
+  // Register so resetPhysicsTickState() can find the active instance
+  registerPhysicsTickState(physicsStateRef.current, scopeSwayStateRef.current);
 
   const controllerRef = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
 
@@ -67,11 +73,14 @@ export function PlayerController() {
         isJumping: isJumpingRef,
         isCrouching: isCrouchingRef,
         isSliding: isSlidingRef,
+        isProne: isProneRef,
         input: inputRef,
       },
       camera,
       consumeMouseDelta,
       world,
+      physicsStateRef.current,
+      scopeSwayStateRef.current,
     );
     frameTiming.end('Physics');
   });

@@ -67,26 +67,26 @@
 - ✅ Kamera-DOF under inspect (bakgrund blurras subtilt)
 - ✅ Inspect-ljus — ambient boost i ViewmodelLayer (emissive boost)
 
-### V4 — Stances (Crouch / Prone / Slide)
+### V4 — Stances (Crouch / Prone / Slide) ✅
 *Utöka befintligt crouch-system med prone och förbättrad slide.*
-- 🔲 **Prone (liggande)**
+- ✅ **Prone (liggande)**
   - Keybind: dubbeltryck `crouch` ELLER dedikerad `prone`-knapp (default `Z`)
-  - Capsule-höjd: 0.5 (från 1.8/1.0), eye offset: 0.1
+  - Capsule-höjd: 0.85 (≥ 2×radius), eye offset: 0.05
   - Max speed: 30 u/s (crawl), no jump, slow stand-up (0.4s)
   - Accuracy boost: `PRONE_SPREAD_MULT: 0.3` (assault/sniper)
   - Entry: crouch → prone (0.3s transition), prone → crouch → stand
-  - Blockera prone om utrymme saknas (capsule overlap-check)
-- 🔲 **Slide förbättring**
-  - Slide boost: +40 u/s burst vid slide-start (redan definierad men oanvänd)
-  - Slide-hop: jump under slide behåller momentum + liten boost
-  - Slide duration cap: 1.5s → friction ramp-up
+  - Jump blocked while prone or transitioning
+- ✅ **Slide förbättring**
+  - Slide boost: +40 u/s burst vid slide-start
+  - Slide-hop: jump under slide behåller momentum + 15 u/s boost
+  - Slide duration cap: 1.5s → friction ramp-up (3× after cap)
   - Head-tilt framåt under slide (camera pitch -5°)
-  - Slide-ljud (synth whoosh)
-- 🔲 **Crouch-jump**
+  - Slide-ljud (synth whoosh via SOUNDS.SLIDE)
+- ✅ **Crouch-jump**
   - Crouch hålls under jump → lägre capsule i luften
   - Tillåter passage genom lägre öppningar
   - Automatisk stand-up vid landing om utrymme finns
-- 🔲 **Stance-indikator i HUD** — ikon: standing / crouching / prone / sliding
+- ✅ **Stance-indikator i HUD** — ikon: standing / crouching / prone / sliding
 
 ### V5 — Weapon Recoil & Spread
 *Kamera-recoil + visuell spread-feedback, inte bara viewmodel-bob.*

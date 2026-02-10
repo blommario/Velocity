@@ -4,7 +4,7 @@ import { getNormalizedWheelDelta } from './inputUtils';
 import { useSettingsStore } from '../stores/settingsStore';
 
 type BooleanInputKey = keyof Pick<InputState,
-  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload' | 'inspect'
+  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'prone' | 'fire' | 'altFire' | 'grapple' | 'reload' | 'inspect'
 >;
 
 /** Maps settingsStore action names → engine InputState boolean field names. */
@@ -15,6 +15,7 @@ const SETTINGS_TO_INPUT: Record<string, BooleanInputKey> = {
   moveRight: 'right',
   jump: 'jump',
   crouch: 'crouch',
+  prone: 'prone',
   grapple: 'grapple',
   reload: 'reload',
   fireRocket: 'fire',
@@ -23,7 +24,7 @@ const SETTINGS_TO_INPUT: Record<string, BooleanInputKey> = {
 } as const;
 
 const BOOLEAN_KEYS: readonly BooleanInputKey[] = [
-  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'fire', 'altFire', 'grapple', 'reload', 'inspect',
+  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'prone', 'fire', 'altFire', 'grapple', 'reload', 'inspect',
 ] as const;
 
 /** Maps Digit keys to weapon slots (1-7) */
@@ -63,6 +64,7 @@ const createEmptyInput = (): InputState => ({
   right: false,
   jump: false,
   crouch: false,
+  prone: false,
   fire: false,
   altFire: false,
   grapple: false,
@@ -74,31 +76,37 @@ const createEmptyInput = (): InputState => ({
   scrollDelta: 0,
 });
 
+interface InputMappings {
+  keyMap: Record<string, BooleanInputKey>;
+  mouseMap: Record<number, BooleanInputKey>;
+}
+
 export function useInputBuffer() {
   const inputRef = useRef<InputState>(createEmptyInput());
+  const mappingsRef = useRef<InputMappings>({
+    keyMap: buildKeyMap(useSettingsStore.getState().keyBindings),
+    mouseMap: buildMouseMap(useSettingsStore.getState().keyBindings),
+  });
 
   useEffect(() => {
     const input = inputRef.current;
 
-    // Build initial maps from persisted settings
-    const initialBindings = useSettingsStore.getState().keyBindings;
-    let keyMap = buildKeyMap(initialBindings);
-    let mouseMap = buildMouseMap(initialBindings);
-
     // Subscribe to keybind changes — rebuild maps reactively
-    let prevBindings = initialBindings;
+    let prevBindings = useSettingsStore.getState().keyBindings;
     const unsub = useSettingsStore.subscribe((state) => {
       if (state.keyBindings !== prevBindings) {
         prevBindings = state.keyBindings;
-        keyMap = buildKeyMap(state.keyBindings);
-        mouseMap = buildMouseMap(state.keyBindings);
+        mappingsRef.current = {
+          keyMap: buildKeyMap(state.keyBindings),
+          mouseMap: buildMouseMap(state.keyBindings),
+        };
         // Reset all held actions to prevent stuck keys after rebind
         for (const k of BOOLEAN_KEYS) input[k] = false;
       }
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      const action = keyMap[e.code];
+      const action = mappingsRef.current.keyMap[e.code];
       if (action) input[action] = true;
 
       // Weapon slot keys (consumed once per press)
@@ -107,18 +115,18 @@ export function useInputBuffer() {
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      const action = keyMap[e.code];
+      const action = mappingsRef.current.keyMap[e.code];
       if (action) input[action] = false;
     };
 
     const onMouseDown = (e: MouseEvent) => {
       if (!document.pointerLockElement) return;
-      const action = mouseMap[e.button];
+      const action = mappingsRef.current.mouseMap[e.button];
       if (action) input[action] = true;
     };
 
     const onMouseUp = (e: MouseEvent) => {
-      const action = mouseMap[e.button];
+      const action = mappingsRef.current.mouseMap[e.button];
       if (action) input[action] = false;
     };
 
@@ -131,6 +139,7 @@ export function useInputBuffer() {
 
     const onWheel = (e: WheelEvent) => {
       if (document.pointerLockElement) {
+        e.preventDefault();
         input.scrollDelta += getNormalizedWheelDelta(e);
       }
     };
@@ -142,7 +151,7 @@ export function useInputBuffer() {
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('wheel', onWheel);
     window.addEventListener('contextmenu', onContextMenu);
 
     return () => {

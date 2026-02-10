@@ -24,7 +24,7 @@ import {
   updateWallRun,
   wallJump,
 } from '@engine/physics/useAdvancedMovement';
-import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
+import { useGameStore, RUN_STATES, type Stance } from '@game/stores/gameStore';
 import { useSettingsStore } from '@game/stores/settingsStore';
 import { useCombatStore } from '@game/stores/combatStore';
 import { useReplayStore } from '@game/stores/replayStore';
@@ -70,9 +70,8 @@ const _mantleRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 const _hitPos: [number, number, number] = [0, 0, 0];
 const _gPos: [number, number, number] = [0, 0, 0];
 
-// ── Scope sway (engine struct, managed separately) ──
+// ── Scope sway config (constant, shared across instances) ──
 
-const scopeSwayState = createScopeSwayState();
 const scopeSwayConfig: ScopeSwayConfig = {
   swayBase: PHYSICS.SCOPE_SWAY_BASE,
   swaySpeed: PHYSICS.SCOPE_SWAY_SPEED,
@@ -89,7 +88,7 @@ const scopeSwayConfig: ScopeSwayConfig = {
 // A: Physics tick state — single struct replaces ~30 let vars
 // ══════════════════════════════════════════════════════════
 
-interface PhysicsTickState {
+export interface PhysicsTickState {
   lastHudUpdate: number;
   lastScopeSwayUpdate: number;
   lastDevLogUpdate: number;
@@ -113,9 +112,15 @@ interface PhysicsTickState {
   mantleStartY: number;
   mantleFwdX: number;
   mantleFwdZ: number;
+  // Stances
+  slideTimer: number;            // time spent in current slide
+  proneTransition: number;       // 0 = not transitioning, >0 = transitioning in/out
+  proneTransitionTarget: boolean; // true = going prone, false = standing up
+  lastCrouchPress: number;       // timestamp of last crouch press (double-tap detection)
+  slidePitchOffset: number;      // current camera pitch tilt during slide
 }
 
-function createPhysicsTickState(): PhysicsTickState {
+export function createPhysicsTickState(): PhysicsTickState {
   return {
     lastHudUpdate: 0,
     lastScopeSwayUpdate: 0,
@@ -147,15 +152,32 @@ function createPhysicsTickState(): PhysicsTickState {
     mantleStartY: 0,
     mantleFwdX: 0,
     mantleFwdZ: 0,
+    slideTimer: 0,
+    proneTransition: 0,
+    proneTransitionTarget: false,
+    lastCrouchPress: 0,
+    slidePitchOffset: 0,
   };
 }
 
-const state = createPhysicsTickState();
+// ── Active instance registry (set by PlayerController on mount) ──
 
-/** Reset all module-level physics state. Call on map load / game restart. */
+let _activeState: PhysicsTickState | null = null;
+let _activeSwayState: ReturnType<typeof createScopeSwayState> | null = null;
+
+/** Called by PlayerController to register its owned state instances. */
+export function registerPhysicsTickState(
+  state: PhysicsTickState,
+  swayState: ReturnType<typeof createScopeSwayState>,
+): void {
+  _activeState = state;
+  _activeSwayState = swayState;
+}
+
+/** Reset active physics tick state. Call on map load / game restart. */
 export function resetPhysicsTickState(): void {
-  Object.assign(state, createPhysicsTickState());
-  resetScopeSwayState(scopeSwayState);
+  if (_activeState) Object.assign(_activeState, createPhysicsTickState());
+  if (_activeSwayState) resetScopeSwayState(_activeSwayState);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -178,11 +200,13 @@ export interface PhysicsTickRefs {
   isJumping: MutableRefObject<boolean>;
   isCrouching: MutableRefObject<boolean>;
   isSliding: MutableRefObject<boolean>;
+  isProne: MutableRefObject<boolean>;
   input: MutableRefObject<InputState>;
 }
 
 interface TickContext {
   s: PhysicsTickState;
+  swayState: ReturnType<typeof createScopeSwayState>;
   refs: PhysicsTickRefs;
   camera: Camera;
   rapierWorld: import('@dimforge/rapier3d-compat').World;
@@ -229,6 +253,7 @@ function handleRespawn(
     refs.grounded.current = false;
     refs.isCrouching.current = false;
     refs.isSliding.current = false;
+    refs.isProne.current = false;
     refs.isJumping.current = false;
     refs.coyoteTime.current = 0;
     refs.jumpHoldTime.current = 0;
@@ -236,6 +261,9 @@ function handleRespawn(
     s.wallRunState.wallRunCooldown = false;
     s.mantleTimer = 0;
     s.mantleCooldown = 0;
+    s.proneTransition = 0;
+    s.slideTimer = 0;
+    s.slidePitchOffset = 0;
     s.respawnGraceTicks = RESPAWN_GRACE_TICKS;
     ctx.collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
     camera.position.set(respawn.pos[0], respawn.pos[1] + PHYSICS.PLAYER_EYE_OFFSET, respawn.pos[2]);
@@ -382,7 +410,7 @@ function handleGrapple(ctx: TickContext): void {
 }
 
 function handleCombatState(ctx: TickContext, dx: number, dy: number): void {
-  const { s, refs, input, velocity, dt } = ctx;
+  const { s, swayState: scopeSwayState, refs, input, velocity, dt } = ctx;
   const combat = useCombatStore.getState();
   const weapon = combat.activeWeapon;
 
@@ -478,7 +506,8 @@ function handleWeaponFire(ctx: TickContext): void {
   const combat = useCombatStore.getState();
   const weapon = combat.activeWeapon;
   const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
-  const eyeOff = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
+  const eyeOff = refs.isProne.current ? PHYSICS.PLAYER_EYE_OFFSET_PRONE
+    : refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
 
   if (!ctx.input.fire || !canFireNow) return;
 
@@ -756,35 +785,105 @@ function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): 
   const combat = useCombatStore.getState();
   const store = useGameStore.getState();
 
-  // Crouch sliding
+  // ── Stance state machine: Stand ↔ Crouch ↔ Prone, with sliding ──
   const wantsCrouch = input.crouch;
+  const wantsProne = input.prone;
   const hSpeed = getHorizontalSpeed(velocity);
 
-  if (refs.grounded.current && wantsCrouch) {
-    if (!refs.isCrouching.current && hSpeed >= PHYSICS.CROUCH_SLIDE_MIN_SPEED) {
-      refs.isSliding.current = true;
-      const boost = PHYSICS.CROUCH_SLIDE_BOOST;
-      if (hSpeed > 0) {
-        velocity.x += (velocity.x / hSpeed) * boost;
-        velocity.z += (velocity.z / hSpeed) * boost;
-      }
+  // Double-tap crouch → prone detection (300ms window)
+  const now_stance = ctx.now;
+  const doubleTapProne = wantsCrouch && !refs.isCrouching.current && !refs.isProne.current
+    && (now_stance - s.lastCrouchPress < 300);
+  if (wantsCrouch && !refs.isCrouching.current && !refs.isProne.current && s.lastCrouchPress === 0) {
+    s.lastCrouchPress = now_stance;
+  }
+  if (!wantsCrouch) {
+    // Reset double-tap window after release
+    if (s.lastCrouchPress > 0 && now_stance - s.lastCrouchPress > 300) {
+      s.lastCrouchPress = 0;
     }
-    refs.isCrouching.current = true;
-    if (refs.isSliding.current && hSpeed < PHYSICS.CROUCH_SLIDE_MIN_SPEED * 0.5) {
-      refs.isSliding.current = false;
-    }
-  } else {
-    refs.isCrouching.current = wantsCrouch && !refs.grounded.current;
-    refs.isSliding.current = false;
   }
 
-  const targetHalfHeight = refs.isCrouching.current
-    ? PHYSICS.PLAYER_HEIGHT_CROUCH / 2 - PHYSICS.PLAYER_RADIUS
-    : PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS;
-  ctx.collider.setHalfHeight(targetHalfHeight);
+  // Prone transition timer
+  if (s.proneTransition > 0) {
+    s.proneTransition -= dt;
+    if (s.proneTransition <= 0) {
+      s.proneTransition = 0;
+      if (s.proneTransitionTarget) {
+        refs.isProne.current = true;
+        refs.isCrouching.current = false;
+        refs.isSliding.current = false;
+      } else {
+        refs.isProne.current = false;
+        refs.isCrouching.current = true; // prone→crouch first
+      }
+    }
+  }
 
-  // Wall running
-  const isWallRunning = !refs.grounded.current && !combat.isGrappling && updateWallRun(
+  // Prone entry: Z key or double-tap crouch (only grounded, not sliding)
+  if ((wantsProne || doubleTapProne) && refs.grounded.current
+      && !refs.isProne.current && s.proneTransition <= 0 && !refs.isSliding.current) {
+    s.proneTransition = PHYSICS.PRONE_TRANSITION_TIME;
+    s.proneTransitionTarget = true;
+    refs.isCrouching.current = true; // go through crouch first
+    refs.isSliding.current = false;
+    s.lastCrouchPress = 0;
+    audioManager.play(SOUNDS.LAND_SOFT, 0.08);
+  }
+
+  // Prone exit: stand/crouch while prone
+  if (refs.isProne.current && !wantsProne && !wantsCrouch && s.proneTransition <= 0) {
+    s.proneTransition = PHYSICS.PRONE_STAND_UP_TIME;
+    s.proneTransitionTarget = false;
+  }
+
+  // Regular crouch/slide logic (only when not prone or transitioning to prone)
+  if (!refs.isProne.current && s.proneTransition <= 0) {
+    if (refs.grounded.current && wantsCrouch) {
+      if (!refs.isCrouching.current && hSpeed >= PHYSICS.CROUCH_SLIDE_MIN_SPEED) {
+        refs.isSliding.current = true;
+        s.slideTimer = 0;
+        const boost = PHYSICS.CROUCH_SLIDE_BOOST;
+        if (hSpeed > 0) {
+          velocity.x += (velocity.x / hSpeed) * boost;
+          velocity.z += (velocity.z / hSpeed) * boost;
+        }
+        audioManager.play(SOUNDS.SLIDE, 0.15);
+      }
+      refs.isCrouching.current = true;
+      // Slide duration cap: ramp up friction after CROUCH_SLIDE_DURATION
+      if (refs.isSliding.current) {
+        s.slideTimer += dt;
+        if (hSpeed < PHYSICS.CROUCH_SLIDE_MIN_SPEED * 0.5 || s.slideTimer > PHYSICS.CROUCH_SLIDE_DURATION * 1.5) {
+          refs.isSliding.current = false;
+          s.slideTimer = 0;
+        }
+      }
+    } else if (!refs.grounded.current) {
+      // Crouch-jump: hold crouch in air → keep small capsule
+      refs.isCrouching.current = wantsCrouch;
+      refs.isSliding.current = false;
+      s.slideTimer = 0;
+    } else {
+      refs.isCrouching.current = false;
+      refs.isSliding.current = false;
+      s.slideTimer = 0;
+    }
+  }
+
+  // Capsule height: prone < crouch < standing
+  let targetHeight: number;
+  if (refs.isProne.current || (s.proneTransition > 0 && s.proneTransitionTarget)) {
+    targetHeight = PHYSICS.PLAYER_HEIGHT_PRONE;
+  } else if (refs.isCrouching.current) {
+    targetHeight = PHYSICS.PLAYER_HEIGHT_CROUCH;
+  } else {
+    targetHeight = PHYSICS.PLAYER_HEIGHT;
+  }
+  ctx.collider.setHalfHeight(targetHeight / 2 - PHYSICS.PLAYER_RADIUS);
+
+  // Wall running (blocked while prone)
+  const isWallRunning = !refs.grounded.current && !combat.isGrappling && !refs.isProne.current && updateWallRun(
     s.wallRunState,
     velocity,
     refs.grounded.current,
@@ -799,6 +898,9 @@ function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): 
 
   const canJump = refs.grounded.current || refs.coyoteTime.current > 0;
   const wantsJump = ctx.autoBhop ? input.jump : refs.jumpBufferTime.current > 0;
+
+  // No jumping while prone
+  const jumpBlocked = refs.isProne.current || (s.proneTransition > 0);
 
   if (isWallRunning && wantsJump) {
     wallJump(s.wallRunState, velocity);
@@ -815,7 +917,15 @@ function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): 
     // Grapple swing already applied in handleGrapple
   } else if (isWallRunning) {
     // Wall running handled by updateWallRun
-  } else if (canJump && wantsJump) {
+  } else if (canJump && wantsJump && !jumpBlocked) {
+    // Slide-hop: jumping during slide preserves momentum + small boost
+    if (refs.isSliding.current) {
+      const slideHopBoost = PHYSICS.CROUCH_SLIDE_HOP_BOOST;
+      if (hSpeed > 0) {
+        velocity.x += (velocity.x / hSpeed) * slideHopBoost;
+        velocity.z += (velocity.z / hSpeed) * slideHopBoost;
+      }
+    }
     velocity.y = PHYSICS.JUMP_FORCE;
     refs.grounded.current = false;
     refs.coyoteTime.current = 0;
@@ -823,8 +933,12 @@ function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): 
     refs.isJumping.current = true;
     refs.jumpHoldTime.current = 0;
     refs.isSliding.current = false;
-    refs.isCrouching.current = false;
-    ctx.collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+    s.slideTimer = 0;
+    // Crouch-jump: if holding crouch, keep crouched capsule in air
+    if (!wantsCrouch) {
+      refs.isCrouching.current = false;
+      ctx.collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+    }
     store.recordJump();
     audioManager.play(SOUNDS.JUMP, 0.1);
     if (hasInput) applyAirAcceleration(velocity, wishDir, dt, speedMult);
@@ -837,8 +951,25 @@ function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): 
         PHYSICS.SLOPE_GRAVITY_SCALE, PHYSICS.SLOPE_MIN_ANGLE_DEG,
       );
     }
-    if (refs.isSliding.current) {
-      applySlideFriction(velocity, dt);
+    if (refs.isProne.current) {
+      // Prone: heavy friction, speed capped at PRONE_MAX_SPEED
+      applyFriction(velocity, dt * (PHYSICS.PRONE_FRICTION / PHYSICS.GROUND_FRICTION), hasInput, wishDir);
+      if (hasInput) {
+        applyGroundAcceleration(velocity, wishDir, dt, speedMult);
+        // Cap horizontal speed to PRONE_MAX_SPEED
+        const pSpeed = getHorizontalSpeed(velocity);
+        if (pSpeed > PHYSICS.PRONE_MAX_SPEED) {
+          const pScale = PHYSICS.PRONE_MAX_SPEED / pSpeed;
+          velocity.x *= pScale;
+          velocity.z *= pScale;
+        }
+      }
+    } else if (refs.isSliding.current) {
+      // Slide friction ramps up after CROUCH_SLIDE_DURATION
+      const ramp = s.slideTimer > PHYSICS.CROUCH_SLIDE_DURATION
+        ? 1 + (s.slideTimer - PHYSICS.CROUCH_SLIDE_DURATION) / PHYSICS.CROUCH_SLIDE_DURATION * 3
+        : 1;
+      applySlideFriction(velocity, dt * ramp);
     } else if (combat.isPlasmaFiring) {
       applyFriction(velocity, dt * PHYSICS.PLASMA_SURF_FRICTION_MULT, hasInput, wishDir);
       if (hasInput) applyGroundAcceleration(velocity, wishDir, dt, speedMult);
@@ -852,6 +983,12 @@ function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): 
       ? PHYSICS.GRAVITY_JUMP_RELEASE
       : PHYSICS.GRAVITY;
     velocity.y -= gravity * gravMult * dt;
+  }
+
+  // Auto-stand on landing if space allows and not holding crouch
+  if (refs.grounded.current && !s.wasGrounded && refs.isCrouching.current && !wantsCrouch && !refs.isProne.current) {
+    refs.isCrouching.current = false;
+    ctx.collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
   }
 
   // Velocity cap
@@ -1023,7 +1160,7 @@ function handleMantle(ctx: TickContext): void {
     !s.wallRunState.isWallRunning &&
     !combat.isGrappling &&
     s.mantleCooldown <= 0 &&
-    velocity.y <= 0
+    velocity.y < 20
   ) {
     const fwdX = -Math.sin(refs.yaw.current);
     const fwdZ = -Math.cos(refs.yaw.current);
@@ -1098,12 +1235,24 @@ function handleCamera(ctx: TickContext): void {
   s.landingDip *= Math.max(0, 1 - LANDING_DIP_DECAY * dt);
   if (Math.abs(s.landingDip) < 0.001) s.landingDip = 0;
 
+  // Slide pitch tilt (head dips forward during slide)
+  const slideTiltTarget = refs.isSliding.current ? PHYSICS.CROUCH_SLIDE_TILT : 0;
+  s.slidePitchOffset += (slideTiltTarget - s.slidePitchOffset) * Math.min(TILT_LERP_SPEED * dt, 1);
+  if (Math.abs(s.slidePitchOffset) < 0.001) s.slidePitchOffset = 0;
+
   // Camera position/rotation
-  const eyeOffset = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
+  let eyeOffset: number;
+  if (refs.isProne.current) {
+    eyeOffset = PHYSICS.PLAYER_EYE_OFFSET_PRONE;
+  } else if (refs.isCrouching.current) {
+    eyeOffset = PHYSICS.PLAYER_EYE_OFFSET_CROUCH;
+  } else {
+    eyeOffset = PHYSICS.PLAYER_EYE_OFFSET;
+  }
   camera.position.set(_newPos.x, _newPos.y + eyeOffset + s.landingDip, _newPos.z);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = refs.yaw.current;
-  camera.rotation.x = refs.pitch.current;
+  camera.rotation.x = refs.pitch.current + s.slidePitchOffset;
   camera.rotation.z = s.cameraTilt;
 }
 
@@ -1125,7 +1274,11 @@ function handleHudAndReplay(ctx: TickContext, numCollisions: number): void {
   if (now - s.lastHudUpdate > HUD_UPDATE_INTERVAL) {
     s.lastHudUpdate = now;
     const finalHSpeed = getHorizontalSpeed(velocity);
-    store.updateHud(finalHSpeed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
+    const stance: Stance = refs.isProne.current ? 'prone'
+      : refs.isSliding.current ? 'sliding'
+      : refs.isCrouching.current ? 'crouching'
+      : 'standing';
+    store.updateHud(finalHSpeed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current, stance);
     if (store.timerRunning) store.tickTimer();
     store.tickScreenEffects(1 / HUD_UPDATE_HZ);
   }
@@ -1147,11 +1300,12 @@ function handleHudAndReplay(ctx: TickContext, numCollisions: number): void {
     const stateLabel = refs.grounded.current ? 'ground' : refs.isJumping.current ? 'jump' : 'air';
     const slide = refs.isSliding.current ? ' [slide]' : '';
     const crouch = refs.isCrouching.current ? ' [crouch]' : '';
+    const prone = refs.isProne.current ? ' [prone]' : '';
     const wallRun = s.wallRunState.isWallRunning ? ' [wallrun]' : '';
     const grapple = combat.isGrappling ? ' [grapple]' : '';
     const slope = s.storedGroundNormalY < 0.999 ? ` slope=${getSlopeAngleDeg(s.storedGroundNormalY).toFixed(1)}°` : '';
     devLog.info('Physics',
-      `${stateLabel}${slide}${crouch}${wallRun}${grapple}${slope} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
+      `${stateLabel}${slide}${crouch}${prone}${wallRun}${grapple}${slope} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
     );
 
     const projCount = activeCount();
@@ -1175,6 +1329,8 @@ export function physicsTick(
   camera: Camera,
   consumeMouseDelta: () => { dx: number; dy: number },
   rapierWorld: import('@dimforge/rapier3d-compat').World,
+  state: PhysicsTickState,
+  swayState: ReturnType<typeof createScopeSwayState>,
 ): void {
   const rb = refs.rigidBody.current;
   const collider = refs.collider.current;
@@ -1184,6 +1340,7 @@ export function physicsTick(
   const settings = useSettingsStore.getState();
   const ctx: TickContext = {
     s: state,
+    swayState,
     refs,
     camera,
     rapierWorld,
