@@ -312,6 +312,14 @@ export const useSettingsStore = create<SettingsState>()(
         rtsEdgeScrollEnabled: state.rtsEdgeScrollEnabled,
         keyBindings: state.keyBindings,
       }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<SettingsState>),
+        keyBindings: {
+          ...DEFAULT_KEY_BINDINGS,
+          ...((persisted as Partial<SettingsState>)?.keyBindings ?? {}),
+        },
+      }),
     }
   )
 );

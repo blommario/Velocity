@@ -498,7 +498,8 @@ function formatActionName(action: string): string {
   return action.replace(/([A-Z])/g, ' $1').trim();
 }
 
-function formatKeyName(key: string): string {
+function formatKeyName(key: string | undefined): string {
+  if (!key) return '—';
   if (key.startsWith('Key')) return key.slice(3);
   if (key.startsWith('Mouse')) return `Mouse ${key.slice(5)}`;
   if (key === 'Space') return 'Space';
