@@ -39,6 +39,7 @@ export const SOUNDS = {
 
   // Hit feedback
   HIT_MARKER: 'hit_marker',
+  HEADSHOT: 'headshot',
   WALL_IMPACT: 'wall_impact',
 
   // Reload
@@ -80,6 +81,7 @@ const SOUND_CATEGORIES: Record<SoundId, 'sfx' | 'music' | 'ambient'> = {
   [SOUNDS.COUNTDOWN_TICK]: 'sfx',
   [SOUNDS.COUNTDOWN_GO]: 'sfx',
   [SOUNDS.HIT_MARKER]: 'sfx',
+  [SOUNDS.HEADSHOT]: 'sfx',
   [SOUNDS.WALL_IMPACT]: 'sfx',
   [SOUNDS.RELOAD_START]: 'sfx',
   [SOUNDS.RELOAD_FINISH]: 'sfx',
@@ -125,6 +127,7 @@ const SYNTH_CONFIGS: Partial<Record<SoundId, SynthConfig>> = {
   [SOUNDS.COUNTDOWN_TICK]: { frequency: 600, type: 'sine', duration: 0.08, gain: 0.2 },
   [SOUNDS.COUNTDOWN_GO]: { frequency: 1000, type: 'sine', duration: 0.15, gain: 0.3 },
   [SOUNDS.HIT_MARKER]: { frequency: 1600, type: 'square', duration: 0.06, gain: 0.15, filterFreq: 3000 },
+  [SOUNDS.HEADSHOT]: { frequency: 2400, type: 'square', duration: 0.1, gain: 0.2, filterFreq: 4000 },
   [SOUNDS.WALL_IMPACT]: { frequency: 400, type: 'sawtooth', duration: 0.08, gain: 0.12, decay: 0.06, filterFreq: 800 },
   [SOUNDS.RELOAD_START]: { frequency: 300, type: 'square', duration: 0.12, gain: 0.2, filterFreq: 600 },
   [SOUNDS.RELOAD_FINISH]: { frequency: 500, type: 'triangle', duration: 0.1, gain: 0.25, filterFreq: 1000 },

@@ -121,13 +121,13 @@
 - ✅ Reload-ljud (RELOAD_START, RELOAD_FINISH synth-sounds)
 - ✅ ADS auto-cancel vid reload, inspect blockeras under reload
 
-### V7 — Headshots & Hitboxes
+### V7 — Headshots & Hitboxes ✅
 *Zonbaserad skada med headshot-multiplikator.*
-- 🔲 Hitbox-zoner: head (×2.5), torso (×1.0), limbs (×0.75)
-- 🔲 Headshot-indikator: speciell hitmarker (röd ×) + ljud
-- 🔲 Headshot-streak counter (HUD, fades efter 3s)
-- 🔲 Raycast hitbox-check via extra collider-shapes på target (head sphere, torso box)
-- 🔲 Kritisk-skada indikator (>50% hp i ett slag → screen flash röd)
+- ✅ Hitbox-zoner: head (×2.5), torso (×1.0), limbs (×0.75)
+- ✅ Headshot-indikator: speciell hitmarker (röd ×) + ljud
+- ✅ Headshot-streak counter (HUD, fades efter 3s)
+- ✅ Raycast hitbox-check via extra collider-shapes på target (head sphere, torso box)
+- ✅ Kritisk-skada indikator (>50% hp i ett slag → screen flash röd)
 
 ### V8 — Weapon Wheel & Quick-Switch
 *Snabbare vapenval utöver 1-7 tangenter.*

@@ -162,6 +162,26 @@ export const PHYSICS = {
   GRENADE_EXPLOSION_COLOR: '#22c55e' as const,
   GRENADE_EXPLOSION_SIZE: 3.5,
 
+  // ── Hitbox multipliers ──
+  HITBOX_HEAD_MULT: 2.5,
+  HITBOX_TORSO_MULT: 1.0,
+  HITBOX_LIMB_MULT: 0.75,
+
+  // ── Target dummy dimensions ──
+  DUMMY_HEAD_RADIUS: 0.35,
+  DUMMY_TORSO_HALF_W: 0.4,
+  DUMMY_TORSO_HALF_H: 0.55,
+  DUMMY_TORSO_HALF_D: 0.25,
+  DUMMY_LIMB_RADIUS: 0.15,
+  DUMMY_LIMB_HALF_HEIGHT: 0.5,
+  DUMMY_HEALTH: 100,
+
+  // ── Critical hit ──
+  CRITICAL_HIT_THRESHOLD: 0.5,       // fraction of max HP — >50% in one hit = critical
+
+  // ── Headshot streak ──
+  HEADSHOT_STREAK_FADE_DELAY: 3.0,   // seconds before streak counter fades
+
   // ── Decal params ──
   ROCKET_DECAL_RADIUS: 2.0,
   ROCKET_DECAL_LIFETIME: 0.08,

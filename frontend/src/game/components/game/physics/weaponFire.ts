@@ -1,6 +1,6 @@
 /**
- * Weapon fire handler -- processes fire input for all weapon types (rocket, grenade, sniper, assault, shotgun, knife, plasma) with spread, recoil, raycasts, and projectile spawning.
- * Depends on: combatStore, projectilePool, Rapier raycasts, engine recoil/seededRandom, AudioManager, HitMarker, wallSparks
+ * Weapon fire handler -- processes fire input for all weapon types (rocket, grenade, sniper, assault, shotgun, knife, plasma) with spread, recoil, raycasts, hitbox detection, and projectile spawning.
+ * Depends on: combatStore, projectilePool, Rapier raycasts, engine recoil/seededRandom, AudioManager, HitMarker, wallSparks, hitboxRegistry
  * Used by: PlayerController (physics tick)
  */
 import { PHYSICS, RECOIL_PATTERNS, RECOIL_CONFIG } from './constants';
@@ -11,11 +11,50 @@ import { useCombatStore } from '@game/stores/combatStore';
 import { audioManager, SOUNDS } from '@engine/audio/AudioManager';
 import { nextRandom } from '@engine/physics/seededRandom';
 import { applyRecoilKick, getSpreadMultiplier } from '@engine/physics/recoil';
+import { resolveHitbox } from '@engine/physics/hitboxRegistry';
 import { spawnProjectile } from './projectilePool';
 import { pushHitMarker } from '../../hud/HitMarker';
 import { spawnWallSparks } from '../effects/wallSparks';
 import { IMPACT } from '@engine/effects/spawnImpactEffects';
 import { devLog } from '@engine/stores/devLogStore';
+
+/** Base damage lookup per hitscan weapon type. */
+const HITSCAN_DAMAGE: Record<string, number> = {
+  sniper: PHYSICS.SNIPER_DAMAGE,
+  assault: PHYSICS.ASSAULT_DAMAGE,
+  shotgun: PHYSICS.SHOTGUN_DAMAGE_PER_PELLET,
+};
+
+/**
+ * Process a hitscan raycast hit — resolves hitbox zone (if target) or wall impact.
+ * Returns true if the hit was on a hitbox target.
+ */
+function processHitscanHit(
+  colliderHandle: number,
+  hx: number, hy: number, hz: number,
+  nx: number, ny: number, nz: number,
+  weaponKey: string,
+  wallIntensity: 'light' | 'medium' | 'heavy',
+): boolean {
+  const hitbox = resolveHitbox(colliderHandle);
+  if (hitbox) {
+    const baseDamage = HITSCAN_DAMAGE[weaponKey] ?? 0;
+    const combat = useCombatStore.getState();
+    const finalDamage = combat.registerHit(hitbox.zone, baseDamage, hitbox.entityId);
+    const isHeadshot = hitbox.zone === 'head';
+    pushHitMarker(false, isHeadshot);
+    if (isHeadshot) {
+      audioManager.play(SOUNDS.HEADSHOT, 0.05);
+    }
+    spawnWallSparks(hx, hy, hz, nx, ny, nz, isHeadshot ? IMPACT.HEAVY : IMPACT.MEDIUM);
+    devLog.info('Combat', `${weaponKey} hit ${hitbox.zone} (×${hitbox.multiplier}) → ${finalDamage.toFixed(0)} dmg`);
+    return true;
+  }
+  // Wall hit — existing behavior
+  spawnWallSparks(hx, hy, hz, nx, ny, nz, wallIntensity);
+  pushHitMarker();
+  return false;
+}
 
 export function handleWeaponFire(ctx: TickContext): void {
   const { refs, velocity, rapierWorld, rb, recoilState } = ctx;
@@ -91,8 +130,9 @@ export function handleWeaponFire(ctx: TickContext): void {
           const shx = _playerPos.x + _fireDir.x * sniperHit.timeOfImpact;
           const shy = (_playerPos.y + eyeOff) + _fireDir.y * sniperHit.timeOfImpact;
           const shz = _playerPos.z + _fireDir.z * sniperHit.timeOfImpact;
-          spawnWallSparks(shx, shy, shz, sniperHit.normal.x, sniperHit.normal.y, sniperHit.normal.z, IMPACT.HEAVY);
-          pushHitMarker();
+          processHitscanHit(sniperHit.collider.handle, shx, shy, shz,
+            sniperHit.normal.x, sniperHit.normal.y, sniperHit.normal.z,
+            'sniper', IMPACT.HEAVY);
         }
         velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
         velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
@@ -124,8 +164,9 @@ export function handleWeaponFire(ctx: TickContext): void {
           const hx = _reusableRay.origin.x + _reusableRay.dir.x * arHit.timeOfImpact;
           const hy = _reusableRay.origin.y + _reusableRay.dir.y * arHit.timeOfImpact;
           const hz = _reusableRay.origin.z + _reusableRay.dir.z * arHit.timeOfImpact;
-          spawnWallSparks(hx, hy, hz, arHit.normal.x, arHit.normal.y, arHit.normal.z, IMPACT.LIGHT);
-          pushHitMarker();
+          processHitscanHit(arHit.collider.handle, hx, hy, hz,
+            arHit.normal.x, arHit.normal.y, arHit.normal.z,
+            'assault', IMPACT.LIGHT);
         }
         velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
         velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
@@ -143,6 +184,7 @@ export function handleWeaponFire(ctx: TickContext): void {
       if (combat.fireHitscan(WEAPONS.SHOTGUN)) {
         const effectiveSgSpread = PHYSICS.SHOTGUN_SPREAD * spreadMult;
         const physicalPellets = Math.min(PHYSICS.SHOTGUN_PELLETS, 4);
+        let bestHitboxZone: string | null = null; // track best zone for hitmarker
         for (let i = 0; i < physicalPellets; i++) {
           const sx = (nextRandom() - 0.5) * effectiveSgSpread * PHYSICS.HITSCAN_SPREAD_FACTOR;
           const sy = (nextRandom() - 0.5) * effectiveSgSpread * PHYSICS.HITSCAN_SPREAD_FACTOR;
@@ -157,13 +199,31 @@ export function handleWeaponFire(ctx: TickContext): void {
             const hx = _reusableRay.origin.x + _reusableRay.dir.x * hit.timeOfImpact;
             const hy = _reusableRay.origin.y + _reusableRay.dir.y * hit.timeOfImpact;
             const hz = _reusableRay.origin.z + _reusableRay.dir.z * hit.timeOfImpact;
-            spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, IMPACT.MEDIUM);
+            const hitbox = resolveHitbox(hit.collider.handle);
+            if (hitbox) {
+              const pelletCombat = useCombatStore.getState();
+              pelletCombat.registerHit(hitbox.zone, PHYSICS.SHOTGUN_DAMAGE_PER_PELLET, hitbox.entityId);
+              spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, IMPACT.MEDIUM);
+              // Track best zone hit (head > torso > limb)
+              if (hitbox.zone === 'head') bestHitboxZone = 'head';
+              else if (hitbox.zone === 'torso' && bestHitboxZone !== 'head') bestHitboxZone = 'torso';
+              else if (!bestHitboxZone) bestHitboxZone = 'limb';
+            } else {
+              spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, IMPACT.MEDIUM);
+            }
           }
         }
         for (let i = physicalPellets; i < PHYSICS.SHOTGUN_PELLETS; i++) {
           nextRandom(); nextRandom();
         }
-        pushHitMarker();
+        // Single hitmarker for shotgun blast — uses best zone hit
+        if (bestHitboxZone) {
+          const isHeadshot = bestHitboxZone === 'head';
+          pushHitMarker(false, isHeadshot);
+          if (isHeadshot) audioManager.play(SOUNDS.HEADSHOT, 0.05);
+        } else {
+          pushHitMarker();
+        }
         velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
         velocity.y -= _fireDir.y * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
         velocity.z -= _fireDir.z * PHYSICS.SHOTGUN_SELF_KNOCKBACK;

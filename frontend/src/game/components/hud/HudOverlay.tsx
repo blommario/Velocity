@@ -22,6 +22,8 @@ import { KillFeed } from './KillFeed';
 import { ScopeOverlay } from './ScopeOverlay';
 import { StanceIndicator } from './StanceIndicator';
 import { ReloadIndicator } from './ReloadIndicator';
+import { HeadshotStreak } from './HeadshotStreak';
+import { CriticalHitFlash } from './CriticalHitFlash';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 
 export function HudOverlay() {
@@ -42,6 +44,8 @@ export function HudOverlay() {
       <DamageIndicator />
       <DamageNumbers />
       <HitMarker />
+      <HeadshotStreak />
+      <CriticalHitFlash />
       <EventFeed />
       <KillFeed />
       <StanceIndicator />

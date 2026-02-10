@@ -17,6 +17,7 @@ import { LaunchPad } from './zones/LaunchPad';
 import { SpeedGate } from './zones/SpeedGate';
 import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
+import { TargetDummy } from './TargetDummy';
 import { AtmosphericFog } from '@engine/effects/AtmosphericFog';
 import { ProceduralSkybox } from '@engine/effects/ProceduralSkybox';
 import { InstancedBlocks } from '@engine/rendering';
@@ -75,6 +76,11 @@ export function TestMap() {
       <AmmoPickup position={[30, 0.5, 5]} type="grenade" amount={2} />
       <GrapplePoint position={[-15, 14, -15]} />
       <GrapplePoint position={[40, 12, -10]} />
+
+      {/* Target Dummies */}
+      <TargetDummy position={[10, 0, -5]} id="dummy-1" />
+      <TargetDummy position={[20, 0, -15]} id="dummy-2" />
+      <TargetDummy position={[-10, 0, 10]} id="dummy-3" />
 
       {/* Material Demo */}
       <InstancedBlocks blocks={MATERIAL_DEMO_BLOCKS as MapBlock[]} />

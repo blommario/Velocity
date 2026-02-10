@@ -48,3 +48,9 @@ export type { StanceIndicatorProps, StanceType } from './StanceIndicator';
 
 export { ReloadIndicator } from './ReloadIndicator';
 export type { ReloadIndicatorProps } from './ReloadIndicator';
+
+export { HeadshotStreak } from './HeadshotStreak';
+export type { HeadshotStreakProps } from './HeadshotStreak';
+
+export { CriticalHitFlash } from './CriticalHitFlash';
+export type { CriticalHitFlashProps } from './CriticalHitFlash';

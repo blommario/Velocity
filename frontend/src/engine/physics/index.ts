@@ -30,6 +30,15 @@ export {
   type ScopeSwayState,
 } from './scopeSway';
 export {
+  registerHitbox,
+  unregisterHitbox,
+  unregisterEntity,
+  resolveHitbox,
+  clearHitboxRegistry,
+  type HitboxZone,
+  type HitboxInfo,
+} from './hitboxRegistry';
+export {
   applyRecoilKick,
   tickRecoil,
   getSpreadMultiplier,

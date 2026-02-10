@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { PHYSICS, RELOAD_CONFIG } from '@game/components/game/physics/constants';
 import type { WeaponType } from '@game/components/game/physics/types';
 import { WEAPON_SLOTS } from '@game/components/game/physics/types';
+import { clearHitboxRegistry, type HitboxZone } from '@engine/physics/hitboxRegistry';
 
 // Internal regen accumulator — avoids store writes every physics tick.
 // Health regenerates smoothly at 128Hz internally, but store only updates
@@ -91,6 +92,11 @@ interface CombatState {
   // Grapple point registry
   registeredGrapplePoints: [number, number, number][];
 
+  // Headshot tracking
+  headshotStreak: number;
+  lastHeadshotTime: number;
+  lastCriticalHitTime: number;
+
   // Actions
   takeDamage: (amount: number) => void;
   heal: (amount: number) => void;
@@ -110,6 +116,9 @@ interface CombatState {
   cancelReload: () => void;
   tickCooldown: (dt: number) => void;
   canFire: () => boolean;
+
+  // Hitbox
+  registerHit: (zone: HitboxZone, baseDamage: number, entityId: string) => number;
 
   // Grapple
   startGrapple: (target: [number, number, number], length: number) => void;
@@ -164,6 +173,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   pendingZoneEvents: [],
   registeredGrapplePoints: [],
+
+  headshotStreak: 0,
+  lastHeadshotTime: 0,
+  lastCriticalHitTime: 0,
 
   takeDamage: (amount) => {
     const state = get();
@@ -364,6 +377,27 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return a.current > 0;
   },
 
+  registerHit: (zone, baseDamage, _entityId) => {
+    const mult = zone === 'head' ? PHYSICS.HITBOX_HEAD_MULT
+      : zone === 'limb' ? PHYSICS.HITBOX_LIMB_MULT
+      : PHYSICS.HITBOX_TORSO_MULT;
+    const finalDamage = baseDamage * mult;
+    const isHeadshot = zone === 'head';
+    const now = performance.now();
+    const updates: Partial<CombatState> = {};
+    if (isHeadshot) {
+      updates.headshotStreak = get().headshotStreak + 1;
+      updates.lastHeadshotTime = now;
+    } else {
+      updates.headshotStreak = 0;
+    }
+    if (finalDamage > PHYSICS.CRITICAL_HIT_THRESHOLD * PHYSICS.DUMMY_HEALTH) {
+      updates.lastCriticalHitTime = now;
+    }
+    set(updates);
+    return finalDamage;
+  },
+
   startGrapple: (target, length) => set({ isGrappling: true, grappleTarget: target, grappleLength: length }),
   stopGrapple: () => set({ isGrappling: false, grappleTarget: null, grappleLength: 0 }),
 
@@ -396,6 +430,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   resetCombat: (rockets, grenades) => {
     _regenHealth = -1;
+    clearHitboxRegistry();
     const fresh = cloneAmmo();
     fresh.rocket.current = rockets;
     fresh.rocket.max = rockets;
@@ -429,6 +464,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       grappleLength: 0,
       pendingZoneEvents: [],
       registeredGrapplePoints: [],
+      headshotStreak: 0,
+      lastHeadshotTime: 0,
+      lastCriticalHitTime: 0,
     });
   },
 }));
