@@ -1,3 +1,8 @@
+/**
+ * Weapon fire handler -- processes fire input for all weapon types (rocket, grenade, sniper, assault, shotgun, knife, plasma) with spread, recoil, raycasts, and projectile spawning.
+ * Depends on: combatStore, projectilePool, Rapier raycasts, engine recoil/seededRandom, AudioManager, HitMarker, wallSparks
+ * Used by: PlayerController (physics tick)
+ */
 import { PHYSICS, RECOIL_PATTERNS, RECOIL_CONFIG } from './constants';
 import { WEAPONS } from './types';
 import type { TickContext } from './state';

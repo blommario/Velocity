@@ -1,3 +1,8 @@
+/**
+ * React hook that wraps Three.js AnimationMixer for declarative clip playback, cross-fading, and loop control.
+ * Depends on: R3F useFrame, Three.js AnimationMixer/AnimationAction, devLogStore
+ * Used by: AnimatedModel component, game components needing programmatic animation control
+ */
 import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {

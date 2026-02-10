@@ -1,3 +1,8 @@
+/**
+ * Finish zone -- ends the current speedrun when the player enters during an active run.
+ * Depends on: SensorZone, gameStore (finishRun), AudioManager
+ * Used by: MapLoader, TestMap
+ */
 import { SensorZone } from '@engine/components';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 import { audioManager, SOUNDS } from '@engine/audio/AudioManager';

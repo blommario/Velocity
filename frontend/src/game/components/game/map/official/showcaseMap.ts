@@ -1,3 +1,8 @@
+/**
+ * Showcase map data -- a 100x100 arena with labeled zones demonstrating all materials, shapes, emissive animations, PBR, movement items, and particle/fog effects.
+ * Depends on: MapData, MapBlock types
+ * Used by: official/index.ts (OFFICIAL_MAPS registry)
+ */
 import type { MapData, MapBlock, Vec3 } from '../types';
 
 // ── Layout: 100x100 arena with labeled showcase zones ──

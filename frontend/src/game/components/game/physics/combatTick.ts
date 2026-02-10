@@ -1,3 +1,8 @@
+/**
+ * Combat tick -- manages ADS transitions, sniper scope sway, weapon inspect, recoil recovery, knife lunge, and plasma beam per physics frame.
+ * Depends on: combatStore, engine scopeSway/recoil modules, PHYSICS/ADS_CONFIG/RECOIL_CONFIG constants
+ * Used by: PlayerController (physics tick)
+ */
 import { PHYSICS, ADS_CONFIG, RECOIL_CONFIG } from './constants';
 import { WEAPONS } from './types';
 import type { TickContext } from './state';

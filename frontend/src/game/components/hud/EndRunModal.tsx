@@ -1,3 +1,8 @@
+/**
+ * End-of-run results modal — shown when a run finishes, displays final time, split times, stats, and leaderboard. Auto-submits run/replay to the backend and allows retry or ghost race.
+ * Depends on: gameStore, authStore, replayStore, runService, replayService, leaderboardService
+ * Used by: HudOverlay
+ */
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore, RUN_STATES, SCREENS, type SplitTime } from '@game/stores/gameStore';
 import { useAuthStore } from '@game/stores/authStore';

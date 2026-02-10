@@ -1,3 +1,8 @@
+/**
+ * Game-specific combat HUD wrapper — maps Velocity weapon/ammo/health state from combatStore into the engine CombatHud props.
+ * Depends on: EngineCombatHud, combatStore, PHYSICS constants, WEAPON_SLOTS
+ * Used by: HudOverlay
+ */
 import { useMemo } from 'react';
 import { CombatHud as EngineCombatHud, type WeaponDisplay, type AmmoDisplay } from '@engine/hud';
 import { useCombatStore } from '@game/stores/combatStore';

@@ -1,3 +1,8 @@
+/**
+ * Applies height-based atmospheric fog to the scene using TSL fog nodes with range-based density falloff.
+ * Depends on: R3F useThree (scene), Three.js TSL fog/rangeFogFactor, devLogStore
+ * Used by: Map rendering components (TestMap, MapLoader) for environmental atmosphere
+ */
 import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { fog, rangeFogFactor, color as tslColor, positionWorld, float } from 'three/tsl';

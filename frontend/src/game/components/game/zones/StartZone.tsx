@@ -1,3 +1,8 @@
+/**
+ * Start zone -- begins a speedrun when the player enters while in the READY state.
+ * Depends on: SensorZone, gameStore (startRun)
+ * Used by: MapLoader, TestMap
+ */
 import { SensorZone } from '@engine/components';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 

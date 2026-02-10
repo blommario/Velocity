@@ -1,3 +1,8 @@
+/**
+ * Renders a 3D model with animation playback support, loading via URL or accepting a pre-loaded scene.
+ * Depends on: useAnimation hook, assetManager (dynamic import from game/services), devLogStore
+ * Used by: Game components that need animated 3D models (e.g. weapon viewmodels, NPCs)
+ */
 import { useEffect, useRef, useState } from 'react';
 import type { Group, AnimationClip } from 'three/webgpu';
 import { useAnimation, type AnimationLoopMode } from './useAnimation';

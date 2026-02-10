@@ -1,3 +1,8 @@
+/**
+ * Split time popup — displays a timed popup with checkpoint split time and delta (ahead/behind) when the player crosses a checkpoint. Auto-fades after a configurable duration.
+ * Depends on: gameStore (activeSplitPopup)
+ * Used by: HudOverlay
+ */
 import { useEffect, useState } from 'react';
 import { useGameStore } from '@game/stores/gameStore';
 

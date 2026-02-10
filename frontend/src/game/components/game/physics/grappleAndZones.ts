@@ -1,3 +1,8 @@
+/**
+ * Grapple and zone event handler -- drains queued zone events (boost, launch, speed gate, ammo) and manages grapple hook attach/swing/release.
+ * Depends on: combatStore, engine advancedMovement helpers, AudioManager, devLog
+ * Used by: PlayerController (physics tick)
+ */
 import { PHYSICS } from './constants';
 import type { TickContext } from './state';
 import { _playerPos, _fireDir, _reusableRay } from './scratch';

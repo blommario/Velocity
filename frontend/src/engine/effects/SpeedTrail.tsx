@@ -1,3 +1,8 @@
+/**
+ * Renders a trailing line behind the player that activates above a speed threshold, with color lerp from base to fast.
+ * Depends on: R3F useThree (scene) + useFrame, Three.js Line + LineBasicNodeMaterial
+ * Used by: Game HUD/effects layer to visualize high-speed movement (speedrunning feedback)
+ */
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { BufferGeometry, Float32BufferAttribute, LineBasicNodeMaterial, Line, AdditiveBlending, Color } from 'three/webgpu';

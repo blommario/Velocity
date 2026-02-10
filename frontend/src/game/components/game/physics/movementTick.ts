@@ -1,3 +1,8 @@
+/**
+ * Movement tick -- Quake-style ground/air acceleration, stance state machine (crouch/slide/prone), sub-stepped KCC collision, wall-run detection, and mantle logic.
+ * Depends on: engine useMovement/slopeDetection/useAdvancedMovement, gameStore, combatStore, AudioManager, PHYSICS constants
+ * Used by: PlayerController (physics tick)
+ */
 import { type Vector3 } from 'three';
 import { QueryFilterFlags } from '@dimforge/rapier3d-compat';
 import { PHYSICS } from './constants';

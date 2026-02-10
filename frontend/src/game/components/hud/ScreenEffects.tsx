@@ -1,3 +1,8 @@
+/**
+ * Game-specific screen effects wrapper — maps respawn fade and death flash opacity from gameStore into engine screen overlay layers.
+ * Depends on: EngineScreenEffects, gameStore
+ * Used by: HudOverlay
+ */
 import { useMemo } from 'react';
 import { ScreenEffects as EngineScreenEffects, type ScreenOverlay } from '@engine/hud';
 import { useGameStore } from '@game/stores/gameStore';

@@ -1,3 +1,8 @@
+/**
+ * Game-specific screen transition wrapper — reads the active screen from gameStore and passes it as a transition key to the engine ScreenTransition component.
+ * Depends on: EngineScreenTransition, gameStore
+ * Used by: App (wraps screen-level content for animated transitions)
+ */
 import { ScreenTransition as EngineScreenTransition } from '@engine/hud';
 import { useGameStore } from '@game/stores/gameStore';
 

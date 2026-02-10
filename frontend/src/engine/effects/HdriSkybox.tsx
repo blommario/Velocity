@@ -1,3 +1,8 @@
+/**
+ * Loads an HDRI environment map and applies it as both scene background and environment lighting via PMREMGenerator.
+ * Depends on: R3F useThree (scene, gl), PMREMGenerator, devLogStore
+ * Used by: Map rendering components that use HDRI-based skyboxes and image-based lighting
+ */
 import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { PMREMGenerator } from 'three/webgpu';

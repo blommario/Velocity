@@ -1,3 +1,4 @@
+/** Barrel exports and registry for official built-in maps. */
 import type { MapData } from '../types';
 import { FIRST_STEPS } from './firstSteps';
 import { SHOWCASE_MAP } from './showcaseMap';

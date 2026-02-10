@@ -1,3 +1,8 @@
+/**
+ * Game-specific dev tweaks panel — exposes speed and gravity multiplier sliders backed by settingsStore, using PHYSICS base values for display.
+ * Depends on: EngineDevTweaks, settingsStore, PHYSICS constants
+ * Used by: HudOverlay
+ */
 import { useMemo, useCallback } from 'react';
 import { DevTweaks as EngineDevTweaks, type DevSlider } from '@engine/hud';
 import { useSettingsStore } from '@game/stores/settingsStore';

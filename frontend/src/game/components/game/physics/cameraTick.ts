@@ -1,3 +1,8 @@
+/**
+ * Camera tick -- handles wall-run tilt, landing dip, stance-based eye offset, and HUD/replay/dev-log updates at throttled rates.
+ * Depends on: gameStore, combatStore, replayStore, devLogStore, PHYSICS constants
+ * Used by: PlayerController (physics tick)
+ */
 import { PHYSICS } from './constants';
 import type { TickContext } from './state';
 import { _newPos } from './scratch';

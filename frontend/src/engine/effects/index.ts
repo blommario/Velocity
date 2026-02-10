@@ -1,3 +1,4 @@
+/** Barrel exports for engine effects. */
 export { ExplosionManager, useExplosionStore } from './ExplosionEffect';
 export { GpuParticles } from './GpuParticles';
 export { GpuProjectiles, useGpuProjectileSlots, isGpuProjectilesReady, type GpuProjectileSlot, type GpuProjectilesConfig } from './GpuProjectiles';

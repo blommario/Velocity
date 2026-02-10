@@ -1,3 +1,8 @@
+/**
+ * Launch pad zone -- catapults the player in a given direction at a set speed on contact.
+ * Depends on: SensorZone, combatStore (pushZoneEvent), PHYSICS constants
+ * Used by: MapLoader, TestMap
+ */
 import { SensorZone } from '@engine/components';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '@game/stores/combatStore';

@@ -1,3 +1,8 @@
+/**
+ * Grapple point -- registers a hookable anchor in combatStore on mount and renders a glowing sphere with a ring indicator.
+ * Depends on: combatStore (registerGrapplePoint/unregisterGrapplePoint), @react-three/rapier
+ * Used by: MapLoader, TestMap
+ */
 import { useEffect } from 'react';
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useCombatStore } from '@game/stores/combatStore';

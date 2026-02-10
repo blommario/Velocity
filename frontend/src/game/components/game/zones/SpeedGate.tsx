@@ -1,3 +1,8 @@
+/**
+ * Speed gate zone -- multiplies the player's horizontal velocity on entry, with a minimum speed floor and particle effects.
+ * Depends on: SensorZone, GpuParticles, combatStore (pushZoneEvent), PHYSICS constants
+ * Used by: MapLoader, TestMap
+ */
 import { SensorZone } from '@engine/components';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '@game/stores/combatStore';

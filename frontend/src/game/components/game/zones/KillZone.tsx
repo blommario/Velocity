@@ -1,3 +1,8 @@
+/**
+ * Kill zone -- triggers a player respawn on contact. Optionally renders a visible red volume.
+ * Depends on: SensorZone, gameStore (requestRespawn)
+ * Used by: MapLoader, TestMap
+ */
 import { SensorZone } from '@engine/components';
 import { useGameStore } from '@game/stores/gameStore';
 

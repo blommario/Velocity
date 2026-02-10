@@ -1,3 +1,8 @@
+/**
+ * Renders an animated water or lava surface plane with layered sine-wave vertex displacement and FBM noise coloring.
+ * Depends on: Three.js TSL nodes, tslNoise (fbm2D), WaterSurfaceData type
+ * Used by: Map rendering components for water/lava surfaces placed via the map editor
+ */
 import { useMemo } from 'react';
 import {
   float, vec2, vec3, sin, positionLocal,

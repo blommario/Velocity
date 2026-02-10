@@ -1,3 +1,8 @@
+/**
+ * Root HUD overlay — composes all game HUD elements (crosshair, timer, speed, combat, effects, modals) into a single full-screen pointer-events-none layer.
+ * Depends on: All game HUD components, gameStore (runState)
+ * Used by: Game scene (rendered on top of the 3D canvas)
+ */
 import { SpeedMeter } from './SpeedMeter';
 import { Timer } from './Timer';
 import { Crosshair } from './Crosshair';

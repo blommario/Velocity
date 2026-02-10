@@ -1,3 +1,8 @@
+/**
+ * Physics tick state definitions -- mutable state struct (PhysicsTickState), refs interface, TickContext, and active-instance registry for the 128Hz physics loop.
+ * Depends on: engine scopeSway, engine recoil, @dimforge/rapier3d-compat, Three.js
+ * Used by: PlayerController, all physics tick modules (cameraTick, combatTick, movementTick, etc.)
+ */
 import { type MutableRefObject } from 'react';
 import { Vector3, type Camera } from 'three';
 import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';

@@ -1,3 +1,8 @@
+/**
+ * GPU-driven particle emitter using WebGPU compute shaders for physics simulation and SpriteNodeMaterial for rendering.
+ * Depends on: Three.js TSL (instancedArray, compute), settingsStore (particles toggle), particlePresets, devLogStore
+ * Used by: Map rendering components for placed emitter effects (rain, sparks, ash, dust, snow, trail)
+ */
 import { useRef, useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {

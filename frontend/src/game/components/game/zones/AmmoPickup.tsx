@@ -1,3 +1,8 @@
+/**
+ * Ammo pickup zone -- renders a color-coded box that grants ammo on contact and optionally respawns after a timer.
+ * Depends on: SensorZone, combatStore (pushZoneEvent)
+ * Used by: MapLoader, TestMap
+ */
 import { useState } from 'react';
 import { SensorZone } from '@engine/components';
 import type { WeaponType } from '../physics/types';

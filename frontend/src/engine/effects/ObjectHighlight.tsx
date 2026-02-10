@@ -1,3 +1,8 @@
+/**
+ * Spawns a burst of rising shimmer particles at a target position, useful for highlighting interactable objects or pickups.
+ * Depends on: R3F useThree (scene) + useFrame, Three.js Points + PointsNodeMaterial
+ * Used by: Game components that need visual feedback on object interaction (e.g. item pickups, checkpoints)
+ */
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {

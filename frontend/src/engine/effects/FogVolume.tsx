@@ -1,3 +1,8 @@
+/**
+ * Renders a localized volumetric fog region (box or sphere) with animated noise, edge falloff, and height-based density.
+ * Depends on: Three.js TSL nodes, tslNoise (valueNoise3D), FogVolumeData type
+ * Used by: Map rendering components for localized fog effects placed via the map editor
+ */
 import { useMemo } from 'react';
 import {
   float, vec3, positionWorld, positionLocal,

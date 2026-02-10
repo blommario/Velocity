@@ -1,3 +1,8 @@
+/**
+ * Boost pad zone -- applies a directional velocity boost to the player on contact, with particle effects.
+ * Depends on: SensorZone, GpuParticles, combatStore (pushZoneEvent), PHYSICS constants
+ * Used by: MapLoader, TestMap
+ */
 import { SensorZone } from '@engine/components';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '@game/stores/combatStore';

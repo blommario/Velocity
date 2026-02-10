@@ -1,3 +1,8 @@
+/**
+ * Game-specific crosshair wrapper — resolves per-weapon crosshair style, applies user settings overrides (color, size, style), and feeds ADS/recoil bloom to the engine crosshair.
+ * Depends on: EngineCrosshair, combatStore, settingsStore
+ * Used by: HudOverlay
+ */
 import { Crosshair as EngineCrosshair, type CrosshairConfig, type CrosshairType } from '@engine/hud';
 import { useCombatStore } from '@game/stores/combatStore';
 import { useSettingsStore, CROSSHAIR_STYLES, type CrosshairStyle } from '@game/stores/settingsStore';

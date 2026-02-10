@@ -1,3 +1,8 @@
+/**
+ * Kill feed display — shows recent kill notifications (killer, weapon icon, victim) with auto-expiry and fade-out. Exposes an imperative pushKillFeedItem API for the physics/network layer.
+ * Depends on: WeaponType (physics types)
+ * Used by: HudOverlay
+ */
 import { useEffect, useState } from 'react';
 import type { WeaponType } from '../../components/game/physics/types';
 

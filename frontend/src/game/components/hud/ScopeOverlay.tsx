@@ -1,3 +1,8 @@
+/**
+ * Game-specific scope overlay wrapper — reads ADS progress, sway, and breath-hold state from combatStore and renders the engine sniper scope overlay (only for the sniper weapon).
+ * Depends on: EngineScopeOverlay, combatStore, PHYSICS constants
+ * Used by: HudOverlay
+ */
 import { ScopeOverlay as EngineScopeOverlay } from '@engine/hud';
 import { useCombatStore } from '@game/stores/combatStore';
 import { PHYSICS } from '../game/physics/constants';

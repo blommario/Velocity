@@ -1,3 +1,8 @@
+/**
+ * Projectile tick -- advances rockets and grenades each physics frame, raycasts for collisions, triggers explosions/decals/knockback, and runs health regen.
+ * Depends on: projectilePool, combatStore, gameStore, Rapier raycasts, ExplosionEffect, DecalPool, AudioManager
+ * Used by: PlayerController (physics tick)
+ */
 import { PHYSICS } from './constants';
 import { WEAPONS } from './types';
 import type { TickContext } from './state';

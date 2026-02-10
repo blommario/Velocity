@@ -1,3 +1,8 @@
+/**
+ * Game-specific map type definitions -- re-exports engine map types and extends them with Velocity-specific fields (AmmoPickupData with WeaponType, fog-of-war config).
+ * Depends on: @engine/types/map, @engine/effects/FogOfWar, WeaponType
+ * Used by: MapLoader, official maps, editor, TestMap
+ */
 import type { WeaponType } from '../physics/types';
 
 import type {

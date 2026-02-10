@@ -1,3 +1,8 @@
+/**
+ * Respawn, mouse look, and weapon switch handlers -- resets player state on respawn, applies sensitivity-adjusted mouse look, and processes weapon slot/scroll changes.
+ * Depends on: gameStore, combatStore, engine recoil module, PHYSICS constants
+ * Used by: PlayerController (physics tick)
+ */
 import { PHYSICS } from './constants';
 import type { TickContext } from './state';
 import { _newPos } from './scratch';

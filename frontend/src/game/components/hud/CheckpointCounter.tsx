@@ -1,3 +1,8 @@
+/**
+ * Game-specific checkpoint counter — reads current/total checkpoint state from gameStore and passes it to the engine HUD primitive.
+ * Depends on: EngineCheckpointCounter, gameStore
+ * Used by: HudOverlay
+ */
 import { CheckpointCounter as EngineCheckpointCounter } from '@engine/hud';
 import { useGameStore } from '@game/stores/gameStore';
 

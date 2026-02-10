@@ -1,3 +1,8 @@
+/**
+ * Game-specific event feed — listens to checkpoint hits, run state changes, and damage events, then pushes formatted notifications to the engine EventFeed.
+ * Depends on: EngineEventFeed, pushFeedEvent, gameStore, combatStore
+ * Used by: HudOverlay
+ */
 import { useEffect, useRef } from 'react';
 import { EventFeed as EngineEventFeed, pushFeedEvent } from '@engine/hud';
 import { useGameStore } from '@game/stores/gameStore';

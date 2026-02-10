@@ -1,3 +1,8 @@
+/**
+ * Renders an animated beam/line between two dynamic 3D points with wave displacement and fade-out.
+ * Depends on: R3F useThree (scene) + useFrame, Three.js Line + LineBasicNodeMaterial
+ * Used by: Game effects that need visible lines between points (e.g. grapple beam, tether)
+ */
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
