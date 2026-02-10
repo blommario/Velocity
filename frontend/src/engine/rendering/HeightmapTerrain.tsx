@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { RigidBody, HeightfieldCollider } from '@react-three/rapier';
-import { createHeightmapGeometry } from '../../../engine/rendering/heightmapGeometry';
-import type { HeightmapTerrainData } from './types';
+import { createHeightmapGeometry } from './heightmapGeometry';
+import type { HeightmapTerrainData } from '../types/map';
 
 const DEFAULTS = {
   color: '#5a7a3a',
@@ -25,7 +25,7 @@ function toColumnMajorHeights(heights: number[][]): Float32Array {
   return flat;
 }
 
-interface HeightmapTerrainProps {
+export interface HeightmapTerrainProps {
   data: HeightmapTerrainData;
 }
 

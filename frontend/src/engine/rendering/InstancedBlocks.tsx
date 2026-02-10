@@ -1,13 +1,13 @@
 import { useRef, useMemo, useState } from 'react';
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier';
-import type { LightsNode } from 'three/webgpu';
+import type { LightsNode, MeshStandardNodeMaterial } from 'three/webgpu';
+import type { UniformNode } from 'three/tsl';
 import { useFrame } from '@react-three/fiber';
-import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
-import { batchStaticColliders } from '../../../engine/physics/colliderBatch';
-import { useSpatialCulling } from '../../../engine/rendering/useSpatialCulling';
-import { splitByLod, LOD_GEOMETRY, LOD_THRESHOLDS } from '../../../engine/rendering/LodManager';
-import type { TileLightingNode } from '../../../engine/rendering/tileLightingNode';
-import type { MapBlock } from './types';
+import { batchStaticColliders } from '../physics/colliderBatch';
+import { useSpatialCulling } from './useSpatialCulling';
+import { splitByLod, LOD_GEOMETRY, LOD_THRESHOLDS } from './LodManager';
+import type { TileLightingNode } from './tileLightingNode';
+import type { MapBlock } from '../types/map';
 import { useInstanceMatrix, getGeometry, useLightingBinding } from './blockUtils';
 import type { BlockGroup, BlockGroupProps } from './blockUtils';
 import { ProceduralBlockGroup } from './ProceduralBlockGroup';
@@ -23,6 +23,32 @@ const CULLING_CONFIG = {
 } as const;
 
 const LOD_UPDATE_INTERVAL = 0.25;
+
+// ── Textured material hook interface (injected by game layer) ──
+
+export interface TexturedMaterialOptions {
+  textureSet: string;
+  repeatX?: number;
+  repeatY?: number;
+  color?: string;
+  emissive?: string;
+  emissiveIntensity?: number;
+  roughnessOverride?: number;
+  metalnessOverride?: number;
+  emissiveAnimation?: string;
+  emissiveAnimationSpeed?: number;
+  blendTextureSet?: string;
+  blendMode?: string;
+  blendHeight?: number;
+  blendSharpness?: number;
+}
+
+export interface TexturedMaterialResult {
+  material: MeshStandardNodeMaterial;
+  timeUniform: UniformNode<number> | null;
+}
+
+export type UseTexturedMaterialHook = (options: TexturedMaterialOptions | null) => TexturedMaterialResult | null;
 
 // ── Block grouping ──
 
@@ -83,7 +109,11 @@ function groupBlocks(blocks: MapBlock[]): BlockGroup[] {
 
 // ── Visual block group renderers ──
 
-function TexturedBlockGroup({ group, cylinderSegments, lightsNode, tileLightingNode }: BlockGroupProps) {
+interface TexturedBlockGroupProps extends BlockGroupProps {
+  useTexturedMaterial: UseTexturedMaterialHook;
+}
+
+function TexturedBlockGroup({ group, cylinderSegments, lightsNode, tileLightingNode, useTexturedMaterial }: TexturedBlockGroupProps) {
   const meshRef = useInstanceMatrix(group.blocks);
   const scale = group.textureScale ?? [1, 1];
   const geometry = getGeometry(group.shape, cylinderSegments);
@@ -149,15 +179,16 @@ function FlatBlockGroup({ group, cylinderSegments, lightsNode, tileLightingNode 
 function renderGroups(
   groups: BlockGroup[],
   cylinderSegments: number,
-  lightsNode?: LightsNode,
-  tileLightingNode?: TileLightingNode,
+  lightsNode: LightsNode | undefined,
+  tileLightingNode: TileLightingNode | undefined,
+  useTexturedMaterial?: UseTexturedMaterialHook,
 ) {
   return groups.map((group) => {
     if (group.proceduralMaterial) {
       return <ProceduralBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} tileLightingNode={tileLightingNode} />;
     }
-    if (group.textureSet) {
-      return <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} tileLightingNode={tileLightingNode} />;
+    if (group.textureSet && useTexturedMaterial) {
+      return <TexturedBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} tileLightingNode={tileLightingNode} useTexturedMaterial={useTexturedMaterial} />;
     }
     return <FlatBlockGroup key={group.key} group={group} cylinderSegments={cylinderSegments} lightsNode={lightsNode} tileLightingNode={tileLightingNode} />;
   });
@@ -165,13 +196,15 @@ function renderGroups(
 
 // ── Main component ──
 
-interface InstancedBlocksProps {
+export interface InstancedBlocksProps {
   blocks: MapBlock[];
   lightsNode?: LightsNode;
   tileLightingNode?: TileLightingNode;
+  /** Inject textured material hook from game layer (optional — flat materials used if omitted) */
+  useTexturedMaterial?: UseTexturedMaterialHook;
 }
 
-export function InstancedBlocks({ blocks, lightsNode, tileLightingNode }: InstancedBlocksProps) {
+export function InstancedBlocks({ blocks, lightsNode, tileLightingNode, useTexturedMaterial }: InstancedBlocksProps) {
   const useLod = blocks.length >= CULLING_THRESHOLD;
   const { grid, activeCells } = useSpatialCulling<number>(
     useLod ? CULLING_CONFIG : { viewRadius: Infinity, cellSize: CULLING_CONFIG.cellSize },
@@ -218,8 +251,8 @@ export function InstancedBlocks({ blocks, lightsNode, tileLightingNode }: Instan
 
   return (
     <group>
-      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL, lightsNode, tileLightingNode)}
-      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE, lightsNode, tileLightingNode)}
+      {renderGroups(nearGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_FULL, lightsNode, tileLightingNode, useTexturedMaterial)}
+      {renderGroups(farGroups, LOD_GEOMETRY.CYLINDER_SEGMENTS_SIMPLE, lightsNode, tileLightingNode, useTexturedMaterial)}
       {colliderGroups.map((group, gi) => (
         <RigidBody key={`${group.shape}-${gi}`} type="fixed" colliders={false}>
           {group.colliders.map((col, i) =>

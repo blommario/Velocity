@@ -2,19 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import type { Group } from 'three/webgpu';
-import { loadModel } from '../../../services/assetManager';
-import { distanceSqXZ, LOD_THRESHOLDS } from '../../../engine/rendering/LodManager';
-import { devLog } from '../../../engine/stores/devLogStore';
-import type { MapModel } from './types';
+import { distanceSqXZ, LOD_THRESHOLDS } from './LodManager';
+import { devLog } from '../stores/devLogStore';
+import type { MapModel } from '../types/map';
 
 /** How often to check distance for LOD visibility (seconds) */
 const LOD_CHECK_INTERVAL = 0.5;
 
-interface ModelBlockProps {
+/** Model loader function signature — injected from game layer */
+export type LoadModelFn = (url: string) => Promise<Group>;
+
+export interface ModelBlockProps {
   model: MapModel;
+  /** Inject model loader from game layer */
+  loadModel: LoadModelFn;
 }
 
-export function ModelBlock({ model }: ModelBlockProps) {
+export function ModelBlock({ model, loadModel }: ModelBlockProps) {
   const [scene, setScene] = useState<Group | null>(null);
   const [visible, setVisible] = useState(true);
   const groupRef = useRef<Group>(null);
@@ -39,7 +43,7 @@ export function ModelBlock({ model }: ModelBlockProps) {
       // Geometry/material dispose handled centrally by clearAssetCache() on map change.
       // Clone shares buffers with cached original — disposing here would corrupt the cache.
     };
-  }, [model.modelUrl, invalidate]);
+  }, [model.modelUrl, invalidate, loadModel]);
 
   // Distance-based visibility at ~2Hz
   useFrame(({ camera }, delta) => {

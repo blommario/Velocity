@@ -61,3 +61,16 @@ export {
   createBlendFactorNode, blendPbrNodes,
   type TextureBlendConfig, type PbrNodes,
 } from './textureBlendNode';
+export {
+  useInstanceMatrix, getGeometry, useLightingBinding,
+  type BlockGroup, type BlockGroupProps,
+} from './blockUtils';
+export { ProceduralBlockGroup } from './ProceduralBlockGroup';
+export {
+  InstancedBlocks,
+  type InstancedBlocksProps, type UseTexturedMaterialHook,
+  type TexturedMaterialOptions, type TexturedMaterialResult,
+} from './InstancedBlocks';
+export { InstancedSurfRamps, type InstancedSurfRampsProps } from './InstancedSurfRamps';
+export { HeightmapTerrain, type HeightmapTerrainProps } from './HeightmapTerrain';
+export { ModelBlock, type ModelBlockProps, type LoadModelFn } from './ModelBlock';

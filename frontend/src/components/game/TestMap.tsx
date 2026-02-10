@@ -13,7 +13,7 @@ import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
 import { AtmosphericFog } from '../../engine/effects/AtmosphericFog';
 import { ProceduralSkybox } from '../../engine/effects/ProceduralSkybox';
-import { InstancedBlocks } from './map/InstancedBlocks';
+import { InstancedBlocks } from '../../engine/rendering';
 import { GpuLightSprites } from '../../engine/effects/GpuLightSprites';
 import { useShadowLight } from '../../engine/rendering';
 import { WaterSurface } from '../../engine/effects/WaterSurface';

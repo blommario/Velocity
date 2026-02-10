@@ -73,15 +73,15 @@
 
 ### E6 — Cleanup & Map Renderers
 *Ta bort deprecated kod. Flytta generiska map-renderers.*
-- 🔲 Ta bort `DynamicPointLights.tsx` (deprecated, ersatt av GpuLightSprites)
-- 🔲 `InstancedBlocks.tsx` → `engine/rendering/` (generisk instanced block-renderer med culling+LOD)
-- 🔲 `InstancedSurfRamps.tsx` → `engine/rendering/` (generisk instanced ramp-renderer)
-- 🔲 `HeightmapTerrain.tsx` → `engine/rendering/` (generisk heightmap terrain-renderer)
-- 🔲 `ModelBlock.tsx` → `engine/rendering/` (generisk glTF model-placering)
-- 🔲 `ProceduralBlockGroup.tsx` → `engine/rendering/` (generisk procedural geometry-grupp)
-- 🔲 `blockUtils.ts` → `engine/rendering/` (material/physics setup-helpers)
-- 🔲 `RtsCameraController.tsx` → ta bort eller flytta till `engine/input/` (tunn wrapper runt useRtsCamera)
-- 🔲 Barrel exports från `engine/effects/index.ts` och `engine/rendering/index.ts`
+- ✅ Ta bort `DynamicPointLights.tsx` (deprecated, ersatt av GpuLightSprites)
+- ✅ `InstancedBlocks.tsx` → `engine/rendering/` (generisk instanced block-renderer med culling+LOD)
+- ✅ `InstancedSurfRamps.tsx` → `engine/rendering/` (generisk instanced ramp-renderer)
+- ✅ `HeightmapTerrain.tsx` → `engine/rendering/` (generisk heightmap terrain-renderer)
+- ✅ `ModelBlock.tsx` → `engine/rendering/` (generisk glTF model-placering)
+- ✅ `ProceduralBlockGroup.tsx` → `engine/rendering/` (generisk procedural geometry-grupp)
+- ✅ `blockUtils.ts` → `engine/rendering/` (material/physics setup-helpers)
+- ✅ `RtsCameraController.tsx` → flytta till `engine/input/` (tunn wrapper runt useRtsCamera)
+- ✅ Barrel exports från `engine/effects/index.ts` och `engine/rendering/index.ts`
 
 ---
 
@@ -121,7 +121,7 @@ Fas E (Engine Refaktorisering)
 ├── E3 SensorZone → engine/components/ (9 zoner + bas)
 ├── E4 Konfigurerbar Effects           (4 filer)
 ├── E5 Rendering & Environment         (10 filer → engine/effects/)
-├── E6 Cleanup & Map Renderers         (8 filer + 1 deprecated bort)
+├── E6 Cleanup & Map Renderers         ✅ (8 filer + 1 deprecated bort)
 
 Fas R (Banor)
 ├── R3 Editor v2

@@ -1,16 +1,16 @@
 /**
  * blockUtils.ts — Shared utilities for instanced block rendering.
  *
- * Extracted to avoid circular dependency between InstancedBlocks ↔ ProceduralBlockGroup.
+ * Extracted to avoid circular dependency between InstancedBlocks <-> ProceduralBlockGroup.
  */
 
 import { useEffect, useRef, useMemo } from 'react';
 import { Object3D, InstancedMesh, Euler, BoxGeometry, CylinderGeometry } from 'three';
 import type { LightsNode, MeshStandardMaterial } from 'three/webgpu';
-import { LOD_GEOMETRY } from '../../../engine/rendering/LodManager';
-import { applyTileLighting, removeTileLighting } from '../../../engine/rendering/lightMaterial';
-import type { TileLightingNode } from '../../../engine/rendering/tileLightingNode';
-import type { MapBlock, ProceduralMaterialType, EmissiveAnimation, BlendMode } from '../../../engine/types/map';
+import { LOD_GEOMETRY } from './LodManager';
+import { applyTileLighting, removeTileLighting } from './lightMaterial';
+import type { TileLightingNode } from './tileLightingNode';
+import type { MapBlock, ProceduralMaterialType, EmissiveAnimation, BlendMode } from '../types/map';
 
 // ── Block grouping interface ──
 

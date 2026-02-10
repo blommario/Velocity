@@ -4,10 +4,10 @@
  * Reads settings from settingsStore and passes them as config.
  * Mount this component when camera mode is 'rts'; unmount for FPS mode.
  */
-import { useRtsCamera, type RtsCameraConfig } from '../../engine/input/useRtsCamera';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useRtsCamera, type RtsCameraConfig } from './useRtsCamera';
+import { useSettingsStore } from '../stores/settingsStore';
 
-interface RtsCameraControllerProps {
+export interface RtsCameraControllerProps {
   /** Override any RtsCameraConfig fields */
   config?: Partial<RtsCameraConfig>;
 }

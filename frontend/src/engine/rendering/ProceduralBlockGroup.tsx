@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { createProceduralMaterial } from '../../../engine/rendering/proceduralMaterials';
-import type { ProceduralMaterialConfig } from '../../../engine/rendering/proceduralMaterials';
+import { createProceduralMaterial } from './proceduralMaterials';
+import type { ProceduralMaterialConfig } from './proceduralMaterials';
 import { useInstanceMatrix, getGeometry, useLightingBinding } from './blockUtils';
 import type { BlockGroupProps } from './blockUtils';
 

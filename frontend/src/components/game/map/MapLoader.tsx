@@ -15,21 +15,21 @@ import { AtmosphericFog } from '../../../engine/effects/AtmosphericFog';
 import { ProceduralSkybox } from '../../../engine/effects/ProceduralSkybox';
 import { HdriSkybox } from '../../../engine/effects/HdriSkybox';
 import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
-import { useClusteredLighting, useTileClusteredLighting, useShadowLight, type LightData } from '../../../engine/rendering';
-import { InstancedBlocks } from './InstancedBlocks';
-import { InstancedSurfRamps } from './InstancedSurfRamps';
-import { ModelBlock } from './ModelBlock';
+import {
+  useClusteredLighting, useTileClusteredLighting, useShadowLight, type LightData,
+  InstancedBlocks, InstancedSurfRamps, ModelBlock, HeightmapTerrain,
+} from '../../../engine/rendering';
 import { WaterSurface } from '../../../engine/effects/WaterSurface';
 import { FogVolume } from '../../../engine/effects/FogVolume';
 import { ParticleEmitter } from '../../../engine/effects/ParticleEmitter';
-import { HeightmapTerrain } from './HeightmapTerrain';
+import { useTexturedMaterial } from '../../../hooks/useTexturedMaterial';
 import { useGameStore } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
 import { resetPool } from '../physics/projectilePool';
 import { resetPhysicsTickState } from '../physics/usePhysicsTick';
-import { clearAssetCache, loadHDRI } from '../../../services/assetManager';
+import { clearAssetCache, loadHDRI, loadModel } from '../../../services/assetManager';
 import type { MapData, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {
@@ -143,11 +143,12 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
         blocks={data.blocks}
         lightsNode={hasLights && !isTileClustered ? lightsNode : undefined}
         tileLightingNode={hasLights && isTileClustered && tileLightingNode ? tileLightingNode : undefined}
+        useTexturedMaterial={useTexturedMaterial}
       />
 
       {/* glTF models */}
       {data.models?.map((model, i) => (
-        <ModelBlock key={`model-${i}`} model={model} />
+        <ModelBlock key={`model-${i}`} model={model} loadModel={loadModel} />
       ))}
 
       {/* Start zone at spawn */}

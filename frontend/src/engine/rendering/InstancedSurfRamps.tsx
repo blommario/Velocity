@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import { Object3D, InstancedMesh, Euler, BoxGeometry } from 'three';
-import type { SurfRampData, Vec3 } from './types';
+import type { SurfRampData, Vec3 } from '../types/map';
 
 const DEFAULT_RAMP_COLOR = '#6688aa';
 
@@ -65,7 +65,7 @@ function InstancedRampGroup({ group }: { group: RampGroup }) {
   );
 }
 
-interface InstancedSurfRampsProps {
+export interface InstancedSurfRampsProps {
   ramps: SurfRampData[];
 }
 
