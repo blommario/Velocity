@@ -101,6 +101,13 @@ interface CombatState {
   lastHeadshotTime: number;
   lastCriticalHitTime: number;
 
+  // Killstreak & multikill tracking
+  killStreak: number;           // consecutive kills without dying
+  lastKillTime: number;         // for multikill window (performance.now())
+  multiKillCount: number;       // kills within MULTIKILL_WINDOW (resets after window)
+  consecutiveHits: number;      // consecutive hits (resets on miss/timeout)
+  lastHitTime: number;          // for hit pitch scaling
+
   // Actions
   takeDamage: (amount: number) => void;
   heal: (amount: number) => void;
@@ -128,6 +135,8 @@ interface CombatState {
 
   // Hitbox
   registerHit: (zone: HitboxZone, baseDamage: number, entityId: string) => number;
+  registerKill: () => void;
+  registerHitConnect: () => void;   // called on every hit that connects (for pitch scaling)
 
   // Grapple
   startGrapple: (target: [number, number, number], length: number) => void;
@@ -190,13 +199,27 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   lastHeadshotTime: 0,
   lastCriticalHitTime: 0,
 
+  killStreak: 0,
+  lastKillTime: 0,
+  multiKillCount: 0,
+  consecutiveHits: 0,
+  lastHitTime: 0,
+
   takeDamage: (amount) => {
     const state = get();
     _regenHealth = -1;  // reset accumulator on damage
-    set({
-      health: Math.max(0, state.health - amount),
+    const newHealth = Math.max(0, state.health - amount);
+    const updates: Partial<CombatState> = {
+      health: newHealth,
       lastDamageTime: performance.now(),
-    });
+    };
+    // Reset killstreak on death
+    if (newHealth <= 0) {
+      updates.killStreak = 0;
+      updates.multiKillCount = 0;
+      updates.consecutiveHits = 0;
+    }
+    set(updates);
   },
 
   heal: (amount) => {
@@ -411,6 +434,30 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return finalDamage;
   },
 
+  registerKill: () => {
+    const now = performance.now();
+    const state = get();
+    const MULTIKILL_WINDOW = 3000; // 3s window for multikill detection
+    const withinWindow = (now - state.lastKillTime) < MULTIKILL_WINDOW;
+    const newMulti = withinWindow ? state.multiKillCount + 1 : 1;
+    set({
+      killStreak: state.killStreak + 1,
+      lastKillTime: now,
+      multiKillCount: newMulti,
+    });
+  },
+
+  registerHitConnect: () => {
+    const now = performance.now();
+    const state = get();
+    const HIT_CHAIN_TIMEOUT = 2000; // 2s timeout for consecutive hit chain
+    const withinChain = (now - state.lastHitTime) < HIT_CHAIN_TIMEOUT;
+    set({
+      consecutiveHits: withinChain ? state.consecutiveHits + 1 : 1,
+      lastHitTime: now,
+    });
+  },
+
   openWeaponWheel: () => set({ weaponWheelOpen: true }),
   closeWeaponWheel: () => set({ weaponWheelOpen: false }),
   quickSwitch: () => {
@@ -491,6 +538,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       headshotStreak: 0,
       lastHeadshotTime: 0,
       lastCriticalHitTime: 0,
+      killStreak: 0,
+      lastKillTime: 0,
+      multiKillCount: 0,
+      consecutiveHits: 0,
+      lastHitTime: 0,
     });
   },
 }));

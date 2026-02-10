@@ -8,6 +8,7 @@ import { WEAPONS } from './types';
 import type { TickContext } from './state';
 import { _playerPos, _fireDir, _reusableRay } from './scratch';
 import { useCombatStore } from '@game/stores/combatStore';
+import { useGameStore } from '@game/stores/gameStore';
 import { audioManager, SOUNDS } from '@engine/audio/AudioManager';
 import { nextRandom } from '@engine/physics/seededRandom';
 import { applyRecoilKick, getSpreadMultiplier } from '@engine/physics/recoil';
@@ -42,7 +43,17 @@ function processHitscanHit(
     const combat = useCombatStore.getState();
     const finalDamage = combat.registerHit(hitbox.zone, baseDamage, hitbox.entityId);
     const isHeadshot = hitbox.zone === 'head';
-    pushHitMarker(false, isHeadshot);
+
+    // V9: register hit connect (for pitch-scaling) and kill (dummy targets = instant kill)
+    combat.registerHitConnect();
+    combat.registerKill();
+
+    // V9: subtle screen shake on kill, scales with killstreak
+    const streak = combat.killStreak;
+    const killShake = Math.min(0.1 + streak * 0.02, 0.4);
+    useGameStore.getState().triggerShake(isHeadshot ? killShake * 1.5 : killShake);
+
+    pushHitMarker(true, isHeadshot);
     if (isHeadshot) {
       audioManager.play(SOUNDS.HEADSHOT, 0.05);
     }
@@ -203,6 +214,7 @@ export function handleWeaponFire(ctx: TickContext): void {
             if (hitbox) {
               const pelletCombat = useCombatStore.getState();
               pelletCombat.registerHit(hitbox.zone, PHYSICS.SHOTGUN_DAMAGE_PER_PELLET, hitbox.entityId);
+              pelletCombat.registerHitConnect();
               spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, IMPACT.MEDIUM);
               // Track best zone hit (head > torso > limb)
               if (hitbox.zone === 'head') bestHitboxZone = 'head';
@@ -219,8 +231,10 @@ export function handleWeaponFire(ctx: TickContext): void {
         // Single hitmarker for shotgun blast — uses best zone hit
         if (bestHitboxZone) {
           const isHeadshot = bestHitboxZone === 'head';
-          pushHitMarker(false, isHeadshot);
+          pushHitMarker(true, isHeadshot);
           if (isHeadshot) audioManager.play(SOUNDS.HEADSHOT, 0.05);
+          // V9: register kill for shotgun (dummy targets = instant kill per blast)
+          useCombatStore.getState().registerKill();
         } else {
           pushHitMarker();
         }

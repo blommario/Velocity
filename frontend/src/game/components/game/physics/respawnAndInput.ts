@@ -70,6 +70,9 @@ export function handleRespawn(
     camera.rotation.order = 'YXZ';
     camera.rotation.y = refs.yaw.current;
     camera.rotation.x = refs.pitch.current;
+    // Drain impulse inputs so they don't fire after grace ends
+    input.weaponSlot = 0;
+    input.scrollDelta = 0;
     return true;
   }
 

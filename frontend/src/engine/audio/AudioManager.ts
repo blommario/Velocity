@@ -49,6 +49,10 @@ export const SOUNDS = {
   RELOAD_START: 'reload_start',
   RELOAD_FINISH: 'reload_finish',
 
+  // Killstreak / combat feedback
+  MULTIKILL: 'multikill',
+  KILLSTREAK: 'killstreak',
+
   // UI
   UI_CLICK: 'ui_click',
   UI_HOVER: 'ui_hover',
@@ -90,6 +94,8 @@ const SOUND_CATEGORIES: Record<SoundId, 'sfx' | 'music' | 'ambient'> = {
   [SOUNDS.WALL_IMPACT]: 'sfx',
   [SOUNDS.RELOAD_START]: 'sfx',
   [SOUNDS.RELOAD_FINISH]: 'sfx',
+  [SOUNDS.MULTIKILL]: 'sfx',
+  [SOUNDS.KILLSTREAK]: 'sfx',
   [SOUNDS.UI_CLICK]: 'sfx',
   [SOUNDS.UI_HOVER]: 'sfx',
 };
@@ -136,6 +142,8 @@ const SYNTH_CONFIGS: Partial<Record<SoundId, SynthConfig>> = {
   [SOUNDS.WALL_IMPACT]: { frequency: 400, type: 'sawtooth', duration: 0.08, gain: 0.12, decay: 0.06, filterFreq: 800 },
   [SOUNDS.RELOAD_START]: { frequency: 300, type: 'square', duration: 0.12, gain: 0.2, filterFreq: 600 },
   [SOUNDS.RELOAD_FINISH]: { frequency: 500, type: 'triangle', duration: 0.1, gain: 0.25, filterFreq: 1000 },
+  [SOUNDS.MULTIKILL]: { frequency: 1000, type: 'sine', duration: 0.25, gain: 0.35, decay: 0.2 },
+  [SOUNDS.KILLSTREAK]: { frequency: 1400, type: 'sine', duration: 0.3, gain: 0.3, decay: 0.25 },
   [SOUNDS.UI_CLICK]: { frequency: 1400, type: 'sine', duration: 0.04, gain: 0.1 },
   [SOUNDS.UI_HOVER]: { frequency: 1800, type: 'sine', duration: 0.02, gain: 0.05 },
 };
@@ -263,6 +271,61 @@ class AudioManager {
     source.connect(gain);
     gain.connect(this.masterGain!);
     source.start();
+  }
+
+  /** Play a sound with an explicit pitch multiplier (1.0 = normal). */
+  playAtPitch(soundId: SoundId, pitchMult: number): void {
+    const settings = useSettingsStore.getState();
+    const category = SOUND_CATEGORIES[soundId];
+    const categoryVolume = category === 'sfx' ? settings.sfxVolume
+      : category === 'music' ? settings.musicVolume
+      : settings.ambientVolume;
+    const volume = settings.masterVolume * categoryVolume;
+    if (volume <= 0) return;
+
+    // Try preloaded audio buffer first — use playbackRate for pitch
+    const buffer = this.audioBuffers.get(soundId);
+    if (buffer) {
+      const ctx = this.getContext();
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.playbackRate.value = pitchMult;
+      const gain = ctx.createGain();
+      gain.gain.value = volume;
+      source.connect(gain);
+      gain.connect(this.masterGain!);
+      source.start();
+      return;
+    }
+
+    // Fall back to synth
+    const config = SYNTH_CONFIGS[soundId];
+    if (!config) return;
+
+    const ctx = this.getContext();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = config.type;
+    osc.frequency.setValueAtTime(config.frequency * pitchMult, now);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(config.gain * volume, now);
+    if (config.decay) {
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (config.decay ?? config.duration));
+    } else {
+      gain.gain.linearRampToValueAtTime(0, now + config.duration);
+    }
+    if (config.filterFreq) {
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(config.filterFreq * pitchMult, now);
+      osc.connect(filter);
+      filter.connect(gain);
+    } else {
+      osc.connect(gain);
+    }
+    gain.connect(this.masterGain!);
+    osc.start(now);
+    osc.stop(now + config.duration + 0.05);
   }
 
   /** Play footstep based on surface material */

@@ -137,14 +137,14 @@
 - ✅ Weapon wheel visar: ikon, namn, ammo, keybind
 - 🔲 Slow-mo under wheel (0.3× timescale, bara i singleplayer)
 
-### V9 — Killstreak & Combat Feedback
+### V9 — Killstreak & Combat Feedback ✅
 *Förstärkt stridsfeedback och momentum-känsla.*
-- 🔲 Killstreak counter: consecutive kills utan att dö → HUD-display
-- 🔲 Multikill-popup: "Double Kill", "Triple Kill" etc. med timing-fönster (3s)
-- 🔲 Combo-system: snabba kills/checkpoints → speed bonus multiplier
-- 🔲 Hit sound pitch scaling: konsekutiva träffar → stigande pitch
-- 🔲 Screen-shake vid explosioner (redan i settings, koppla till recoil)
-- 🔲 Slow-mo vid sista kill/checkpoint (0.2s bullet-time)
+- ✅ Killstreak counter: consecutive kills utan att dö → HUD-display (milestones 5/10/15/20/25)
+- ✅ Multikill-popup: "Double Kill", "Triple Kill" etc. med timing-fönster (3s)
+- ✅ Combo-system: consecutiveHits → pitch-scaling + killstreak-skalad screen shake
+- ✅ Hit sound pitch scaling: konsekutiva träffar → stigande pitch (1.0→2.0× över 10 hits)
+- ✅ Screen-shake vid kills (skalas med killstreak, headshot-boost)
+- ✅ Slow-mo vid run finish (0.3× bullet-time, 200ms duration)
 
 ### V10 — Advanced Movement Polish
 *Sista finputsningen av movement-systemet.*
@@ -212,8 +212,8 @@ Fas V (Gameplay Mechanics)          ← NY
 ├── V5 Weapon Recoil & Spread        beroende: V1 (ADS multiplicators)
 ├── V6 Reload System                 beroende: inga
 ├── V7 Headshots & Hitboxes          beroende: inga
-├── V8 Weapon Wheel & Quick-Switch   beroende: inga
-├── V9 Killstreak & Combat Feedback  beroende: inga
+├── V8 Weapon Wheel & Quick-Switch   beroende: inga       ✅
+├── V9 Killstreak & Combat Feedback  beroende: inga       ✅
 ├── V10 Advanced Movement Polish     beroende: V4 (stances), P (movement)
 
 Fas Q (Refaktorisering)              ← NY

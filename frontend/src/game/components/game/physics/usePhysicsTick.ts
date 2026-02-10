@@ -2,6 +2,7 @@ import { type Camera } from 'three';
 import { PHYSICS } from './constants';
 import { getWishDir } from '@engine/physics/useMovement';
 import { useSettingsStore } from '@game/stores/settingsStore';
+import { useGameStore } from '@game/stores/gameStore';
 import { createScopeSwayState } from '@engine/physics/scopeSway';
 import type { RecoilState } from '@engine/physics/recoil';
 import { _playerPos, _fireDir } from './scratch';
@@ -36,6 +37,13 @@ export function physicsTick(
   if (!rb || !collider || !controller) return;
 
   const settings = useSettingsStore.getState();
+  const gameState = useGameStore.getState();
+
+  // V9: apply bullet-time slow-mo to physics dt
+  const timeScale = gameState.timeScale;
+  const scaledDt = PHYSICS.TICK_DELTA * timeScale;
+  gameState.tickBulletTime();
+
   const ctx = {
     s: state,
     swayState,
@@ -48,7 +56,7 @@ export function physicsTick(
     controller,
     input: refs.input.current,
     velocity: refs.velocity.current,
-    dt: PHYSICS.TICK_DELTA,
+    dt: scaledDt,
     speedMult: settings.devSpeedMultiplier,
     gravMult: settings.devGravityMultiplier,
     sensitivity: settings.sensitivity,

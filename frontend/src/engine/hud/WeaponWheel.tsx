@@ -90,10 +90,13 @@ export function WeaponWheel({
   // Memoize SVG geometry — only recompute when slot count changes
   const geometry = useMemo(() => buildSliceGeometry(slots.length), [slots.length]);
 
-  // Reset hovered index when wheel opens
+  // Init hovered index to active weapon when wheel opens (avoids dead-zone dismiss on center click)
   useEffect(() => {
-    if (open) setHoveredIdx(-1);
-  }, [open]);
+    if (open) {
+      const activeIdx = slots.findIndex((s) => s.id === activeWeaponId);
+      setHoveredIdx(activeIdx >= 0 ? activeIdx : 0);
+    }
+  }, [open, slots, activeWeaponId]);
 
   // O(1) angle-based index lookup with sticky selection (center keeps last pick)
   const handleMouseMove = useCallback((e: React.MouseEvent) => {

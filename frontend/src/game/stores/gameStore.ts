@@ -98,6 +98,10 @@ interface GameState {
   activeSplitPopup: SplitPopupData | null;
   pbSplitTimes: SplitTime[]; // personal best splits for comparison
 
+  // Bullet-time slow-mo
+  timeScale: number;            // 1.0 = normal, <1.0 = slow-mo
+  bulletTimeEnd: number;        // performance.now() when bullet-time expires
+
   // Screen shake
   shakeIntensity: number;
 
@@ -130,6 +134,10 @@ interface GameState {
 
   // Stats
   recordJump: () => void;
+
+  // Bullet-time
+  triggerBulletTime: (scale: number, durationMs: number) => void;
+  tickBulletTime: () => void;
 
   // Screen shake
   triggerShake: (intensity: number) => void;
@@ -176,6 +184,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   activeSplitPopup: null,
   pbSplitTimes: [],
+
+  timeScale: 1.0,
+  bulletTimeEnd: 0,
 
   shakeIntensity: 0,
   respawnFadeOpacity: 0,
@@ -320,6 +331,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       elapsedMs: finalTime,
       activeSplitPopup: null,
       pbSplitTimes: isPb ? newSplits : state.pbSplitTimes,
+      // V9: brief bullet-time on finish (0.3× for 200ms)
+      timeScale: 0.3,
+      bulletTimeEnd: performance.now() + 200,
     });
   },
 
@@ -339,6 +353,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       speedSamples: 0,
       speedSum: 0,
       activeSplitPopup: null,
+      timeScale: 1.0,
+      bulletTimeEnd: 0,
     });
   },
 
@@ -368,6 +384,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       stats: { ...state.stats, totalJumps: state.stats.totalJumps + 1 },
     });
+  },
+
+  triggerBulletTime: (scale, durationMs) => set({
+    timeScale: scale,
+    bulletTimeEnd: performance.now() + durationMs,
+  }),
+
+  tickBulletTime: () => {
+    const state = get();
+    if (state.timeScale < 1 && performance.now() >= state.bulletTimeEnd) {
+      set({ timeScale: 1.0 });
+    }
   },
 
   triggerShake: (intensity) => set({ shakeIntensity: Math.min(intensity, 1) }),

@@ -57,3 +57,6 @@ export type { CriticalHitFlashProps } from './CriticalHitFlash';
 
 export { WeaponWheel } from './WeaponWheel';
 export type { WeaponWheelProps, WeaponWheelSlot } from './WeaponWheel';
+
+export { KillstreakPopup } from './KillstreakPopup';
+export type { KillstreakPopupProps, MultikillEvent } from './KillstreakPopup';
