@@ -1,18 +1,19 @@
 /**
  * First-person weapon viewmodel.
  *
- * Renders a procedurally animated weapon shape in the ViewmodelLayer
- * (separate scene with its own camera). Reads from game stores to drive
- * animation state (velocity, firing, weapon switching).
+ * Updated logic: Weapon is anchored at the stock (Point A) and looks at crosshair (Point B).
  *
- * MuzzleFlash is rendered inside the ViewmodelLayer so flash coordinates
- * are in viewmodel-local space (not world space).
+ * Pivot principle:
+ * - Point A (anchor/stock) sits at bottom-center of viewport
+ * - The 3D model is offset forward (-Z) inside the group so group origin = stock
+ * - Point B (crosshair) is at (0, 0, -FOCAL_DIST) on camera forward axis
+ * - Each frame the group is rotated so barrel always points from A toward B
  */
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { BoxGeometry, Vector3, Euler } from 'three';
+import { BoxGeometry, Vector3, Euler, Matrix4, Quaternion } from 'three';
 import type { Group } from 'three';
-import { ViewmodelLayer } from '../../engine/rendering/ViewmodelLayer';
+import { ViewmodelLayer, getViewmodelScene } from '../../engine/rendering/ViewmodelLayer';
 import { useViewmodelAnimation, type ViewmodelAnimationInput } from '../../engine/rendering/useViewmodelAnimation';
 import { MuzzleFlash, triggerMuzzleFlash } from '../../engine/effects/MuzzleFlash';
 import { useGameStore } from '../../stores/gameStore';
@@ -21,35 +22,18 @@ import { loadModel } from '../../services/assetManager';
 import { devLog } from '../../engine/stores/devLogStore';
 import type { WeaponType } from './physics/types';
 
-const VM_POSITION = {
-  /** Viewmodel offset from camera origin (left, down, forward). */
-  X: -0.22,
-  Y: -0.22,
-  Z: -0.30,
-} as const;
-
 /**
- * Convergence — rotate the weapon so its barrel points at the crosshair.
+ * Anchor-based weapon positioning.
  *
- * The weapon sits at (X, Y, Z) in camera space.  The crosshair corresponds to
- * a point on the camera's center axis at distance FOCAL_DIST.  We compute a
- * small yaw (around Y) and pitch (around X) so the weapon's forward (-Z) axis
- * converges on that focal point instead of running parallel to the camera.
- *
- * A shorter FOCAL_DIST exaggerates the convergence angle — at 4 units the
- * barrel visibly rotates ~3° inward, which reads as "aiming at the crosshair"
- * even though true geometric convergence only needs ~0.6° at 20 units.
- *
- * With the weapon on the LEFT side (negative X), atan2(-0.22, 4) gives a
- * negative yaw → rotates right toward center. atan2 handles the sign
- * automatically.
+ * Point A = Stock position (Pivot Point), bottom-center of viewport.
+ * Point B = Crosshair focal point on camera forward axis.
  */
-const CONVERGENCE = {
-  FOCAL_DIST: 4,
-  /** ~3.1° inward yaw — negative because weapon is left of center. */
-  YAW: Math.atan2(-0.22, 4),
-  /** ~3.1° upward pitch so barrel converges vertically too. */
-  PITCH: Math.atan2(0.22, 4),
+const VM_ANCHOR = {
+  X: 0.0,
+  Y: -0.35,
+  Z: 0.1,
+  /** Distance to the virtual crosshair point (Point B). */
+  FOCAL_DIST: 10,
 } as const;
 
 const WEAPON_COLORS: Record<WeaponType, string> = {
@@ -78,18 +62,24 @@ const RIFLE_MODEL = {
   SCALE: 0.045,
   // Rotate 90° — barrel points forward (-Z)
   ROTATION_Y: Math.PI / 2,
-  // Sub-offset within the viewmodel group (on top of VM_POSITION).
+  // Offset inside the group — push model forward so group origin = stock (rear).
   OFFSET_X: 0.00,
-  OFFSET_Y: -0.05,
-  OFFSET_Z: 0.05,
+  OFFSET_Y: 0.00,
+  OFFSET_Z: -0.30,
 } as const;
 
 // Pre-allocated geometries for fallback/knife
 const knifeGeometry = new BoxGeometry(0.02, 0.02, 0.3);
 
-// Pre-allocated vectors for muzzle flash positioning (zero GC)
+// Pre-allocated vectors (zero GC)
 const _muzzleOffset = new Vector3();
 const _muzzleEuler = new Euler();
+const _pointA = new Vector3();
+const _pointB = new Vector3();
+const _aimQuat = new Quaternion();
+const _recoilQuat = new Quaternion();
+const _lookMatrix = new Matrix4();
+const _up = new Vector3(0, 1, 0);
 
 interface ViewmodelState {
   prevWeapon: WeaponType;
@@ -105,7 +95,6 @@ function useRifleModel(): Group | null {
     loadModel(RIFLE_MODEL.PATH).then((scene) => {
       if (cancelled) return;
       devLog.info('Viewmodel', `Rifle loaded: ${scene.children.length} children`);
-      // Apply transform: scale + rotate so barrel points -Z
       scene.scale.setScalar(RIFLE_MODEL.SCALE);
       scene.rotation.y = RIFLE_MODEL.ROTATION_Y;
       scene.position.set(RIFLE_MODEL.OFFSET_X, RIFLE_MODEL.OFFSET_Y, RIFLE_MODEL.OFFSET_Z);
@@ -121,6 +110,17 @@ function useRifleModel(): Group | null {
 function ViewmodelContent() {
   const groupRef = useRef<THREE.Group>(null);
   const mouseDeltaRef = useRef<[number, number]>([0, 0]);
+
+  // Capture mouse movement for weapon look-sway
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseDeltaRef.current[0] += e.movementX;
+      mouseDeltaRef.current[1] += e.movementY;
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => { document.removeEventListener('mousemove', handleMouseMove); };
+  }, []);
+
   const rifleModel = useRifleModel();
   const stateRef = useRef<ViewmodelState>({
     prevWeapon: 'rocket',
@@ -140,11 +140,8 @@ function ViewmodelContent() {
       state.prevWeapon = currentWeapon;
       state.drawTimer = 0.3; // 300ms draw animation
     }
-    // drawTimer is decremented in the useFrame below using real delta
 
     // Detect fire event (cooldown transitions from 0 to >0)
-    // NOTE: prevFireCooldown is updated at end of useFrame, not here,
-    // so that both getInput and useFrame see the same transition.
     const isFiring = combat.fireCooldown > 0 && state.prevFireCooldown === 0;
 
     const [mx, my] = mouseDeltaRef.current;
@@ -163,46 +160,62 @@ function ViewmodelContent() {
 
   const anim = useViewmodelAnimation(getInput);
 
-  // Apply animation offset, decrement timers with real delta, trigger muzzle flash
   useFrame((_, delta) => {
     const group = groupRef.current;
     if (!group) return;
+    const vmRef = getViewmodelScene();
+    if (!vmRef) return;
 
-    const state = stateRef.current;
-    const dt = Math.min(delta, 0.05); // cap for tab-away
+    const vmState = stateRef.current;
+    const dt = Math.min(delta, 0.05);
 
-    // Decrement draw timer with actual frame delta (frame-rate independent)
-    if (state.drawTimer > 0) {
-      state.drawTimer = Math.max(0, state.drawTimer - dt);
+    if (vmState.drawTimer > 0) {
+      vmState.drawTimer = Math.max(0, vmState.drawTimer - dt);
     }
 
-    group.position.set(
-      VM_POSITION.X + anim.posX,
-      VM_POSITION.Y + anim.posY,
-      VM_POSITION.Z + anim.posZ,
-    );
-    // Rotation = convergence (crosshair lock) + recoil kick.
-    // anim.rotY is always 0 (look sway removed from rotation output).
-    // anim.rotX is recoil only — pass through at full strength.
-    group.rotation.set(
-      CONVERGENCE.PITCH + anim.rotX,
-      CONVERGENCE.YAW + anim.rotY,
-      anim.rotZ,
-    );
+    // The viewmodel camera copies main camera's quaternion each frame
+    // (in ViewmodelLayer). Weapon children live in scene worldspace, so we
+    // must transform camera-local offsets into scene worldspace via the
+    // camera's quaternion.
+    const camQ = vmRef.camera.quaternion;
 
-    // Trigger muzzle flash on fire (coordinates are viewmodel-local)
+    // ── Point A: anchor (stock) in camera-local, then transformed to world ──
+    _pointA.set(
+      VM_ANCHOR.X + anim.posX,
+      VM_ANCHOR.Y + anim.posY,
+      VM_ANCHOR.Z + anim.posZ,
+    ).applyQuaternion(camQ);
+
+    // ── Point B: crosshair focal point in camera-local, then to world ──
+    _pointB.set(0, 0, -VM_ANCHOR.FOCAL_DIST).applyQuaternion(camQ);
+
+    // ── Position group at Point A (world space) ──
+    group.position.copy(_pointA);
+
+    // ── Rotate group so barrel (-Z) points from A toward B (world space) ──
+    _lookMatrix.lookAt(_pointA, _pointB, _up.set(0, 1, 0).applyQuaternion(camQ));
+    _aimQuat.setFromRotationMatrix(_lookMatrix);
+    group.quaternion.copy(_aimQuat);
+
+    // ── Apply recoil pitch in camera-local, then transform to world ──
+    if (anim.rotX !== 0) {
+      _muzzleEuler.set(anim.rotX, 0, 0);
+      _recoilQuat.setFromEuler(_muzzleEuler);
+      // Pre-multiply: rotate in camera-local frame by conjugating with camQ
+      // world = camQ * local * camQ^-1, then multiply onto aim
+      _recoilQuat.premultiply(camQ);
+      _aimQuat.copy(camQ).invert();
+      _recoilQuat.multiply(_aimQuat);
+      group.quaternion.multiply(_recoilQuat);
+    }
+
+    // ── Muzzle flash ──
     const combat = useCombatStore.getState();
-    const justFired = combat.fireCooldown > 0 && state.prevFireCooldown === 0;
+    const justFired = combat.fireCooldown > 0 && vmState.prevFireCooldown === 0;
     if (justFired && combat.activeWeapon !== 'knife') {
       const [r, g, b] = MUZZLE_COLORS[combat.activeWeapon];
-      // Barrel tip offset in local space, rotated to match group rotation
-      _muzzleOffset.set(0, 0.02, -0.4);
-      _muzzleEuler.set(
-        CONVERGENCE.PITCH + anim.rotX,
-        CONVERGENCE.YAW + anim.rotY,
-        anim.rotZ,
-      );
-      _muzzleOffset.applyEuler(_muzzleEuler);
+      _muzzleOffset.set(0, 0.02, RIFLE_MODEL.OFFSET_Z - 0.45);
+      _muzzleOffset.applyQuaternion(group.quaternion);
       triggerMuzzleFlash(
         group.position.x + _muzzleOffset.x,
         group.position.y + _muzzleOffset.y,
@@ -211,8 +224,7 @@ function ViewmodelContent() {
       );
     }
 
-    // Update prevFireCooldown AFTER the check so next frame detects the transition
-    state.prevFireCooldown = combat.fireCooldown;
+    vmState.prevFireCooldown = combat.fireCooldown;
   });
 
   const activeWeapon = useCombatStore((s) => s.activeWeapon);
@@ -222,17 +234,15 @@ function ViewmodelContent() {
   return (
     <group ref={groupRef}>
       {isKnife ? (
-        // Knife: simple blade shape
-        <mesh geometry={knifeGeometry} position={[0, 0, -0.15]}>
+        <mesh geometry={knifeGeometry} position={[0, -0.1, -0.2]}>
           <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
         </mesh>
       ) : (
-        // Gun: 3D rifle model with inline fallback box while loading
         <group>
           {rifleModel ? (
             <primitive object={rifleModel} />
           ) : (
-            <mesh>
+            <mesh position={[0, 0, RIFLE_MODEL.OFFSET_Z]}>
               <boxGeometry args={[0.06, 0.05, 0.35]} />
               <meshStandardMaterial color={color} metalness={0.5} roughness={0.4} />
             </mesh>
