@@ -166,6 +166,48 @@ export interface ParticleEmitterData {
   color?: Color;
 }
 
+// ── Pickup / Settings / MapData (generic engine versions) ──
+
+export interface AmmoPickupData {
+  position: Vec3;
+  weaponType: string;
+  amount: number;
+  respawnTime?: number;
+}
+
+export interface MapSettings {
+  gravityOverride?: number;
+  maxRocketAmmo?: number;
+  maxGrenadeAmmo?: number;
+  timeLimit?: number;
+  parTime?: number;
+}
+
+export interface MapData {
+  spawnPoint: Vec3;
+  spawnDirection: Vec3;
+  blocks: MapBlock[];
+  checkpoints: CheckpointData[];
+  finish: FinishZoneData;
+  boostPads?: BoostPadData[];
+  launchPads?: LaunchPadData[];
+  speedGates?: SpeedGateData[];
+  grapplePoints?: GrapplePointData[];
+  ammoPickups?: AmmoPickupData[];
+  surfRamps?: SurfRampData[];
+  movingPlatforms?: MovingPlatformData[];
+  killZones?: KillZoneData[];
+  models?: MapModel[];
+  settings?: MapSettings;
+  skybox?: SkyboxType;
+  lighting?: AmbientLighting;
+  backgroundColor?: Color;
+  waterSurfaces?: WaterSurfaceData[];
+  fogVolumes?: FogVolumeData[];
+  particleEmitters?: ParticleEmitterData[];
+  heightmapTerrains?: HeightmapTerrainData[];
+}
+
 // ── Lighting & Environment ──
 export type ProceduralSkyboxType = 'day' | 'sunset' | 'night' | 'neon' | 'sky';
 export type SkyboxType = ProceduralSkyboxType | `hdri:${string}`;

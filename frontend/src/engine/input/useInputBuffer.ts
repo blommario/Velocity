@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { InputState } from '../types/physics';
 import { getNormalizedWheelDelta } from './inputUtils';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useSettingsStore } from '../stores/settingsStore';
 
 type BooleanInputKey = keyof Pick<InputState,
   'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload'

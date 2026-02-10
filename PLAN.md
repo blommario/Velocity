@@ -31,11 +31,11 @@
 
 ### E2 — Stores → `engine/stores/`
 *Generiska stores som inte beror på Velocity-specifik logik.*
-- 🔲 `settingsStore.ts` → `engine/stores/` (redan tillåten i engine, helt generisk)
-- 🔲 `replayStore.ts` → `engine/stores/` (delta-compression replay, 100% generiskt mönster)
-- 🔲 `editorStore.ts` → `engine/stores/` (generiskt editor-mönster: objekt, undo/redo, tools)
-- 🔲 Uppdatera alla imports i game-kod (re-exports från `stores/` för bakåtkompatibilitet)
-- 🔲 Behåll i `stores/`: `gameStore`, `combatStore`, `authStore`, `raceStore`
+- ✅ `settingsStore.ts` → `engine/stores/` (redan tillåten i engine, helt generisk)
+- ✅ `replayStore.ts` → `engine/stores/` (delta-compression replay, 100% generiskt mönster)
+- ✅ `editorStore.ts` → `engine/stores/` (generiskt editor-mönster: objekt, undo/redo, tools)
+- ✅ Uppdatera alla imports i game-kod (re-exports från `stores/` för bakåtkompatibilitet)
+- ✅ Behåll i `stores/`: `gameStore`, `combatStore`, `authStore`, `raceStore`
 
 ### E3 — SensorZone-mönster → `engine/components/`
 *Alla 9 zoner följer identiskt mönster. Extrahera generisk bas.*

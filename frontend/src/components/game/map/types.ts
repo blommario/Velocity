@@ -11,6 +11,9 @@ import type {
   FogVolumeData, FogVolumeShape,
   ParticleEmitterData, ParticleEmitterPreset,
   HeightmapTerrainData,
+  MapSettings as EngineMapSettings,
+  MapData as EngineMapData,
+  AmmoPickupData as EngineAmmoPickupData,
 } from '../../../engine/types/map';
 import type { FogOfWarConfig } from '../../../engine/effects/FogOfWar';
 
@@ -28,51 +31,17 @@ export type {
   HeightmapTerrainData,
 };
 
-// ── Game-specific types ──
+export type { EngineMapSettings as MapSettings };
 
-export interface AmmoPickupData {
-  position: Vec3;
+// ── Game-specific types (narrow weaponType to WeaponType) ──
+
+export interface AmmoPickupData extends Omit<EngineAmmoPickupData, 'weaponType'> {
   weaponType: WeaponType;
-  amount: number;
-  respawnTime?: number;
 }
 
-export interface MapSettings {
-  gravityOverride?: number;     // override default 800
-  maxRocketAmmo?: number;       // default 5
-  maxGrenadeAmmo?: number;      // default 3
-  timeLimit?: number;           // seconds, 0 = no limit
-  parTime?: number;             // par time in seconds
-}
-
-// ── Top-level MapData (Velocity-specific) ──
-export interface MapData {
-  spawnPoint: Vec3;
-  spawnDirection: Vec3;
-  blocks: MapBlock[];
-  checkpoints: CheckpointData[];
-  finish: FinishZoneData;
-  boostPads?: BoostPadData[];
-  launchPads?: LaunchPadData[];
-  speedGates?: SpeedGateData[];
-  grapplePoints?: GrapplePointData[];
+// ── Top-level MapData (Velocity-specific, extends engine with fog-of-war) ──
+export interface MapData extends EngineMapData {
   ammoPickups?: AmmoPickupData[];
-  surfRamps?: SurfRampData[];
-  movingPlatforms?: MovingPlatformData[];
-  killZones?: KillZoneData[];
-  models?: MapModel[];
-  settings?: MapSettings;
-  skybox?: SkyboxType;
-  lighting?: AmbientLighting;
-  backgroundColor?: Color;
   /** Optional fog-of-war configuration. Omit to disable. */
   fogOfWar?: Partial<FogOfWarConfig>;
-  /** Water/lava surfaces */
-  waterSurfaces?: WaterSurfaceData[];
-  /** Volumetric fog volumes */
-  fogVolumes?: FogVolumeData[];
-  /** Particle emitters (smoke, fire, ash, etc.) */
-  particleEmitters?: ParticleEmitterData[];
-  /** Heightmap terrain patches (smooth hills/valleys) */
-  heightmapTerrains?: HeightmapTerrainData[];
 }

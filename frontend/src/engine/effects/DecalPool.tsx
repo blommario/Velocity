@@ -21,7 +21,7 @@ import {
   PlaneGeometry, Object3D, Vector3, Quaternion,
   InstancedBufferAttribute, DoubleSide,
 } from 'three';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { devLog } from '../stores/devLogStore';
 
 const DECAL = {

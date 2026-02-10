@@ -20,7 +20,7 @@ import {
   InstancedBufferAttribute, Mesh as ThreeMesh, WebGPURenderer,
 } from 'three/webgpu';
 import { Vector3 } from 'three';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { devLog } from '../stores/devLogStore';
 import type { ParticlePreset } from './particlePresets';
 
