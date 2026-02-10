@@ -137,7 +137,7 @@ export function handleWeaponFire(ctx: TickContext): void {
         velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
         velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
         velocity.z -= _fireDir.z * PHYSICS.SNIPER_KNOCKBACK;
-        audioManager.play(SOUNDS.ROCKET_FIRE);
+        audioManager.play(SOUNDS.SNIPER_FIRE);
         const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.sniper,
           ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
           RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
@@ -170,7 +170,7 @@ export function handleWeaponFire(ctx: TickContext): void {
         }
         velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
         velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
-        audioManager.play(SOUNDS.LAND_SOFT, 0.05);
+        audioManager.play(SOUNDS.RIFLE_FIRE, 0.05);
         const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.assault,
           ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
           RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,

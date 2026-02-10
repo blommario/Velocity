@@ -9,15 +9,17 @@ import { PlayerProfile } from '@game/components/menu/PlayerProfile';
 import { LoadingScreen } from '@game/components/menu/LoadingScreen';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
 import { useAuthStore } from '@game/stores/authStore';
+import { audioManager } from '@engine/audio/AudioManager';
 
 function App() {
   const screen = useGameStore((s) => s.screen);
   const token = useAuthStore((s) => s.token);
   const restoreSession = useAuthStore((s) => s.restoreSession);
 
-  // Restore session from localStorage on mount
+  // Restore session from localStorage on mount + preload audio
   useEffect(() => {
     restoreSession();
+    audioManager.preload();
   }, [restoreSession]);
 
   // Not authenticated — show auth screen

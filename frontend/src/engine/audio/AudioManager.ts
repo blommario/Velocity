@@ -1,4 +1,5 @@
 import { useSettingsStore } from '../stores/settingsStore';
+import { devLog } from '../stores/devLogStore';
 
 // ── Sound IDs ──
 
@@ -16,6 +17,8 @@ export const SOUNDS = {
   // Weapons
   ROCKET_FIRE: 'rocket_fire',
   ROCKET_EXPLODE: 'rocket_explode',
+  RIFLE_FIRE: 'rifle_fire',
+  SNIPER_FIRE: 'sniper_fire',
   GRENADE_THROW: 'grenade_throw',
   GRENADE_BOUNCE: 'grenade_bounce',
   GRENADE_EXPLODE: 'grenade_explode',
@@ -66,6 +69,8 @@ const SOUND_CATEGORIES: Record<SoundId, 'sfx' | 'music' | 'ambient'> = {
   [SOUNDS.WALL_RUN]: 'sfx',
   [SOUNDS.ROCKET_FIRE]: 'sfx',
   [SOUNDS.ROCKET_EXPLODE]: 'sfx',
+  [SOUNDS.RIFLE_FIRE]: 'sfx',
+  [SOUNDS.SNIPER_FIRE]: 'sfx',
   [SOUNDS.GRENADE_THROW]: 'sfx',
   [SOUNDS.GRENADE_BOUNCE]: 'sfx',
   [SOUNDS.GRENADE_EXPLODE]: 'sfx',
@@ -135,11 +140,25 @@ const SYNTH_CONFIGS: Partial<Record<SoundId, SynthConfig>> = {
   [SOUNDS.UI_HOVER]: { frequency: 1800, type: 'sine', duration: 0.02, gain: 0.05 },
 };
 
+// ── Audio file mappings (sound ID → asset path) ──
+
+const AUDIO_FILES: Partial<Record<SoundId, string>> = {
+  [SOUNDS.ROCKET_FIRE]: '/assets/sounds/weapons/rocket-launcher.mp3',
+  [SOUNDS.RIFLE_FIRE]: '/assets/sounds/weapons/rifle.mp3',
+  [SOUNDS.SNIPER_FIRE]: '/assets/sounds/weapons/sniper.mp3',
+};
+
 // ── Audio Manager ──
 
+/**
+ * Manages all game audio — plays preloaded mp3 files with synth fallback.
+ * Depends on: settingsStore (volume levels)
+ * Used by: weaponFire, movementTick, grappleAndZones, combatTick, UI components
+ */
 class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private audioBuffers: Map<string, AudioBuffer> = new Map();
 
   private getContext(): AudioContext {
     if (!this.ctx) {
@@ -153,6 +172,27 @@ class AudioManager {
     return this.ctx;
   }
 
+  /** Preload all audio files defined in AUDIO_FILES. Call once at app start. */
+  async preload(): Promise<void> {
+    const ctx = this.getContext();
+    const entries = Object.entries(AUDIO_FILES) as [SoundId, string][];
+    const results = await Promise.all(entries.map(async ([soundId, path]) => {
+      try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        this.audioBuffers.set(soundId, audioBuffer);
+        return true;
+      } catch (e) {
+        devLog.warn('Audio', `Failed to load ${soundId} from ${path}: ${e}`);
+        return false;
+      }
+    }));
+    const loaded = results.filter(Boolean).length;
+    devLog.info('Audio', `Preloaded ${loaded}/${entries.length} audio files`);
+  }
+
   play(soundId: SoundId, pitchVariation = 0): void {
     const settings = useSettingsStore.getState();
     const category = SOUND_CATEGORIES[soundId];
@@ -164,6 +204,14 @@ class AudioManager {
     const volume = settings.masterVolume * categoryVolume;
     if (volume <= 0) return;
 
+    // Try preloaded audio buffer first
+    const buffer = this.audioBuffers.get(soundId);
+    if (buffer) {
+      this.playBuffer(buffer, volume, pitchVariation);
+      return;
+    }
+
+    // Fall back to synth
     const config = SYNTH_CONFIGS[soundId];
     if (!config) return;
 
@@ -200,6 +248,21 @@ class AudioManager {
 
     osc.start(now);
     osc.stop(now + config.duration + 0.05);
+  }
+
+  /** Play a preloaded AudioBuffer with volume and optional pitch variation. */
+  private playBuffer(buffer: AudioBuffer, volume: number, pitchVariation: number): void {
+    const ctx = this.getContext();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    if (pitchVariation > 0) {
+      source.playbackRate.value = 1 + (Math.random() - 0.5) * pitchVariation * 2;
+    }
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+    source.connect(gain);
+    gain.connect(this.masterGain!);
+    source.start();
   }
 
   /** Play footstep based on surface material */
