@@ -12,32 +12,36 @@ import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
 
 const VM_ANIM = {
-  // Idle sway
-  SWAY_SPEED: 1.2,
-  SWAY_AMOUNT_X: 0.003,
-  SWAY_AMOUNT_Y: 0.002,
+  // Idle sway — subtle breathing motion when standing still
+  SWAY_SPEED: 1.0,
+  SWAY_AMOUNT_X: 0.002,
+  SWAY_AMOUNT_Y: 0.0015,
 
-  // Movement bob
-  BOB_SPEED: 10,
-  BOB_AMOUNT_X: 0.02,
-  BOB_AMOUNT_Y: 0.015,
+  // Movement bob — weapon bounces when running
+  BOB_SPEED: 11,
+  BOB_AMOUNT_X: 0.018,
+  BOB_AMOUNT_Y: 0.012,
   BOB_SPEED_SCALE: 0.003,
 
-  // Recoil
-  RECOIL_KICK_Z: 0.06,
-  RECOIL_KICK_ROT_X: 0.08,
-  RECOIL_RECOVERY_SPEED: 12,
+  // Recoil — kick on fire
+  RECOIL_KICK_Z: 0.05,
+  RECOIL_KICK_ROT_X: 0.10,
+  RECOIL_RECOVERY_SPEED: 10,
 
   // Draw/holster
-  DRAW_SPEED: 6,
-  DRAW_OFFSET_Y: -0.4,
+  DRAW_SPEED: 8,
+  DRAW_OFFSET_Y: -0.5,
 
-  // Mouse look sway — position-only lag (weapon trails the camera spatially)
-  LOOK_SWAY_FACTOR: 0.0015,
-  LOOK_SWAY_RECOVERY: 8,
+  // Mouse look sway — weapon trails behind camera movement
+  LOOK_SWAY_FACTOR: 0.002,
+  LOOK_SWAY_RECOVERY: 10,
 
-  // Lerp speed for smooth transitions (higher = tighter anchor)
-  LERP_SPEED: 18,
+  // Banking/tilt — weapon rolls when turning (airplane effect)
+  TILT_FACTOR: 0.002,
+  TILT_RECOVERY: 5,
+
+  // Lerp speed for smooth transitions (higher = tighter, snappier)
+  LERP_SPEED: 20,
 } as const;
 
 export interface ViewmodelAnimationInput {
@@ -78,6 +82,7 @@ export function useViewmodelAnimation(
   const drawRef = useRef(1); // 1 = fully drawn, 0 = holstered
   const lookSwayXRef = useRef(0);
   const lookSwayYRef = useRef(0);
+  const tiltRef = useRef(0);
 
   // Smoothed values
   const smoothPosXRef = useRef(0);
@@ -85,6 +90,7 @@ export function useViewmodelAnimation(
   const smoothPosZRef = useRef(0);
   const smoothRotXRef = useRef(0);
   const smoothRotYRef = useRef(0);
+  const smoothRotZRef = useRef(0);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05); // cap for tab-away
@@ -129,15 +135,20 @@ export function useViewmodelAnimation(
       1 - Math.exp(-VM_ANIM.LOOK_SWAY_RECOVERY * dt),
     );
 
+    // ── Banking/tilt — weapon rolls when looking left/right ──
+    tiltRef.current = MathUtils.lerp(
+      tiltRef.current,
+      input.mouseDeltaX * VM_ANIM.TILT_FACTOR,
+      1 - Math.exp(-VM_ANIM.TILT_RECOVERY * dt),
+    );
+
     // ── Combine ──
-    // Look sway affects POSITION only (weapon trails the camera spatially).
-    // Rotation is driven exclusively by recoil — convergence in Viewmodel.tsx
-    // handles crosshair alignment, and we must not fight it with sway rotation.
     const targetPosX = swayX + bobX + lookSwayXRef.current;
     const targetPosY = swayY - bobY + drawOffset + lookSwayYRef.current;
     const targetPosZ = -recoilZ;
     const targetRotX = -recoilRotX;
     const targetRotY = 0;
+    const targetRotZ = -tiltRef.current;
 
     // Smooth final values
     const lerpFactor = 1 - Math.exp(-VM_ANIM.LERP_SPEED * dt);
@@ -146,6 +157,7 @@ export function useViewmodelAnimation(
     smoothPosZRef.current = MathUtils.lerp(smoothPosZRef.current, targetPosZ, lerpFactor);
     smoothRotXRef.current = MathUtils.lerp(smoothRotXRef.current, targetRotX, lerpFactor);
     smoothRotYRef.current = MathUtils.lerp(smoothRotYRef.current, targetRotY, lerpFactor);
+    smoothRotZRef.current = MathUtils.lerp(smoothRotZRef.current, targetRotZ, lerpFactor);
 
     // Write to pre-allocated output
     _output.posX = smoothPosXRef.current;
@@ -153,7 +165,7 @@ export function useViewmodelAnimation(
     _output.posZ = smoothPosZRef.current;
     _output.rotX = smoothRotXRef.current;
     _output.rotY = smoothRotYRef.current;
-    _output.rotZ = 0;
+    _output.rotZ = smoothRotZRef.current;
   });
 
   return _output;

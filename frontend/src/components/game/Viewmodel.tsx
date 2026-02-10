@@ -1,19 +1,20 @@
 /**
  * First-person weapon viewmodel.
  *
- * Updated logic: Weapon is anchored at the stock (Point A) and looks at crosshair (Point B).
- *
- * Pivot principle:
+ * Pivot principle (all in camera-local space):
  * - Point A (anchor/stock) sits at bottom-center of viewport
  * - The 3D model is offset forward (-Z) inside the group so group origin = stock
  * - Point B (crosshair) is at (0, 0, -FOCAL_DIST) on camera forward axis
  * - Each frame the group is rotated so barrel always points from A toward B
+ * - Banking/tilt (rotZ) gives the weapon weight when turning
+ *
+ * ViewmodelLayer handles camera rotation sync — we work purely in local space.
  */
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { BoxGeometry, Vector3, Euler, Matrix4, Quaternion } from 'three';
 import type { Group } from 'three';
-import { ViewmodelLayer, getViewmodelScene } from '../../engine/rendering/ViewmodelLayer';
+import { ViewmodelLayer } from '../../engine/rendering/ViewmodelLayer';
 import { useViewmodelAnimation, type ViewmodelAnimationInput } from '../../engine/rendering/useViewmodelAnimation';
 import { MuzzleFlash, triggerMuzzleFlash } from '../../engine/effects/MuzzleFlash';
 import { useGameStore } from '../../stores/gameStore';
@@ -22,19 +23,18 @@ import { loadModel } from '../../services/assetManager';
 import { devLog } from '../../engine/stores/devLogStore';
 import type { WeaponType } from './physics/types';
 
-/**
- * Anchor-based weapon positioning.
- *
- * Point A = Stock position (Pivot Point), bottom-center of viewport.
- * Point B = Crosshair focal point on camera forward axis.
- */
+/** Anchor position and focal distance — all in camera-local space. */
 const VM_ANCHOR = {
-  X: 0.0,
-  Y: -0.35,
-  Z: 0.1,
-  /** Distance to the virtual crosshair point (Point B). */
-  FOCAL_DIST: 10,
+  X: 0.05,
+  Y: -0.30,
+  Z: -0.10,
+  /** Shorter = snappier aim feel, longer = subtler. 8 is a good middle ground. */
+  FOCAL_DIST: 8.0,
 } as const;
+
+/** Multipliers for game feel. */
+const SWAY_INTENSITY = 2.0;
+const TILT_INTENSITY = 0.8;
 
 const WEAPON_COLORS: Record<WeaponType, string> = {
   rocket: '#884422',
@@ -52,34 +52,31 @@ const MUZZLE_COLORS: Record<WeaponType, [number, number, number]> = {
   sniper: [0.8, 0.8, 1.0],
   assault: [1.0, 0.7, 0.2],
   shotgun: [1.0, 0.6, 0.1],
-  knife: [0, 0, 0], // no flash
+  knife: [0, 0, 0],
   plasma: [0.3, 0.6, 1.0],
 } as const;
 
-// Rifle 3D model transform — rotateY(PI/2) maps barrel from +X to -Z (forward)
 const RIFLE_MODEL = {
   PATH: 'weapons/rifle.glb',
-  SCALE: 0.045,
-  // Rotate 90° — barrel points forward (-Z)
+  SCALE: 0.065,
   ROTATION_Y: Math.PI / 2,
-  // Offset inside the group — push model forward so group origin = stock (rear).
   OFFSET_X: 0.00,
-  OFFSET_Y: 0.00,
-  OFFSET_Z: -0.30,
+  OFFSET_Y: -0.02,
+  OFFSET_Z: -0.35,
 } as const;
 
-// Pre-allocated geometries for fallback/knife
 const knifeGeometry = new BoxGeometry(0.02, 0.02, 0.3);
 
-// Pre-allocated vectors (zero GC)
+// Pre-allocated objects (zero GC)
 const _muzzleOffset = new Vector3();
-const _muzzleEuler = new Euler();
 const _pointA = new Vector3();
 const _pointB = new Vector3();
 const _aimQuat = new Quaternion();
+const _tiltQuat = new Quaternion();
 const _recoilQuat = new Quaternion();
 const _lookMatrix = new Matrix4();
 const _up = new Vector3(0, 1, 0);
+const _tempEuler = new Euler();
 
 interface ViewmodelState {
   prevWeapon: WeaponType;
@@ -111,7 +108,7 @@ function ViewmodelContent() {
   const groupRef = useRef<THREE.Group>(null);
   const mouseDeltaRef = useRef<[number, number]>([0, 0]);
 
-  // Capture mouse movement for weapon look-sway
+  // Capture mouse movement for weapon look-sway and tilt
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mouseDeltaRef.current[0] += e.movementX;
@@ -134,14 +131,11 @@ function ViewmodelContent() {
     const combat = useCombatStore.getState();
     const state = stateRef.current;
 
-    // Detect weapon switch -> trigger draw
-    const currentWeapon = combat.activeWeapon;
-    if (currentWeapon !== state.prevWeapon) {
-      state.prevWeapon = currentWeapon;
-      state.drawTimer = 0.3; // 300ms draw animation
+    if (combat.activeWeapon !== state.prevWeapon) {
+      state.prevWeapon = combat.activeWeapon;
+      state.drawTimer = 0.3;
     }
 
-    // Detect fire event (cooldown transitions from 0 to >0)
     const isFiring = combat.fireCooldown > 0 && state.prevFireCooldown === 0;
 
     const [mx, my] = mouseDeltaRef.current;
@@ -163,8 +157,6 @@ function ViewmodelContent() {
   useFrame((_, delta) => {
     const group = groupRef.current;
     if (!group) return;
-    const vmRef = getViewmodelScene();
-    if (!vmRef) return;
 
     const vmState = stateRef.current;
     const dt = Math.min(delta, 0.05);
@@ -173,39 +165,35 @@ function ViewmodelContent() {
       vmState.drawTimer = Math.max(0, vmState.drawTimer - dt);
     }
 
-    // The viewmodel camera copies main camera's quaternion each frame
-    // (in ViewmodelLayer). Weapon children live in scene worldspace, so we
-    // must transform camera-local offsets into scene worldspace via the
-    // camera's quaternion.
-    const camQ = vmRef.camera.quaternion;
-
-    // ── Point A: anchor (stock) in camera-local, then transformed to world ──
+    // ── Point A: stock anchor in camera-local space ──
     _pointA.set(
-      VM_ANCHOR.X + anim.posX,
-      VM_ANCHOR.Y + anim.posY,
+      VM_ANCHOR.X + anim.posX * SWAY_INTENSITY,
+      VM_ANCHOR.Y + anim.posY * SWAY_INTENSITY,
       VM_ANCHOR.Z + anim.posZ,
-    ).applyQuaternion(camQ);
+    );
 
-    // ── Point B: crosshair focal point in camera-local, then to world ──
-    _pointB.set(0, 0, -VM_ANCHOR.FOCAL_DIST).applyQuaternion(camQ);
+    // ── Point B: crosshair, always dead center ──
+    _pointB.set(0, 0, -VM_ANCHOR.FOCAL_DIST);
 
-    // ── Position group at Point A (world space) ──
+    // ── Position at stock ──
     group.position.copy(_pointA);
 
-    // ── Rotate group so barrel (-Z) points from A toward B (world space) ──
-    _lookMatrix.lookAt(_pointA, _pointB, _up.set(0, 1, 0).applyQuaternion(camQ));
+    // ── Rotate barrel from A toward B ──
+    _lookMatrix.lookAt(_pointA, _pointB, _up.set(0, 1, 0));
     _aimQuat.setFromRotationMatrix(_lookMatrix);
     group.quaternion.copy(_aimQuat);
 
-    // ── Apply recoil pitch in camera-local, then transform to world ──
+    // ── Banking/tilt: weapon rolls when turning ──
+    if (anim.rotZ !== 0) {
+      _tempEuler.set(0, 0, anim.rotZ * TILT_INTENSITY);
+      _tiltQuat.setFromEuler(_tempEuler);
+      group.quaternion.multiply(_tiltQuat);
+    }
+
+    // ── Recoil pitch ──
     if (anim.rotX !== 0) {
-      _muzzleEuler.set(anim.rotX, 0, 0);
-      _recoilQuat.setFromEuler(_muzzleEuler);
-      // Pre-multiply: rotate in camera-local frame by conjugating with camQ
-      // world = camQ * local * camQ^-1, then multiply onto aim
-      _recoilQuat.premultiply(camQ);
-      _aimQuat.copy(camQ).invert();
-      _recoilQuat.multiply(_aimQuat);
+      _tempEuler.set(anim.rotX, 0, 0);
+      _recoilQuat.setFromEuler(_tempEuler);
       group.quaternion.multiply(_recoilQuat);
     }
 

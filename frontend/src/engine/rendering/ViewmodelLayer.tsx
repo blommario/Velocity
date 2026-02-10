@@ -65,6 +65,11 @@ export function ViewmodelLayer({
       VIEWMODEL_DEFAULTS.FAR,
     );
 
+    // Add camera to scene so it participates in the scene graph.
+    // Children portalled into the camera inherit its rotation automatically,
+    // so viewmodel objects work in camera-local space without manual transforms.
+    scene.add(camera);
+
     // Basic lighting for the viewmodel scene
     const ambient = new AmbientLight(0xffffff, VIEWMODEL_DEFAULTS.AMBIENT);
     scene.add(ambient);
@@ -121,6 +126,7 @@ export function ViewmodelLayer({
 
   if (!visible) return null;
 
-  // createPortal renders children into the viewmodel scene
-  return <>{createPortal(children, vmScene)}</>;
+  // Portal children into the camera — they inherit camera rotation automatically,
+  // so viewmodel code works in camera-local space (no manual quaternion transforms).
+  return <>{createPortal(children, vmCamera as unknown as THREE.Object3D)}</>;
 }
