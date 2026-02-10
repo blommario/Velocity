@@ -21,6 +21,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { loadModel } from '../../services/assetManager';
 import { devLog } from '../../engine/stores/devLogStore';
+import { ADS_CONFIG } from './physics/constants';
 import type { WeaponType } from './physics/types';
 
 /** Anchor position and focal distance — all in camera-local space. */
@@ -149,6 +150,7 @@ function ViewmodelContent() {
       isDrawing: state.drawTimer > 0,
       mouseDeltaX: mx,
       mouseDeltaY: my,
+      adsProgress: combat.adsProgress,
     };
   }, []);
 
@@ -165,11 +167,15 @@ function ViewmodelContent() {
       vmState.drawTimer = Math.max(0, vmState.drawTimer - dt);
     }
 
-    // ── Point A: stock anchor in camera-local space ──
+    // ── Point A: stock anchor in camera-local space (lerped toward ADS position) ──
+    const combat = useCombatStore.getState();
+    const p = combat.adsProgress;
+    const adsConf = ADS_CONFIG[combat.activeWeapon];
+    const swayScale = SWAY_INTENSITY * (1 - p * 0.7); // reduce sway at full ADS
     _pointA.set(
-      VM_ANCHOR.X + anim.posX * SWAY_INTENSITY,
-      VM_ANCHOR.Y + anim.posY * SWAY_INTENSITY,
-      VM_ANCHOR.Z + anim.posZ,
+      VM_ANCHOR.X + (adsConf.anchorX - VM_ANCHOR.X) * p + anim.posX * swayScale,
+      VM_ANCHOR.Y + (adsConf.anchorY - VM_ANCHOR.Y) * p + anim.posY * swayScale,
+      VM_ANCHOR.Z + (adsConf.anchorZ - VM_ANCHOR.Z) * p + anim.posZ,
     );
 
     // ── Point B: crosshair, always dead center ──
@@ -197,8 +203,7 @@ function ViewmodelContent() {
       group.quaternion.multiply(_recoilQuat);
     }
 
-    // ── Muzzle flash ──
-    const combat = useCombatStore.getState();
+    // ── Muzzle flash (reuses `combat` from ADS block above) ──
     const justFired = combat.fireCooldown > 0 && vmState.prevFireCooldown === 0;
     if (justFired && combat.activeWeapon !== 'knife') {
       const [r, g, b] = MUZZLE_COLORS[combat.activeWeapon];

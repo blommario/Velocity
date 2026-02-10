@@ -2,7 +2,7 @@ import { type MutableRefObject } from 'react';
 import { Vector3, type Camera } from 'three';
 import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
 import { Ray, QueryFilterFlags } from '@dimforge/rapier3d-compat';
-import { PHYSICS } from './constants';
+import { PHYSICS, ADS_CONFIG } from './constants';
 import type { InputState } from './types';
 import {
   applyFriction,
@@ -78,6 +78,9 @@ let wallRunState: WallRunState = {
 let wasGrapplePressed = false;
 let wasAltFire = false;
 
+// ADS state (driven each tick, written to store when changed)
+let adsProgress = 0;
+
 // Camera effects
 let cameraTilt = 0;            // Z-axis roll for wall run tilt (radians)
 let landingDip = 0;            // Y offset for landing impact
@@ -121,6 +124,7 @@ export function resetPhysicsTickState(): void {
 
   wasGrapplePressed = false;
   wasAltFire = false;
+  adsProgress = 0;
   cameraTilt = 0;
   landingDip = 0;
   respawnGraceTicks = 0;
@@ -176,7 +180,7 @@ export function physicsTick(
 
   const input = refs.input.current;
   const velocity = refs.velocity.current;
-  const { sensitivity, autoBhop, edgeGrab, devSpeedMultiplier, devGravityMultiplier } = useSettingsStore.getState();
+  const { sensitivity, adsSensitivityMult, autoBhop, edgeGrab, devSpeedMultiplier, devGravityMultiplier } = useSettingsStore.getState();
   const dt = PHYSICS.TICK_DELTA;
   const speedMult = devSpeedMultiplier;
   const gravMult = devGravityMultiplier;
@@ -232,10 +236,11 @@ export function physicsTick(
     return;
   }
 
-  // --- Mouse look ---
+  // --- Mouse look (with ADS sensitivity reduction) ---
   const { dx, dy } = consumeMouseDelta();
-  refs.yaw.current -= dx * sensitivity;
-  refs.pitch.current -= dy * sensitivity;
+  const effectiveSens = sensitivity * (1 - adsProgress * (1 - adsSensitivityMult));
+  refs.yaw.current -= dx * effectiveSens;
+  refs.pitch.current -= dy * effectiveSens;
   refs.pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, refs.pitch.current));
 
   // --- Wish direction ---
@@ -394,9 +399,15 @@ export function physicsTick(
   const weapon = combat.activeWeapon;
   const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
 
-  // Sniper zoom toggle (right-click when sniper is active)
-  if (weapon === 'sniper' && input.altFire && !wasAltFire) {
-    useCombatStore.setState({ isZoomed: !combat.isZoomed });
+  // --- ADS state machine (hold altFire for weapons that support ADS) ---
+  const adsTarget = (input.altFire && ADS_CONFIG[weapon].canAds && combat.swapCooldown <= 0) ? 1 : 0;
+  const prevAds = adsProgress;
+  adsProgress += (adsTarget - adsProgress) * (1 - Math.exp(-PHYSICS.ADS_TRANSITION_SPEED * dt));
+  // Snap to target when close enough
+  if (Math.abs(adsProgress - adsTarget) < 0.005) adsProgress = adsTarget;
+  // Write to store only when changed (avoid unnecessary set calls at 128Hz)
+  if (Math.abs(adsProgress - prevAds) > 0.001) {
+    useCombatStore.setState({ adsProgress });
   }
   wasAltFire = input.altFire;
 
@@ -736,8 +747,9 @@ export function physicsTick(
     store.recordJump();
   }
 
-  // --- Movement (with dev speed/gravity multipliers) ---
-  const effectiveMaxSpeed = PHYSICS.GROUND_MAX_SPEED * speedMult;
+  // --- Movement (with dev speed/gravity multipliers + ADS penalty) ---
+  const adsFactor = 1 - adsProgress * (1 - PHYSICS.ADS_SPEED_MULT);
+  const effectiveMaxSpeed = PHYSICS.GROUND_MAX_SPEED * speedMult * adsFactor;
 
   if (combat.isGrappling) {
     // Grapple swing already applied above

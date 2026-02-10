@@ -53,6 +53,7 @@ export type QualityPreset = (typeof QUALITY_PRESETS)[keyof typeof QUALITY_PRESET
 interface SettingsState {
   // Mouse
   sensitivity: number;
+  adsSensitivityMult: number;
 
   // Video
   fov: number;
@@ -116,6 +117,7 @@ interface SettingsState {
   setDevSpeedMultiplier: (v: number) => void;
   setDevGravityMultiplier: (v: number) => void;
   setSensitivity: (s: number) => void;
+  setAdsSensitivityMult: (v: number) => void;
   setFov: (f: number) => void;
   setQualityPreset: (p: QualityPreset) => void;
   setShadowQuality: (q: ShadowQuality) => void;
@@ -160,6 +162,7 @@ interface SettingsState {
 
 const DEFAULT_STATE = {
   sensitivity: DEFAULT_SENSITIVITY,
+  adsSensitivityMult: 0.7,
   fov: 90,
   qualityPreset: QUALITY_PRESETS.HIGH as QualityPreset,
   shadowQuality: SHADOW_QUALITY_LEVELS.MEDIUM as ShadowQuality,
@@ -210,6 +213,7 @@ export const useSettingsStore = create<SettingsState>()(
       setDevSpeedMultiplier: (devSpeedMultiplier) => set({ devSpeedMultiplier }),
       setDevGravityMultiplier: (devGravityMultiplier) => set({ devGravityMultiplier }),
       setSensitivity: (sensitivity) => set({ sensitivity }),
+      setAdsSensitivityMult: (adsSensitivityMult) => set({ adsSensitivityMult }),
       setFov: (fov) => set({ fov }),
       setQualityPreset: (qualityPreset) => set({ qualityPreset }),
       setShadowQuality: (shadowQuality) => set({ shadowQuality }),
@@ -266,6 +270,7 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'velocity-settings',
       partialize: (state) => ({
         sensitivity: state.sensitivity,
+        adsSensitivityMult: state.adsSensitivityMult,
         fov: state.fov,
         qualityPreset: state.qualityPreset,
         shadowQuality: state.shadowQuality,

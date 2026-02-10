@@ -38,15 +38,15 @@
 
 **Förutsättning:** Fas L (Viewmodel), Fas P (Movement & Game Feel)
 
-### V1 — Aim Down Sights (ADS)
+### V1 — Aim Down Sights (ADS) ✅
 *Generellt ADS-system, inte bara sniper-zoom. Varje vapen får unik ADS-offset.*
-- 🔲 `useADS` hook — state machine: hip → transitioning → ADS → transitioning → hip
-- 🔲 FOV-lerp: sniper 30°, assault 55°, shotgun 60°, rocket/grenade/plasma/knife = ingen ADS
-- 🔲 Viewmodel ADS-position per vapen — offset mot skärmcenter (anchor X→0, Y→-0.1, Z→-0.25)
-- 🔲 Sensitivity-multiplikator vid ADS (settingsStore: `adsSensitivityMult: 0.7`)
-- 🔲 Movement speed reduction vid ADS (`ADS_SPEED_MULT: 0.6`)
-- 🔲 Crosshair fade vid ADS (opacitet → 0 under transition)
-- 🔲 Alt-fire (Mouse2) håller = ADS, release = hip (sniper toggle bibehålls som option)
+- ✅ ADS state machine i usePhysicsTick — adsProgress 0→1 lerp, hold Mouse2
+- ✅ FOV-lerp: sniper 30°, assault 55°, shotgun 60°, rocket/grenade/plasma/knife = ingen ADS
+- ✅ Viewmodel ADS-position per vapen — offset mot skärmcenter (anchor X→0, Y→-0.1, Z→-0.25)
+- ✅ Sensitivity-multiplikator vid ADS (settingsStore: `adsSensitivityMult: 0.7`)
+- ✅ Movement speed reduction vid ADS (`ADS_SPEED_MULT: 0.6`)
+- ✅ Crosshair fade vid ADS (opacitet → 0 under transition)
+- ✅ Alt-fire (Mouse2) håller = ADS, release = hip
 
 ### V2 — Sniper Scope Overlay
 *Riktig scope-UI ovanpå ADS-systemet. Bara aktiv när sniper + ADS.*

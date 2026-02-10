@@ -1,4 +1,5 @@
 import { ENGINE_PHYSICS, DEG2RAD as _DEG2RAD, RAD2DEG as _RAD2DEG } from '../../../engine/physics/constants';
+import type { WeaponType } from './types';
 
 /** Full physics constants = engine core + Velocity-specific game balance. */
 export const PHYSICS = {
@@ -71,6 +72,10 @@ export const PHYSICS = {
   PLASMA_AMMO_PER_SEC: 10,
   PLASMA_MAX_AMMO: 100,
 
+  // ── Aim Down Sights (ADS) ──
+  ADS_TRANSITION_SPEED: 8,       // lerp speed for hip↔ADS transition
+  ADS_SPEED_MULT: 0.6,           // movement speed multiplier when fully ADS
+
   // ── Weapon switching ──
   WEAPON_SWAP_TIME: 0.3,        // seconds to switch weapons
 
@@ -87,3 +92,22 @@ export const PHYSICS = {
 } as const;
 
 export { _DEG2RAD as DEG2RAD, _RAD2DEG as RAD2DEG };
+
+/** Per-weapon ADS configuration. Weapons with canAds=false ignore ADS input. */
+export interface AdsWeaponConfig {
+  fov: number;
+  canAds: boolean;
+  anchorX: number;
+  anchorY: number;
+  anchorZ: number;
+}
+
+export const ADS_CONFIG: Record<WeaponType, AdsWeaponConfig> = {
+  sniper:  { fov: 30,  canAds: true,  anchorX: 0,    anchorY: -0.10, anchorZ: -0.25 },
+  assault: { fov: 55,  canAds: true,  anchorX: 0,    anchorY: -0.10, anchorZ: -0.25 },
+  shotgun: { fov: 60,  canAds: true,  anchorX: 0,    anchorY: -0.10, anchorZ: -0.25 },
+  rocket:  { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+  grenade: { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+  plasma:  { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+  knife:   { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+} as const;

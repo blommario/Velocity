@@ -55,7 +55,7 @@ interface CombatState {
   previousWeapon: WeaponType;
   fireCooldown: number;
   swapCooldown: number;
-  isZoomed: boolean;
+  adsProgress: number;  // 0 = hip, 1 = fully ADS
   isPlasmaFiring: boolean;
 
   // Knife lunge
@@ -120,7 +120,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   previousWeapon: 'rocket',
   fireCooldown: 0,
   swapCooldown: 0,
-  isZoomed: false,
+  adsProgress: 0,
   isPlasmaFiring: false,
 
   knifeLungeTimer: 0,
@@ -163,7 +163,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       previousWeapon: state.activeWeapon,
       activeWeapon: w,
       swapCooldown: PHYSICS.WEAPON_SWAP_TIME,
-      isZoomed: false,
+      adsProgress: 0,
       isPlasmaFiring: false,
     });
   },
@@ -306,7 +306,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       previousWeapon: 'rocket',
       fireCooldown: 0,
       swapCooldown: 0,
-      isZoomed: false,
+      adsProgress: 0,
       isPlasmaFiring: false,
       knifeLungeTimer: 0,
       knifeLungeDir: [0, 0, 0],

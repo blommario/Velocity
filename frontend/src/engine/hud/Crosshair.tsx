@@ -10,13 +10,18 @@ export interface CrosshairProps {
   config: CrosshairConfig;
   /** Show scope overlay instead of small crosshair (e.g. when zoomed) */
   showScope?: boolean;
+  /** Opacity override (0–1). Used for ADS fade. */
+  opacity?: number;
 }
 
-export function Crosshair({ config, showScope }: CrosshairProps) {
+export function Crosshair({ config, showScope, opacity = 1 }: CrosshairProps) {
   const { type, size, color } = config;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+    <div
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      style={opacity < 1 ? { opacity } : undefined}
+    >
       {type === 'dot' && <DotCrosshair size={size} color={color} />}
       {type === 'cross' && <CrossCrosshair size={size} color={color} />}
       {type === 'ring' && <RingCrosshair size={size} color={color} />}

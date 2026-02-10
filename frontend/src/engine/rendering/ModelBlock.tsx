@@ -59,7 +59,7 @@ export function ModelBlock({ model, loadModel }: ModelBlockProps) {
     if (shouldShow !== visible) setVisible(shouldShow);
   });
 
-  if (!scene || !visible) return null;
+  if (!scene) return null;
 
   const position = model.position;
   const rotation = model.rotation ?? [0, 0, 0];
@@ -69,6 +69,7 @@ export function ModelBlock({ model, loadModel }: ModelBlockProps) {
     return (
       <group
         ref={groupRef}
+        visible={visible}
         position={position}
         rotation={rotation}
         scale={scale}
@@ -78,11 +79,14 @@ export function ModelBlock({ model, loadModel }: ModelBlockProps) {
     );
   }
 
+  // Keep RigidBody always mounted so physics colliders persist even when
+  // the mesh is visually hidden (LOD). Only toggle Three.js `visible`.
   return (
     <RigidBody type="fixed" colliders={false}>
       <MeshCollider type={model.collider === 'hull' ? 'hull' : 'trimesh'}>
         <group
           ref={groupRef}
+          visible={visible}
           position={position}
           rotation={rotation}
           scale={scale}

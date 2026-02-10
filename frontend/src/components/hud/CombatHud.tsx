@@ -20,7 +20,7 @@ export function CombatHud() {
   const activeWeapon = useCombatStore((s) => s.activeWeapon);
   const ammo = useCombatStore((s) => s.ammo);
   const swapCooldown = useCombatStore((s) => s.swapCooldown);
-  const isZoomed = useCombatStore((s) => s.isZoomed);
+  const adsProgress = useCombatStore((s) => s.adsProgress);
 
   const activeDisplay = WEAPON_LABELS[activeWeapon];
   const activeAmmo = ammo[activeWeapon];
@@ -45,7 +45,7 @@ export function CombatHud() {
       healthMax={PHYSICS.HEALTH_MAX}
       activeWeapon={activeDisplay}
       ammo={ammoDisplay}
-      isZoomed={isZoomed}
+      isZoomed={adsProgress > 0.9}
       swapCooldown={swapCooldown}
       slots={slots}
     />

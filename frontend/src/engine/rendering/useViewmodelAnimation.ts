@@ -64,6 +64,8 @@ export interface ViewmodelAnimationInput {
   mouseDeltaX: number;
   /** Mouse delta Y this frame (pixels). */
   mouseDeltaY: number;
+  /** ADS progress (0 = hip, 1 = fully aimed). Reduces sway/bob. */
+  adsProgress?: number;
 }
 
 export interface ViewmodelAnimationOutput {
@@ -75,16 +77,15 @@ export interface ViewmodelAnimationOutput {
   rotZ: number;
 }
 
-// Pre-allocated output — mutated in-place each frame
-const _output: ViewmodelAnimationOutput = {
-  posX: 0, posY: 0, posZ: 0,
-  rotX: 0, rotY: 0, rotZ: 0,
-};
-
 export function useViewmodelAnimation(
   getInput: () => ViewmodelAnimationInput,
   config: ViewmodelAnimationConfig = VM_ANIM_DEFAULTS,
 ): ViewmodelAnimationOutput {
+  // Instance-scoped output — safe for multiple viewmodels (dual-wield, split-screen)
+  const outputRef = useRef<ViewmodelAnimationOutput>({
+    posX: 0, posY: 0, posZ: 0,
+    rotX: 0, rotY: 0, rotZ: 0,
+  });
   const timeRef = useRef(0);
   const recoilRef = useRef(0);
   const drawRef = useRef(1); // 1 = fully drawn, 0 = holstered
@@ -111,17 +112,23 @@ export function useViewmodelAnimation(
     timeRef.current += dt;
     const t = timeRef.current;
 
+    // ── ADS dampening ──
+    const ads = input.adsProgress ?? 0;
+    const swayDamp = 1 - ads * 0.8;   // reduce sway 80% at full ADS
+    const bobDamp = 1 - ads * 0.9;    // reduce bob 90% at full ADS
+    const lookDamp = 1 - ads * 0.7;   // reduce look-sway 70% at full ADS
+
     // ── Idle sway ──
-    const swayX = Math.sin(t * c.swaySpeed) * c.swayAmountX;
-    const swayY = Math.cos(t * c.swaySpeed * 0.7) * c.swayAmountY;
+    const swayX = Math.sin(t * c.swaySpeed) * c.swayAmountX * swayDamp;
+    const swayY = Math.cos(t * c.swaySpeed * 0.7) * c.swayAmountY * swayDamp;
 
     // ── Movement bob ──
     const bobScale = input.grounded
       ? MathUtils.clamp(input.speed * c.bobSpeedScale, 0, 1)
       : 0;
     const bobPhase = t * c.bobSpeed * Math.min(input.speed * 0.005, 1.5);
-    const bobX = Math.sin(bobPhase) * c.bobAmountX * bobScale;
-    const bobY = Math.abs(Math.sin(bobPhase * 0.5)) * c.bobAmountY * bobScale;
+    const bobX = Math.sin(bobPhase) * c.bobAmountX * bobScale * bobDamp;
+    const bobY = Math.abs(Math.sin(bobPhase * 0.5)) * c.bobAmountY * bobScale * bobDamp;
 
     // ── Recoil ──
     if (input.isFiring) {
@@ -139,12 +146,12 @@ export function useViewmodelAnimation(
     // ── Mouse look sway ──
     lookSwayXRef.current = MathUtils.lerp(
       lookSwayXRef.current,
-      -input.mouseDeltaX * c.lookSwayFactor,
+      -input.mouseDeltaX * c.lookSwayFactor * lookDamp,
       1 - Math.exp(-c.lookSwayRecovery * dt),
     );
     lookSwayYRef.current = MathUtils.lerp(
       lookSwayYRef.current,
-      -input.mouseDeltaY * c.lookSwayFactor,
+      -input.mouseDeltaY * c.lookSwayFactor * lookDamp,
       1 - Math.exp(-c.lookSwayRecovery * dt),
     );
 
@@ -172,14 +179,15 @@ export function useViewmodelAnimation(
     smoothRotYRef.current = MathUtils.lerp(smoothRotYRef.current, targetRotY, lerpFactor);
     smoothRotZRef.current = MathUtils.lerp(smoothRotZRef.current, targetRotZ, lerpFactor);
 
-    // Write to pre-allocated output
-    _output.posX = smoothPosXRef.current;
-    _output.posY = smoothPosYRef.current;
-    _output.posZ = smoothPosZRef.current;
-    _output.rotX = smoothRotXRef.current;
-    _output.rotY = smoothRotYRef.current;
-    _output.rotZ = smoothRotZRef.current;
+    // Write to instance-scoped output (mutated in-place, zero GC)
+    const out = outputRef.current;
+    out.posX = smoothPosXRef.current;
+    out.posY = smoothPosYRef.current;
+    out.posZ = smoothPosZRef.current;
+    out.rotX = smoothRotXRef.current;
+    out.rotY = smoothRotYRef.current;
+    out.rotZ = smoothRotZRef.current;
   });
 
-  return _output;
+  return outputRef.current;
 }

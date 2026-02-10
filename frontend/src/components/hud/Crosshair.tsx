@@ -30,7 +30,7 @@ function hexToRgba(hex: string, opacity: number): string {
 
 export function Crosshair() {
   const weapon = useCombatStore((s) => s.activeWeapon);
-  const isZoomed = useCombatStore((s) => s.isZoomed);
+  const adsProgress = useCombatStore((s) => s.adsProgress);
   const crosshairStyle = useSettingsStore((s) => s.crosshairStyle);
   const crosshairColor = useSettingsStore((s) => s.crosshairColor);
   const crosshairSize = useSettingsStore((s) => s.crosshairSize);
@@ -46,5 +46,5 @@ export function Crosshair() {
     color: useCustom ? hexToRgba(crosshairColor, 0.8) : weaponConfig.color,
   };
 
-  return <EngineCrosshair config={config} showScope={isZoomed} />;
+  return <EngineCrosshair config={config} showScope={adsProgress > 0.9} opacity={1 - adsProgress} />;
 }

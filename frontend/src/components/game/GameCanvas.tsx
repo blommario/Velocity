@@ -18,7 +18,8 @@ import { HudOverlay } from '../hud/HudOverlay';
 import { DevLogPanel } from '../../engine/stores/DevLogPanel';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useGameStore } from '../../stores/gameStore';
-import { PHYSICS } from './physics/constants';
+import { PHYSICS, ADS_CONFIG } from './physics/constants';
+import { useCombatStore } from '../../stores/combatStore';
 import { devLog } from '../../engine/stores/devLogStore';
 import { setMaxAnisotropy } from '../../services/assetManager';
 import type { FogOfWarConfig } from '../../engine/effects/FogOfWar';
@@ -94,7 +95,12 @@ function DynamicFov() {
       1,
     );
     const maxFov = baseFov + (FOV_SCALING.MAX - FOV_SCALING.BASE);
-    targetFovRef.current = baseFov + speedFraction * (maxFov - baseFov);
+    const speedFov = baseFov + speedFraction * (maxFov - baseFov);
+
+    // ADS FOV override — lerp between speed-based FOV and weapon ADS FOV
+    const combat = useCombatStore.getState();
+    const weaponAdsFov = ADS_CONFIG[combat.activeWeapon].fov;
+    targetFovRef.current = MathUtils.lerp(speedFov, weaponAdsFov, combat.adsProgress);
 
     const cam = camera as PerspectiveCamera;
     const newFov = MathUtils.lerp(cam.fov, targetFovRef.current, 1 - Math.exp(-FOV_SCALING.LERP_SPEED * delta));
