@@ -135,7 +135,7 @@ export function createTileBinningResources(maxTiles: number): TileBinningResourc
 
     // Approximate screen-space radius: r_px ≈ r_world * f_px / |viewZ|
     // Capped to half the viewport diagonal to prevent explosion when camera is inside light
-    const focalPx = uProjMatrix.element(0).element(0).mul(uViewW).mul(float(0.5));
+    const focalPx = uProjMatrix.element(int(0)).element(int(0)).mul(uViewW).mul(float(0.5));
     const absViewZ = viewPos.z.negate().max(float(0.001));
     const maxScreenRadius = uViewW.mul(float(0.5));
     const screenRadius = radius.mul(focalPx).div(absViewZ).min(maxScreenRadius);

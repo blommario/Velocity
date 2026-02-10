@@ -86,7 +86,7 @@ const FOV_EPSILON = 0.01;
 
 function DynamicFov() {
   const { camera } = useThree();
-  const targetFovRef = useRef(FOV_SCALING.BASE);
+  const targetFovRef = useRef<number>(FOV_SCALING.BASE);
 
   useFrame((_, delta) => {
     const baseFov = useSettingsStore.getState().fov;

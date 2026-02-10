@@ -66,9 +66,9 @@ let _spawnDecal: ((
 export function spawnDecal(
   x: number, y: number, z: number,
   nx: number, ny: number, nz: number,
-  size = DECAL.DEFAULT_SIZE,
-  r = 0.15, g = 0.15, b = 0.15,
-  lifetime = DECAL.DEFAULT_LIFETIME,
+  size: number = DECAL.DEFAULT_SIZE,
+  r: number = 0.15, g: number = 0.15, b: number = 0.15,
+  lifetime: number = DECAL.DEFAULT_LIFETIME,
 ): void {
   _spawnDecal?.(x, y, z, nx, ny, nz, size, r, g, b, lifetime);
 }

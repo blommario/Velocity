@@ -98,7 +98,8 @@ export function removeTileLighting(
 
   if (!nodeMat._tileLightingApplied) return;
 
-  nodeMat.emissiveNode = nodeMat._prevEmissiveNode ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- restoring saved node reference
+  nodeMat.emissiveNode = (nodeMat._prevEmissiveNode ?? null) as any;
   delete nodeMat._prevEmissiveNode;
   delete nodeMat._tileLightingApplied;
 }
