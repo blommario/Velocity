@@ -1,0 +1,251 @@
+import { useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { WebGPURenderer } from 'three/webgpu';
+import { Physics } from '@react-three/rapier';
+import { MathUtils, PerspectiveCamera } from 'three';
+import { PlayerController } from './PlayerController';
+import { TestMap } from './TestMap';
+import { MapLoader } from './map/MapLoader';
+import { ScreenShake } from '@engine/effects/ScreenShake';
+import { useFogOfWar } from '@engine/effects/useFogOfWar';
+import { ProjectileRenderer } from './ProjectileRenderer';
+import { GhostRenderer } from './GhostRenderer';
+import { PostProcessingEffects } from '@engine/core/PostProcessingEffects';
+import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer, DecalPool } from './effects';
+import { Viewmodel } from './Viewmodel';
+import { PerfMonitor } from '@engine/stores/PerfMonitor';
+import { HudOverlay } from '../hud/HudOverlay';
+import { DevLogPanel } from '@engine/stores/DevLogPanel';
+import { useSettingsStore } from '@game/stores/settingsStore';
+import { useGameStore } from '@game/stores/gameStore';
+import { PHYSICS, ADS_CONFIG } from './physics/constants';
+import { useCombatStore } from '@game/stores/combatStore';
+import { devLog } from '@engine/stores/devLogStore';
+import { setMaxAnisotropy } from '@game/services/assetManager';
+import type { FogOfWarConfig } from '@engine/effects/FogOfWar';
+import type { MapBlock } from '@engine/types/map';
+
+const FOV_SCALING = {
+  BASE: 90,
+  MAX: 120,
+  SPEED_START: 400,
+  SPEED_FULL: 800,
+  LERP_SPEED: 5,
+} as const;
+
+/** Wraps PostProcessingEffects with optional fog-of-war driven by camera position. */
+function ScenePostProcessing({ fogConfig, blocks }: {
+  fogConfig?: Partial<FogOfWarConfig>;
+  blocks?: ReadonlyArray<MapBlock>;
+}) {
+  const { camera } = useThree();
+  const camPosRef = useRef<[number, number, number]>([0, 0, 0]);
+
+  // Update pre-allocated tuple from camera each frame (before useFogOfWar reads it)
+  useFrame(() => {
+    camPosRef.current[0] = camera.position.x;
+    camPosRef.current[1] = camera.position.y;
+    camPosRef.current[2] = camera.position.z;
+  });
+
+  const enabled = fogConfig !== undefined;
+  const { fogTexture, fogComputeResources, fogUniforms } = useFogOfWar({
+    enabled,
+    config: fogConfig,
+    viewPosition: camPosRef.current,
+    blocks,
+  });
+
+  // PostFX settings from store
+  const ssao = useSettingsStore((s) => s.ssao);
+  const colorGrading = useSettingsStore((s) => s.colorGrading);
+  const filmGrain = useSettingsStore((s) => s.filmGrain);
+  const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
+  const motionBlur = useSettingsStore((s) => s.motionBlur);
+  const depthOfField = useSettingsStore((s) => s.depthOfField);
+
+  return (
+    <PostProcessingEffects
+      fogTexture={fogTexture}
+      fogComputeResources={fogComputeResources}
+      fogUniforms={fogUniforms}
+      ssaoEnabled={ssao}
+      colorGradingEnabled={colorGrading}
+      filmGrainEnabled={filmGrain}
+      chromaticAberrationEnabled={chromaticAberration}
+      motionBlurEnabled={motionBlur}
+      depthOfFieldEnabled={depthOfField}
+    />
+  );
+}
+
+const FOV_EPSILON = 0.01;
+
+function DynamicFov() {
+  const { camera } = useThree();
+  const targetFovRef = useRef(FOV_SCALING.BASE);
+
+  useFrame((_, delta) => {
+    const baseFov = useSettingsStore.getState().fov;
+    const speed = useGameStore.getState().speed;
+
+    const speedFraction = MathUtils.clamp(
+      (speed - FOV_SCALING.SPEED_START) / (FOV_SCALING.SPEED_FULL - FOV_SCALING.SPEED_START),
+      0,
+      1,
+    );
+    const maxFov = baseFov + (FOV_SCALING.MAX - FOV_SCALING.BASE);
+    const speedFov = baseFov + speedFraction * (maxFov - baseFov);
+
+    // ADS FOV override — lerp between speed-based FOV and weapon ADS FOV
+    const combat = useCombatStore.getState();
+    const weaponAdsFov = ADS_CONFIG[combat.activeWeapon].fov;
+    targetFovRef.current = MathUtils.lerp(speedFov, weaponAdsFov, combat.adsProgress);
+
+    const cam = camera as PerspectiveCamera;
+    const newFov = MathUtils.lerp(cam.fov, targetFovRef.current, 1 - Math.exp(-FOV_SCALING.LERP_SPEED * delta));
+
+    // Only rebuild projection matrix when FOV actually changes
+    if (Math.abs(newFov - cam.fov) > FOV_EPSILON) {
+      cam.fov = newFov;
+      cam.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
+
+/**
+ * Waits for the rendering pipeline to stabilise before dismissing the loading screen.
+ * WebGPU compiles shader pipelines lazily on first use — the first few frames stutter
+ * heavily while the GPU driver builds PSOs. We keep the loading overlay up until
+ * frametime drops below a threshold for several consecutive frames.
+ */
+const STABLE_FRAME_MS = 18;     // frametime must be below this …
+const STABLE_FRAMES_NEEDED = 20; // … for this many consecutive frames
+const MIN_WARMUP_FRAMES = 40;   // always render at least this many frames first
+const FALLBACK_TIMEOUT_MS = 8000; // bail out after 8s no matter what
+
+function ReadySignal() {
+  const frameCount = useRef(0);
+  const stableCount = useRef(0);
+  const startTime = useRef(performance.now());
+  const fired = useRef(false);
+
+  useFrame((_, delta) => {
+    if (fired.current) return;
+
+    frameCount.current++;
+    const elapsed = performance.now() - startTime.current;
+    const frameMs = delta * 1000;
+
+    // Update progress smoothly while warming up
+    const warmupProgress = Math.min(frameCount.current / MIN_WARMUP_FRAMES, 1);
+    const progress = 0.8 + warmupProgress * 0.15; // 80% → 95%
+    useGameStore.getState().setLoadProgress(progress, 'Compiling shaders...');
+
+    // Don't evaluate stability until minimum frames rendered
+    if (frameCount.current < MIN_WARMUP_FRAMES) return;
+
+    // Count consecutive stable frames
+    if (frameMs < STABLE_FRAME_MS) {
+      stableCount.current++;
+    } else {
+      stableCount.current = 0;
+    }
+
+    // Ready when stable enough or timeout reached
+    if (stableCount.current >= STABLE_FRAMES_NEEDED || elapsed > FALLBACK_TIMEOUT_MS) {
+      fired.current = true;
+      useGameStore.getState().setLoadProgress(1, 'Ready');
+      // One more rAF to let the final progress render
+      requestAnimationFrame(() => {
+        useGameStore.getState().finishLoading();
+      });
+    }
+  });
+
+  return null;
+}
+
+export function GameCanvas() {
+  const fov = useSettingsStore((s) => s.fov);
+  const mapData = useGameStore((s) => s.currentMapData);
+  const mapId = useGameStore((s) => s.currentMapId);
+
+  return (
+    <div className="w-screen h-screen relative select-none">
+      <Canvas
+        gl={async (props) => {
+          useGameStore.getState().setLoadProgress(0.1, 'Initializing graphics...');
+          devLog.info('Renderer', 'Creating WebGPURenderer...');
+          const renderer = new WebGPURenderer({
+            canvas: props.canvas as HTMLCanvasElement,
+            antialias: true,
+          });
+
+          try {
+            await renderer.init();
+          } catch (err) {
+            devLog.error('Renderer', `WebGPU init failed: ${err}`);
+            throw err;
+          }
+
+          useGameStore.getState().setLoadProgress(0.4, 'Setting up physics...');
+
+          // Monitor GPU device loss (OOM, driver crash, TDR, etc.)
+          const device = renderer.backend.device as GPUDevice | undefined;
+          if (device?.lost) {
+            device.lost.then((info) => {
+              const msg = `WebGPU device lost: ${info.message} (reason: ${info.reason})`;
+              console.error(msg);
+              devLog.error('Renderer', msg);
+            });
+          }
+
+          const aniso = renderer.getMaxAnisotropy();
+          setMaxAnisotropy(aniso);
+          devLog.success('Renderer', `WebGPU initialized (${renderer.backend.constructor.name}, anisotropy=${aniso})`);
+          useGameStore.getState().setLoadProgress(0.6, 'Loading map...');
+          return renderer;
+        }}
+        camera={{ fov, near: 0.1, far: 1000 }}
+        shadows
+        onPointerDown={(e) => {
+          (e.target as HTMLCanvasElement).requestPointerLock?.()?.catch?.(() => {});
+        }}
+      >
+        <ReadySignal />
+        <DynamicFov />
+        <ScreenShake
+          getIntensity={() => useGameStore.getState().shakeIntensity}
+          onDecayed={() => useGameStore.getState().clearShake()}
+        />
+        <Viewmodel />
+        <ScenePostProcessing fogConfig={mapData?.fogOfWar} blocks={mapData?.blocks} />
+        <Physics
+          timeStep={PHYSICS.TICK_DELTA}
+          gravity={[0, 0, 0]}
+          interpolate
+        >
+          {mapData ? (
+            <MapLoader data={mapData} mapId={mapId ?? undefined} />
+          ) : (
+            <TestMap />
+          )}
+          <PlayerController />
+          <ProjectileRenderer />
+          <GhostRenderer />
+        </Physics>
+        <SpeedTrail />
+        <GrappleBeam />
+        <ExplosionManager />
+        <DecalPool />
+        <CheckpointShimmer />
+        <PerfMonitor />
+      </Canvas>
+      <HudOverlay />
+      <DevLogPanel />
+    </div>
+  );
+}

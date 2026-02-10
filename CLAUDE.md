@@ -25,17 +25,28 @@ frontend/
       audio/                ← AudioManager (Web Audio synth engine)
       effects/              ← GPU particles, explosions, screen shake
       rendering/            ← Engine-level rendering utils
-      stores/               ← DevLog store, PerfMonitor, DevLogPanel
+      stores/               ← DevLog, PerfMonitor, settingsStore, editorStore, replayStore
+      hud/                  ← Engine HUD primitives (Timer, SpeedMeter, Crosshair, etc.)
       types/                ← InputState, MovementState, MapBlock, Vec3, etc.
-    components/game/        ← Velocity-specific: PlayerController, TestMap, zones
-    components/game/physics/ ← Game physics tick, game constants (weapons, health)
-    components/hud/         ← SpeedMeter, Timer, Crosshair, HudOverlay
-    stores/                 ← Zustand (gameStore, settingsStore, combatStore)
-    services/               ← API client (fetch wrapper, no external deps)
+    game/                   ← Velocity-specific game code
+      components/game/      ← PlayerController, TestMap, zones, effects
+      components/game/physics/ ← Game physics tick, game constants (weapons, health)
+      components/hud/       ← Game-specific HUD wrappers (Crosshair, CombatHud, etc.)
+      components/editor/    ← Map editor UI
+      components/menu/      ← MainMenu, AuthScreen, SettingsScreen, etc.
+      stores/               ← Zustand (gameStore, combatStore, raceStore, authStore)
+      services/             ← API client (fetch wrapper, no external deps)
+      hooks/                ← Game-specific hooks
+      types/                ← Game-specific types
 Plan.md                     ← Active implementation plan (Fas G/H/I)
 DESIGN.md                   ← Game design reference (in .claudeignore)
 RESOURCES.md                ← External links/tutorials (in .claudeignore)
 ```
+
+### Import Aliases
+- **`@engine/*`** → `src/engine/*` (configured in tsconfig + vite)
+- **`@game/*`** → `src/game/*` (configured in tsconfig + vite)
+- Use aliases for cross-boundary imports. Relative imports within the same top-level dir are fine.
 
 ## Workflow
 
@@ -74,14 +85,14 @@ RESOURCES.md                ← External links/tutorials (in .claudeignore)
 - `as const` objects for thresholds/config
 
 ### Engine / Game Boundary — CRITICAL
-The engine (`src/engine/`) is designed as a **general-purpose, reusable game engine** that can power any game — not just Velocity. Every generic/reusable feature MUST live in `src/engine/`. Only Velocity-specific gameplay logic belongs in `src/components/game/`.
+The engine (`src/engine/`) is designed as a **general-purpose, reusable game engine** that can power any game — not just Velocity. Every generic/reusable feature MUST live in `src/engine/`. Only Velocity-specific gameplay logic belongs in `src/game/`.
 
-- **`src/engine/`** = generic, reusable. MUST NOT import from `components/game/`, `stores/gameStore`, `stores/combatStore`, `stores/replayStore`, `stores/raceStore`, or `stores/authStore`.
-- **`src/components/game/`** = Velocity-specific. MAY import from `engine/`.
-- **Rule of thumb:** If a feature could be useful in another game (physics, rendering, input, audio, effects, UI primitives, networking, etc.) → it goes in `engine/`. If it's specific to Velocity's gameplay (speedrun timer, checkpoint zones, weapon balance, map formats) → it goes in `components/game/`.
+- **`src/engine/`** = generic, reusable. MUST NOT import from `@game/*`.
+- **`src/game/`** = Velocity-specific. MAY import from `@engine/*`.
+- **Rule of thumb:** If a feature could be useful in another game (physics, rendering, input, audio, effects, UI primitives, networking, etc.) → it goes in `engine/`. If it's specific to Velocity's gameplay (speedrun timer, checkpoint zones, weapon balance, map formats) → it goes in `game/`.
 - Engine uses **prop injection** (not game store reads).
 - Constants: `ENGINE_PHYSICS` (engine) extended as `PHYSICS` (game).
-- **Exception:** `settingsStore` may be imported by engine code.
+- **Exception:** `settingsStore` lives in `engine/stores/` and may be imported by both engine and game code.
 
 ### Performance — Hot Path Rules (128Hz Physics + 60Hz Render)
 - Never `set()` with `.map()`/`.filter()`/spread at 128Hz — use mutable pools

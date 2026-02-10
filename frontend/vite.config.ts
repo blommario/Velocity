@@ -1,5 +1,6 @@
 import { defineConfig, type PluginOption } from 'vite'
 import { exec } from 'child_process'
+import path from 'path'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -22,6 +23,12 @@ function openChrome(): PluginOption {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), openChrome()],
+  resolve: {
+    alias: {
+      '@engine': path.resolve(__dirname, 'src/engine'),
+      '@game': path.resolve(__dirname, 'src/game'),
+    },
+  },
   optimizeDeps: {
     esbuildOptions: {
       target: 'esnext',
