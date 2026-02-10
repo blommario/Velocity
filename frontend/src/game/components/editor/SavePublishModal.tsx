@@ -1,3 +1,9 @@
+/**
+ * Save / Publish modal — local file save/load and server publish for maps.
+ *
+ * Depends on: editorStore, authStore, api
+ * Used by: MapEditor (via EditorToolbar Ctrl+S)
+ */
 import { useState } from 'react';
 import { useEditorStore } from '@game/stores/editorStore';
 import { useAuthStore } from '@game/stores/authStore';

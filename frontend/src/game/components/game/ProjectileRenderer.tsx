@@ -1,31 +1,20 @@
 /**
- * Thin bridge: reads mutable projectilePool → writes GPU sprite slots + 3D rocket meshes.
- * Trail rendering handled by engine GpuProjectiles (1 draw call).
- * Rocket bodies rendered via 2 InstancedMesh (body + nose) = 2 draw calls total.
+ * ProjectileRenderer — reads mutable projectilePool and writes GPU sprite
+ * slots (trails) + 3D rocket body/nose InstancedMesh transforms each frame.
+ *
+ * Depends on: GpuProjectiles, useGpuProjectileSlots, useRocketInstances, projectilePool
+ * Used by: GameCanvas
  */
-import { useRef, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { GpuProjectiles, useGpuProjectileSlots } from '@engine/effects/GpuProjectiles';
 import { getPool, getPoolSize } from './physics/projectilePool';
-import {
-  InstancedMesh, ConeGeometry, CylinderGeometry,
-  MeshStandardMaterial, Vector3, Quaternion, Matrix4,
-} from 'three';
+import { Vector3, Quaternion, Matrix4 } from 'three';
+import { useRocketInstances, ROCKET_MESH } from './useRocketInstances';
 
 /** Velocity projectile colors: 0=rocket, 1=grenade */
 const PROJECTILE_COLORS: Record<number, [number, number, number]> = {
   0: [1.0, 0.4, 0.05],  // rocket — orange-red
   1: [0.3, 1.0, 0.1],   // grenade — bright green
-} as const;
-
-/** Rocket instanced mesh config */
-const ROCKET_MESH = {
-  MAX_INSTANCES: 16,
-  BODY_RADIUS: 0.25,
-  BODY_LENGTH: 1.5,
-  NOSE_RADIUS: 0.25,
-  NOSE_LENGTH: 0.55,
-  HIDDEN_Y: -9999,
 } as const;
 
 // Pre-allocated reusable objects — zero GC in render loop
@@ -52,75 +41,7 @@ export function ProjectileRenderer() {
 
 function ProjectileBridge() {
   const slots = useGpuProjectileSlots();
-  const { scene } = useThree();
-  const bodyMeshRef = useRef<InstancedMesh | null>(null);
-  const noseMeshRef = useRef<InstancedMesh | null>(null);
-
-  useEffect(() => {
-    // Body geometry: cylinder aligned to +Z
-    const bodyGeo = new CylinderGeometry(
-      ROCKET_MESH.BODY_RADIUS, ROCKET_MESH.BODY_RADIUS,
-      ROCKET_MESH.BODY_LENGTH, 8,
-    );
-    bodyGeo.rotateX(Math.PI / 2);
-
-    // Nose geometry: cone pointing +Z
-    const noseGeo = new ConeGeometry(
-      ROCKET_MESH.NOSE_RADIUS, ROCKET_MESH.NOSE_LENGTH, 8,
-    );
-    noseGeo.rotateX(-Math.PI / 2);
-
-    const bodyMat = new MeshStandardMaterial({
-      color: 0xaa4400,
-      metalness: 0.6,
-      roughness: 0.3,
-      emissive: 0xff6600,
-      emissiveIntensity: 4.0,
-    });
-
-    const noseMat = new MeshStandardMaterial({
-      color: 0xff3300,
-      metalness: 0.4,
-      roughness: 0.3,
-      emissive: 0xff4400,
-      emissiveIntensity: 5.0,
-    });
-
-    // 2 InstancedMesh: body (1 draw call) + nose (1 draw call)
-    const bodyMesh = new InstancedMesh(bodyGeo, bodyMat, ROCKET_MESH.MAX_INSTANCES);
-    bodyMesh.name = 'RocketBodies';
-    bodyMesh.frustumCulled = false;
-    bodyMesh.count = ROCKET_MESH.MAX_INSTANCES;
-
-    const noseMesh = new InstancedMesh(noseGeo, noseMat, ROCKET_MESH.MAX_INSTANCES);
-    noseMesh.name = 'RocketNoses';
-    noseMesh.frustumCulled = false;
-    noseMesh.count = ROCKET_MESH.MAX_INSTANCES;
-
-    // Initialize all instances to hidden
-    for (let i = 0; i < ROCKET_MESH.MAX_INSTANCES; i++) {
-      bodyMesh.setMatrixAt(i, _hiddenMatrix);
-      noseMesh.setMatrixAt(i, _hiddenMatrix);
-    }
-    bodyMesh.instanceMatrix.needsUpdate = true;
-    noseMesh.instanceMatrix.needsUpdate = true;
-
-    scene.add(bodyMesh);
-    scene.add(noseMesh);
-    bodyMeshRef.current = bodyMesh;
-    noseMeshRef.current = noseMesh;
-
-    return () => {
-      scene.remove(bodyMesh);
-      scene.remove(noseMesh);
-      bodyGeo.dispose();
-      noseGeo.dispose();
-      bodyMat.dispose();
-      noseMat.dispose();
-      bodyMeshRef.current = null;
-      noseMeshRef.current = null;
-    };
-  }, [scene]);
+  const { bodyMeshRef, noseMeshRef } = useRocketInstances();
 
   useFrame(() => {
     const pool = getPool();

@@ -9,10 +9,13 @@
  * - Banking/tilt (rotZ) gives the weapon weight when turning
  *
  * ViewmodelLayer handles camera rotation sync — we work purely in local space.
+ *
+ * Depends on: ViewmodelLayer, useViewmodelAnimation, MuzzleFlash, combatStore, gameStore, viewmodelConfig
+ * Used by: GameCanvas
  */
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { BoxGeometry, Vector3, Euler, Matrix4, Quaternion } from 'three';
+import { Vector3, Euler, Matrix4, Quaternion } from 'three';
 import type { Group } from 'three';
 import { ViewmodelLayer } from '@engine/rendering/ViewmodelLayer';
 import { useViewmodelAnimation, type ViewmodelAnimationInput } from '@engine/rendering/useViewmodelAnimation';
@@ -22,61 +25,13 @@ import { useCombatStore } from '@game/stores/combatStore';
 import { loadModel } from '@game/services/assetManager';
 import { devLog } from '@engine/stores/devLogStore';
 import { ADS_CONFIG } from './physics/constants';
+import {
+  VM_ANCHOR, SWAY_INTENSITY, TILT_INTENSITY,
+  WEAPON_COLORS, MUZZLE_COLORS, WEAPON_MODELS,
+  knifeGeometry,
+  type WeaponModelConfig,
+} from './viewmodelConfig';
 import type { WeaponType } from './physics/types';
-
-/** Anchor position and focal distance — all in camera-local space. */
-const VM_ANCHOR = {
-  X: 0.05,
-  Y: -0.30,
-  Z: -0.10,
-  /** Shorter = snappier aim feel, longer = subtler. 8 is a good middle ground. */
-  FOCAL_DIST: 8.0,
-} as const;
-
-/** Multipliers for game feel. */
-const SWAY_INTENSITY = 2.0;
-const TILT_INTENSITY = 0.8;
-
-const WEAPON_COLORS: Record<WeaponType, string> = {
-  rocket: '#884422',
-  grenade: '#446622',
-  sniper: '#334466',
-  assault: '#555555',
-  shotgun: '#664422',
-  knife: '#888888',
-  plasma: '#224466',
-} as const;
-
-const MUZZLE_COLORS: Record<WeaponType, [number, number, number]> = {
-  rocket: [1.0, 0.5, 0.1],
-  grenade: [0.5, 1.0, 0.2],
-  sniper: [0.8, 0.8, 1.0],
-  assault: [1.0, 0.7, 0.2],
-  shotgun: [1.0, 0.6, 0.1],
-  knife: [0, 0, 0],
-  plasma: [0.3, 0.6, 1.0],
-} as const;
-
-interface WeaponModelConfig {
-  path: string | null;
-  scale: number;
-  rotationY: number;
-  offsetX: number;
-  offsetY: number;
-  offsetZ: number;
-}
-
-const WEAPON_MODELS: Record<WeaponType, WeaponModelConfig> = {
-  assault: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
-  sniper:  { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
-  shotgun: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
-  rocket:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
-  grenade: { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
-  plasma:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
-  knife:   { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.20 },
-} as const;
-
-const knifeGeometry = new BoxGeometry(0.02, 0.02, 0.3);
 
 // Pre-allocated objects (zero GC)
 const _muzzleOffset = new Vector3();
@@ -98,10 +53,7 @@ interface ViewmodelState {
 function useWeaponModel(config: WeaponModelConfig): Group | null {
   const [model, setModel] = useState<Group | null>(null);
   useEffect(() => {
-    if (config.path === null) {
-      setModel(null);
-      return;
-    }
+    if (config.path === null) { setModel(null); return; }
     let cancelled = false;
     const modelPath = config.path;
     devLog.info('Viewmodel', `Loading weapon model: ${modelPath}...`);
@@ -112,9 +64,7 @@ function useWeaponModel(config: WeaponModelConfig): Group | null {
       scene.rotation.y = config.rotationY;
       scene.position.set(config.offsetX, config.offsetY, config.offsetZ);
       setModel(scene);
-    }).catch((err) => {
-      devLog.error('Viewmodel', `Weapon model load failed: ${err}`);
-    });
+    }).catch((err) => { devLog.error('Viewmodel', `Weapon model load failed: ${err}`); });
     return () => { cancelled = true; };
   }, [config.path, config.scale, config.rotationY, config.offsetX, config.offsetY, config.offsetZ]);
   return model;
@@ -124,7 +74,6 @@ function ViewmodelContent() {
   const groupRef = useRef<any>(null);
   const mouseDeltaRef = useRef<[number, number]>([0, 0]);
 
-  // Capture mouse movement for weapon look-sway and tilt
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mouseDeltaRef.current[0] += e.movementX;
@@ -138,39 +87,19 @@ function ViewmodelContent() {
   const weaponConfig = WEAPON_MODELS[activeWeapon];
   const weaponModel = useWeaponModel(weaponConfig);
 
-  const stateRef = useRef<ViewmodelState>({
-    prevWeapon: 'rocket',
-    drawTimer: 0,
-    prevFireCooldown: 0,
-  });
+  const stateRef = useRef<ViewmodelState>({ prevWeapon: 'rocket', drawTimer: 0, prevFireCooldown: 0 });
 
   const getInput = useCallback((): ViewmodelAnimationInput => {
     const speed = useGameStore.getState().speed;
     const grounded = useGameStore.getState().isGrounded;
     const combat = useCombatStore.getState();
     const state = stateRef.current;
-
-    if (combat.activeWeapon !== state.prevWeapon) {
-      state.prevWeapon = combat.activeWeapon;
-      state.drawTimer = 0.3;
-    }
-
+    if (combat.activeWeapon !== state.prevWeapon) { state.prevWeapon = combat.activeWeapon; state.drawTimer = 0.3; }
     const isFiring = combat.fireCooldown > 0 && state.prevFireCooldown === 0;
-
     const [mx, my] = mouseDeltaRef.current;
     mouseDeltaRef.current[0] = 0;
     mouseDeltaRef.current[1] = 0;
-
-    return {
-      speed,
-      grounded,
-      isFiring,
-      isDrawing: state.drawTimer > 0,
-      mouseDeltaX: mx,
-      mouseDeltaY: my,
-      adsProgress: combat.adsProgress,
-      inspectProgress: combat.inspectProgress,
-    };
+    return { speed, grounded, isFiring, isDrawing: state.drawTimer > 0, mouseDeltaX: mx, mouseDeltaY: my, adsProgress: combat.adsProgress, inspectProgress: combat.inspectProgress };
   }, []);
 
   const anim = useViewmodelAnimation(getInput);
@@ -178,71 +107,36 @@ function ViewmodelContent() {
   useFrame((_, delta) => {
     const group = groupRef.current;
     if (!group) return;
-
     const vmState = stateRef.current;
     const dt = Math.min(delta, 0.05);
+    if (vmState.drawTimer > 0) vmState.drawTimer = Math.max(0, vmState.drawTimer - dt);
 
-    if (vmState.drawTimer > 0) {
-      vmState.drawTimer = Math.max(0, vmState.drawTimer - dt);
-    }
-
-    // ── Point A: stock anchor in camera-local space (lerped toward ADS position) ──
     const combat = useCombatStore.getState();
     const p = combat.adsProgress;
     const adsConf = ADS_CONFIG[combat.activeWeapon];
-    const swayScale = SWAY_INTENSITY * (1 - p * 0.7); // reduce sway at full ADS
+    const swayScale = SWAY_INTENSITY * (1 - p * 0.7);
     _pointA.set(
       VM_ANCHOR.X + (adsConf.anchorX - VM_ANCHOR.X) * p + anim.posX * swayScale,
       VM_ANCHOR.Y + (adsConf.anchorY - VM_ANCHOR.Y) * p + anim.posY * swayScale,
       VM_ANCHOR.Z + (adsConf.anchorZ - VM_ANCHOR.Z) * p + anim.posZ,
     );
-
-    // ── Point B: crosshair, always dead center ──
     _pointB.set(0, 0, -VM_ANCHOR.FOCAL_DIST);
-
-    // ── Position at stock ──
     group.position.copy(_pointA);
-
-    // ── Rotate barrel from A toward B ──
     _lookMatrix.lookAt(_pointA, _pointB, _up.set(0, 1, 0));
     _aimQuat.setFromRotationMatrix(_lookMatrix);
     group.quaternion.copy(_aimQuat);
 
-    // ── Banking/tilt: weapon rolls when turning ──
-    if (anim.rotZ !== 0) {
-      _tempEuler.set(0, 0, anim.rotZ * TILT_INTENSITY);
-      _tiltQuat.setFromEuler(_tempEuler);
-      group.quaternion.multiply(_tiltQuat);
-    }
+    if (anim.rotZ !== 0) { _tempEuler.set(0, 0, anim.rotZ * TILT_INTENSITY); _tiltQuat.setFromEuler(_tempEuler); group.quaternion.multiply(_tiltQuat); }
+    if (anim.rotX !== 0) { _tempEuler.set(anim.rotX, 0, 0); _recoilQuat.setFromEuler(_tempEuler); group.quaternion.multiply(_recoilQuat); }
+    if (anim.rotY !== 0) { _tempEuler.set(0, anim.rotY, 0); _recoilQuat.setFromEuler(_tempEuler); group.quaternion.multiply(_recoilQuat); }
 
-    // ── Recoil pitch ──
-    if (anim.rotX !== 0) {
-      _tempEuler.set(anim.rotX, 0, 0);
-      _recoilQuat.setFromEuler(_tempEuler);
-      group.quaternion.multiply(_recoilQuat);
-    }
-
-    // ── Inspect Y-axis spin ──
-    if (anim.rotY !== 0) {
-      _tempEuler.set(0, anim.rotY, 0);
-      _recoilQuat.setFromEuler(_tempEuler);
-      group.quaternion.multiply(_recoilQuat);
-    }
-
-    // ── Muzzle flash (reuses `combat` from ADS block above) ──
     const justFired = combat.fireCooldown > 0 && vmState.prevFireCooldown === 0;
     if (justFired && combat.activeWeapon !== 'knife') {
       const [r, g, b] = MUZZLE_COLORS[combat.activeWeapon];
       _muzzleOffset.set(0, 0.02, WEAPON_MODELS[combat.activeWeapon].offsetZ - 0.45);
       _muzzleOffset.applyQuaternion(group.quaternion);
-      triggerMuzzleFlash(
-        group.position.x + _muzzleOffset.x,
-        group.position.y + _muzzleOffset.y,
-        group.position.z + _muzzleOffset.z,
-        r, g, b,
-      );
+      triggerMuzzleFlash(group.position.x + _muzzleOffset.x, group.position.y + _muzzleOffset.y, group.position.z + _muzzleOffset.z, r, g, b);
     }
-
     vmState.prevFireCooldown = combat.fireCooldown;
   });
 
@@ -269,9 +163,7 @@ function ViewmodelContent() {
 
 export function Viewmodel() {
   const inspectProgress = useCombatStore((s) => s.inspectProgress);
-  // Boost ambient light from 1.0 to 1.6 during inspect
   const lightBoost = 1.0 + inspectProgress * 0.6;
-
   return (
     <ViewmodelLayer lightBoost={lightBoost}>
       <ViewmodelContent />

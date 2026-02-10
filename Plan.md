@@ -191,10 +191,10 @@
 - ✅ Mål: huvudkomponent <150 rader
 
 ### Q7 — Övriga komponenter >150 rader (~24 st)
-- 🔲 Identifiera och lista alla återstående komponenter >150 rader
-- 🔲 Bryt ner varje till <150 rader via hook-extraktion och subkomponenter
-- 🔲 Eliminera magic strings/numbers i dessa komponenter
-- 🔲 Lägg till doc comments (JSDoc) på alla refaktoriserade komponenter
+- ✅ Identifiera och lista alla återstående komponenter >150 rader
+- ✅ Bryt ner varje till <150 rader via hook-extraktion och subkomponenter
+- ✅ Eliminera magic strings/numbers i dessa komponenter
+- ✅ Lägg till doc comments (JSDoc) på alla refaktoriserade komponenter
 
 ---
 
