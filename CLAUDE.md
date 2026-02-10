@@ -73,9 +73,12 @@ RESOURCES.md                ← External links/tutorials (in .claudeignore)
 - Lookup tables for bindings (`Record<string, T>`)
 - `as const` objects for thresholds/config
 
-### Engine / Game Boundary
+### Engine / Game Boundary — CRITICAL
+The engine (`src/engine/`) is designed as a **general-purpose, reusable game engine** that can power any game — not just Velocity. Every generic/reusable feature MUST live in `src/engine/`. Only Velocity-specific gameplay logic belongs in `src/components/game/`.
+
 - **`src/engine/`** = generic, reusable. MUST NOT import from `components/game/`, `stores/gameStore`, `stores/combatStore`, `stores/replayStore`, `stores/raceStore`, or `stores/authStore`.
 - **`src/components/game/`** = Velocity-specific. MAY import from `engine/`.
+- **Rule of thumb:** If a feature could be useful in another game (physics, rendering, input, audio, effects, UI primitives, networking, etc.) → it goes in `engine/`. If it's specific to Velocity's gameplay (speedrun timer, checkpoint zones, weapon balance, map formats) → it goes in `components/game/`.
 - Engine uses **prop injection** (not game store reads).
 - Constants: `ENGINE_PHYSICS` (engine) extended as `PHYSICS` (game).
 - **Exception:** `settingsStore` may be imported by engine code.
