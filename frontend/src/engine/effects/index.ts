@@ -28,3 +28,16 @@ export { MuzzleFlash, triggerMuzzleFlash } from './MuzzleFlash';
 export { DecalPool, spawnDecal } from './DecalPool';
 export { EnvironmentalParticles } from './EnvironmentalParticles';
 export { PARTICLE_PRESETS, type ParticlePreset, type ParticlePresetName } from './particlePresets';
+export {
+  ProceduralSkybox, SKY_PRESETS,
+  type SkyPreset, type ProceduralSkyPresetName,
+} from './ProceduralSkybox';
+export { HdriSkybox } from './HdriSkybox';
+export { AtmosphericFog } from './AtmosphericFog';
+export { WaterSurface } from './WaterSurface';
+export { FogVolume } from './FogVolume';
+export { ParticleEmitter } from './ParticleEmitter';
+export { LineRenderEffect, type LineRenderConfig, type LineRenderEffectProps } from './LineRenderEffect';
+export { ObjectHighlight, type ObjectHighlightConfig, type ObjectHighlightProps } from './ObjectHighlight';
+export { SpeedTrail, type SpeedTrailConfig, type SpeedTrailProps } from './SpeedTrail';
+export { spawnImpactEffects, type ImpactIntensity } from './spawnImpactEffects';

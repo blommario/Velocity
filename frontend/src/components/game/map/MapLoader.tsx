@@ -11,17 +11,17 @@ import { LaunchPad } from '../zones/LaunchPad';
 import { SpeedGate } from '../zones/SpeedGate';
 import { AmmoPickup } from '../zones/AmmoPickup';
 import { GrapplePoint } from '../zones/GrapplePoint';
-import { AtmosphericFog } from '../AtmosphericFog';
-import { ProceduralSkybox } from '../ProceduralSkybox';
-import { HdriSkybox } from '../HdriSkybox';
+import { AtmosphericFog } from '../../../engine/effects/AtmosphericFog';
+import { ProceduralSkybox } from '../../../engine/effects/ProceduralSkybox';
+import { HdriSkybox } from '../../../engine/effects/HdriSkybox';
 import { GpuLightSprites, type LightSpriteData } from '../../../engine/effects/GpuLightSprites';
 import { useClusteredLighting, useTileClusteredLighting, useShadowLight, type LightData } from '../../../engine/rendering';
 import { InstancedBlocks } from './InstancedBlocks';
 import { InstancedSurfRamps } from './InstancedSurfRamps';
 import { ModelBlock } from './ModelBlock';
-import { WaterSurface } from '../environment/WaterSurface';
-import { FogVolume } from '../environment/FogVolume';
-import { ParticleEmitter } from '../environment/ParticleEmitter';
+import { WaterSurface } from '../../../engine/effects/WaterSurface';
+import { FogVolume } from '../../../engine/effects/FogVolume';
+import { ParticleEmitter } from '../../../engine/effects/ParticleEmitter';
 import { HeightmapTerrain } from './HeightmapTerrain';
 import { useGameStore } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
@@ -29,7 +29,7 @@ import { useCombatStore } from '../../../stores/combatStore';
 import { devLog } from '../../../engine/stores/devLogStore';
 import { resetPool } from '../physics/projectilePool';
 import { resetPhysicsTickState } from '../physics/usePhysicsTick';
-import { clearAssetCache } from '../../../services/assetManager';
+import { clearAssetCache, loadHDRI } from '../../../services/assetManager';
 import type { MapData, MovingPlatformData, Vec3 } from './types';
 
 const DEFAULT_LIGHTING = {
@@ -268,10 +268,10 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
 
       {/* Environment — HDRI or procedural skybox */}
       {data.skybox?.startsWith('hdri:') ? (
-        <HdriSkybox filename={data.skybox.slice(5)} />
+        <HdriSkybox loadHdri={loadHDRI} filename={data.skybox.slice(5)} />
       ) : (
         <>
-          <ProceduralSkybox type={data.skybox ?? 'day'} />
+          <ProceduralSkybox preset={data.skybox ?? 'day'} />
           <color attach="background" args={[bgColor]} />
         </>
       )}

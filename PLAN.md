@@ -60,16 +60,16 @@
 
 ### E5 — Rendering & Environment → `engine/effects/`
 *Generiska skybox, fog, vatten och visuella effekter utan spellogik.*
-- 🔲 `ProceduralSkybox.tsx` → `engine/effects/` (ren Three.js procedural sky, noll game-state)
-- 🔲 `HdriSkybox.tsx` → `engine/effects/` (generisk HDRI-loader + blending)
-- 🔲 `AtmosphericFog.tsx` → `engine/effects/` (fog color/density/height — helt generisk)
-- 🔲 `WaterSurface.tsx` → `engine/effects/` (TSL displacement vatten/lava, config-driven)
-- 🔲 `FogVolume.tsx` → `engine/effects/` (volumetrisk fog-region, konfigurerbar)
-- 🔲 `ParticleEmitter.tsx` → `engine/effects/` (generisk emitter med preset-config)
-- 🔲 `GrappleBeam.tsx` → `engine/effects/LineRenderEffect.tsx` (generisk linje/stråle-rendering)
-- 🔲 `CheckpointShimmer.tsx` → `engine/effects/ObjectHighlight.tsx` (generisk shimmer/highlight)
-- 🔲 `SpeedTrail.tsx` → `engine/effects/` (extrahera config, props: `speed`, `threshold`, `colors`)
-- 🔲 `wallSparks.ts` → konsolidera in i `engine/effects/` som impact-particle-helper
+- ✅ `ProceduralSkybox.tsx` → `engine/effects/` (ren Three.js procedural sky, noll game-state)
+- ✅ `HdriSkybox.tsx` → `engine/effects/` (generisk HDRI-loader + blending)
+- ✅ `AtmosphericFog.tsx` → `engine/effects/` (fog color/density/height — helt generisk)
+- ✅ `WaterSurface.tsx` → `engine/effects/` (TSL displacement vatten/lava, config-driven)
+- ✅ `FogVolume.tsx` → `engine/effects/` (volumetrisk fog-region, konfigurerbar)
+- ✅ `ParticleEmitter.tsx` → `engine/effects/` (generisk emitter med preset-config)
+- ✅ `GrappleBeam.tsx` → `engine/effects/LineRenderEffect.tsx` (generisk linje/stråle-rendering)
+- ✅ `CheckpointShimmer.tsx` → `engine/effects/ObjectHighlight.tsx` (generisk shimmer/highlight)
+- ✅ `SpeedTrail.tsx` → `engine/effects/` (extrahera config, props: `speed`, `threshold`, `colors`)
+- ✅ `wallSparks.ts` → konsolidera in i `engine/effects/` som impact-particle-helper
 
 ### E6 — Cleanup & Map Renderers
 *Ta bort deprecated kod. Flytta generiska map-renderers.*

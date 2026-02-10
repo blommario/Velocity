@@ -11,14 +11,14 @@ import { LaunchPad } from './zones/LaunchPad';
 import { SpeedGate } from './zones/SpeedGate';
 import { AmmoPickup } from './zones/AmmoPickup';
 import { GrapplePoint } from './zones/GrapplePoint';
-import { AtmosphericFog } from './AtmosphericFog';
-import { ProceduralSkybox } from './ProceduralSkybox';
+import { AtmosphericFog } from '../../engine/effects/AtmosphericFog';
+import { ProceduralSkybox } from '../../engine/effects/ProceduralSkybox';
 import { InstancedBlocks } from './map/InstancedBlocks';
 import { GpuLightSprites } from '../../engine/effects/GpuLightSprites';
 import { useShadowLight } from '../../engine/rendering';
-import { WaterSurface } from './environment/WaterSurface';
-import { FogVolume } from './environment/FogVolume';
-import { ParticleEmitter } from './environment/ParticleEmitter';
+import { WaterSurface } from '../../engine/effects/WaterSurface';
+import { FogVolume } from '../../engine/effects/FogVolume';
+import { ParticleEmitter } from '../../engine/effects/ParticleEmitter';
 import { useGameStore } from '../../stores/gameStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useCombatStore } from '../../stores/combatStore';
@@ -313,7 +313,7 @@ export function TestMap() {
       ]} />
 
       {/* ── Environment ── */}
-      <ProceduralSkybox type="night" />
+      <ProceduralSkybox preset="night" />
       <AtmosphericFog color={BACKGROUND_COLOR} near={100} far={300} />
 
       {/* ── Environment Effects Demo (O2) ── */}

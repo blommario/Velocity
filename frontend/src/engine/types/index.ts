@@ -7,4 +7,7 @@ export type {
   GrapplePointData, SurfRampData, MovingPlatformData,
   ProceduralSkyboxType, SkyboxType, AmbientLighting,
   ProceduralMaterialType, EmissiveAnimation, BlendMode,
+  WaterSurfaceData, WaterSurfaceType,
+  FogVolumeData, FogVolumeShape,
+  ParticleEmitterData, ParticleEmitterPreset,
 } from './map';
