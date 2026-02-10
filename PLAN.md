@@ -12,22 +12,22 @@
 
 ### E1 — HUD-komponenter → `engine/hud/`
 *Generiska FPS/racing HUD-element med prop injection istället för direkt store-läsning.*
-- 🔲 `Timer.tsx` — direkt flytt (100% generisk), props: `time`, `running`, `formatter?`
-- 🔲 `SpeedMeter.tsx` — extrahera tröskelvärden/färger till props
-- 🔲 `Crosshair.tsx` — gör vapenstilar injicerbara via config-prop
-- 🔲 `DamageIndicator.tsx` — direkt flytt, props: `hits[]` med riktning+timestamp
-- 🔲 `HitMarker.tsx` — direkt flytt, props: `onHit` event
-- 🔲 `DamageNumbers.tsx` — direkt flytt, props: `damages[]`
-- 🔲 `EventFeed.tsx` — direkt flytt, generisk notifikationslista
-- 🔲 `ScreenEffects.tsx` — direkt flytt, props: `vignette`, `flash`
-- 🔲 `ScreenTransition.tsx` — direkt flytt, props: `type`, `duration`
-- 🔲 `SpeedLines.tsx` — direkt flytt, props: `speed`, `threshold`
-- 🔲 `TrackProgressBar.tsx` — generisk progress-UI, props: `current`, `total`
-- 🔲 `CombatHud.tsx` — generisk weapon/ability-UI, props: `weapon`, `ammo`, `health`
-- 🔲 `DevTweaks.tsx` — direkt flytt
-- 🔲 `CheckpointCounter.tsx` — generisk progress counter, props: `current`, `total`, `label?`
-- 🔲 Uppdatera `components/hud/HudOverlay.tsx` att importera från `engine/hud/`
-- 🔲 `components/hud/` behåller bara: `EndRunModal`, `SplitPopup`, `KillFeed`, `HudOverlay`
+- ✅ `Timer.tsx` — direkt flytt (100% generisk), props: `time`, `running`, `formatter?`
+- ✅ `SpeedMeter.tsx` — extrahera tröskelvärden/färger till props
+- ✅ `Crosshair.tsx` — gör vapenstilar injicerbara via config-prop
+- ✅ `DamageIndicator.tsx` — direkt flytt, props: `hits[]` med riktning+timestamp
+- ✅ `HitMarker.tsx` — direkt flytt, props: `onHit` event
+- ✅ `DamageNumbers.tsx` — direkt flytt, props: `damages[]`
+- ✅ `EventFeed.tsx` — direkt flytt, generisk notifikationslista
+- ✅ `ScreenEffects.tsx` — direkt flytt, props: `vignette`, `flash`
+- ✅ `ScreenTransition.tsx` — direkt flytt, props: `type`, `duration`
+- ✅ `SpeedLines.tsx` — direkt flytt, props: `speed`, `threshold`
+- ✅ `TrackProgressBar.tsx` — generisk progress-UI, props: `current`, `total`
+- ✅ `CombatHud.tsx` — generisk weapon/ability-UI, props: `weapon`, `ammo`, `health`
+- ✅ `DevTweaks.tsx` — direkt flytt
+- ✅ `CheckpointCounter.tsx` — generisk progress counter, props: `current`, `total`, `label?`
+- ✅ Uppdatera `components/hud/HudOverlay.tsx` att importera från `engine/hud/`
+- ✅ `components/hud/` behåller bara: `EndRunModal`, `SplitPopup`, `KillFeed`, `HudOverlay`
 
 ### E2 — Stores → `engine/stores/`
 *Generiska stores som inte beror på Velocity-specifik logik.*
