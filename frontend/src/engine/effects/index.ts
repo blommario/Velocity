@@ -41,3 +41,4 @@ export { LineRenderEffect, type LineRenderConfig, type LineRenderEffectProps } f
 export { ObjectHighlight, type ObjectHighlightConfig, type ObjectHighlightProps } from './ObjectHighlight';
 export { SpeedTrail, type SpeedTrailConfig, type SpeedTrailProps } from './SpeedTrail';
 export { spawnImpactEffects, type ImpactIntensity } from './spawnImpactEffects';
+export { ScopeGlint, type ScopeGlintProps, type ScopeGlintConfig, type ScopeGlintState } from './ScopeGlint';

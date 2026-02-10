@@ -14,6 +14,7 @@ import { DamageNumbers } from './DamageNumbers';
 import { EventFeed } from './EventFeed';
 import { HitMarker } from './HitMarker';
 import { KillFeed } from './KillFeed';
+import { ScopeOverlay } from './ScopeOverlay';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 
 export function HudOverlay() {
@@ -22,6 +23,7 @@ export function HudOverlay() {
   return (
     <div className="absolute inset-0 pointer-events-none text-white">
       <Crosshair />
+      <ScopeOverlay />
       <Timer />
       <SpeedMeter />
       <CheckpointCounter />

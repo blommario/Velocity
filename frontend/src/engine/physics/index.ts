@@ -22,3 +22,10 @@ export {
   applySurfPhysics,
   type WallRunState,
 } from './useAdvancedMovement';
+export {
+  tickScopeSway,
+  createScopeSwayState,
+  resetScopeSwayState,
+  type ScopeSwayConfig,
+  type ScopeSwayState,
+} from './scopeSway';

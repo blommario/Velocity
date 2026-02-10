@@ -39,3 +39,6 @@ export type { DevTweaksProps, DevSlider } from './DevTweaks';
 
 export { CheckpointCounter } from './CheckpointCounter';
 export type { CheckpointCounterProps } from './CheckpointCounter';
+
+export { ScopeOverlay } from './ScopeOverlay';
+export type { ScopeOverlayProps, ScopeOverlayConfig } from './ScopeOverlay';

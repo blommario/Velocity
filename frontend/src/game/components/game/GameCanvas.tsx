@@ -11,7 +11,7 @@ import { useFogOfWar } from '@engine/effects/useFogOfWar';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
 import { PostProcessingEffects } from '@engine/core/PostProcessingEffects';
-import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer, DecalPool } from './effects';
+import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer, DecalPool, ScopeGlint } from './effects';
 import { Viewmodel } from './Viewmodel';
 import { PerfMonitor } from '@engine/stores/PerfMonitor';
 import { HudOverlay } from '../hud/HudOverlay';
@@ -242,6 +242,7 @@ export function GameCanvas() {
         <ExplosionManager />
         <DecalPool />
         <CheckpointShimmer />
+        <ScopeGlint />
         <PerfMonitor />
       </Canvas>
       <HudOverlay />

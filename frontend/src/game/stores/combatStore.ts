@@ -3,6 +3,11 @@ import { PHYSICS } from '@game/components/game/physics/constants';
 import type { WeaponType } from '@game/components/game/physics/types';
 import { WEAPON_SLOTS } from '@game/components/game/physics/types';
 
+// Internal regen accumulator — avoids store writes every physics tick.
+// Health regenerates smoothly at 128Hz internally, but store only updates
+// when the integer value changes (preventing 128Hz React re-renders).
+let _regenHealth = -1;  // -1 = synced with store
+
 // Zone events queued by sensor callbacks, drained by physics tick
 export type ZoneEvent =
   | { type: 'boostPad'; direction: [number, number, number]; speed: number }
@@ -57,6 +62,13 @@ interface CombatState {
   swapCooldown: number;
   adsProgress: number;  // 0 = hip, 1 = fully ADS
   isPlasmaFiring: boolean;
+
+  // Scope state (sniper ADS)
+  scopeSwayX: number;   // current sway offset X (-1..1)
+  scopeSwayY: number;   // current sway offset Y (-1..1)
+  isHoldingBreath: boolean;
+  breathHoldTime: number;     // seconds of breath held (0-2 = stable, then penalty)
+  scopeTime: number;          // total time scoped in (0-3 stable, 3-6 drift, 6+ force unscope)
 
   // Knife lunge
   knifeLungeTimer: number;
@@ -123,6 +135,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   adsProgress: 0,
   isPlasmaFiring: false,
 
+  scopeSwayX: 0,
+  scopeSwayY: 0,
+  isHoldingBreath: false,
+  breathHoldTime: 0,
+  scopeTime: 0,
+
   knifeLungeTimer: 0,
   knifeLungeDir: [0, 0, 0],
 
@@ -135,6 +153,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   takeDamage: (amount) => {
     const state = get();
+    _regenHealth = -1;  // reset accumulator on damage
     set({
       health: Math.max(0, state.health - amount),
       lastDamageTime: performance.now(),
@@ -143,15 +162,23 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   heal: (amount) => {
     const state = get();
+    _regenHealth = -1;  // reset accumulator on heal
     set({ health: Math.min(PHYSICS.HEALTH_MAX, state.health + amount) });
   },
 
   regenTick: (dt) => {
     const state = get();
-    if (state.health >= PHYSICS.HEALTH_MAX) return;
+    const current = _regenHealth >= 0 ? _regenHealth : state.health;
+    if (current >= PHYSICS.HEALTH_MAX) { _regenHealth = -1; return; }
     const elapsed = (performance.now() - state.lastDamageTime) / 1000;
     if (elapsed < PHYSICS.HEALTH_REGEN_DELAY) return;
-    set({ health: Math.min(PHYSICS.HEALTH_MAX, state.health + PHYSICS.HEALTH_REGEN_RATE * dt) });
+    const newHealth = Math.min(PHYSICS.HEALTH_MAX, current + PHYSICS.HEALTH_REGEN_RATE * dt);
+    _regenHealth = newHealth;
+    // Only write to store when integer value changes (HUD displays integers)
+    if (Math.floor(newHealth) !== Math.floor(state.health) || newHealth >= PHYSICS.HEALTH_MAX) {
+      set({ health: newHealth });
+      if (newHealth >= PHYSICS.HEALTH_MAX) _regenHealth = -1;
+    }
   },
 
   setActiveWeapon: (w) => set({ activeWeapon: w }),
@@ -165,6 +192,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       swapCooldown: PHYSICS.WEAPON_SWAP_TIME,
       adsProgress: 0,
       isPlasmaFiring: false,
+      scopeSwayX: 0,
+      scopeSwayY: 0,
+      isHoldingBreath: false,
+      breathHoldTime: 0,
+      scopeTime: 0,
     });
   },
 
@@ -289,6 +321,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   },
 
   resetCombat: (rockets, grenades) => {
+    _regenHealth = -1;
     const fresh = cloneAmmo();
     fresh.rocket.current = rockets;
     fresh.rocket.max = rockets;
@@ -308,6 +341,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       swapCooldown: 0,
       adsProgress: 0,
       isPlasmaFiring: false,
+      scopeSwayX: 0,
+      scopeSwayY: 0,
+      isHoldingBreath: false,
+      breathHoldTime: 0,
+      scopeTime: 0,
       knifeLungeTimer: 0,
       knifeLungeDir: [0, 0, 0],
       isGrappling: false,

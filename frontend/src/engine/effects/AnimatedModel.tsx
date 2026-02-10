@@ -57,8 +57,9 @@ export function AnimatedModel({
     if (!url || externalScene) return;
     let disposed = false;
 
-    // Dynamic import keeps engine/ free from static service dependency
-    import('../../services/assetManager').then(({ loadModelWithAnimations }) => {
+    // Dynamic import avoids static engine→game dependency.
+    // Uses relative path to game service — intentional boundary exception for lazy loading.
+    import('../../game/services/assetManager').then(({ loadModelWithAnimations }) => {
       loadModelWithAnimations(url)
         .then((asset) => {
           if (disposed) return;

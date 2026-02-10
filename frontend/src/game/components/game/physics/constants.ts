@@ -76,6 +76,17 @@ export const PHYSICS = {
   ADS_TRANSITION_SPEED: 8,       // lerp speed for hip↔ADS transition
   ADS_SPEED_MULT: 0.6,           // movement speed multiplier when fully ADS
 
+  // ── Sniper scope ──
+  SCOPE_SWAY_BASE: 0.012,        // base sway amplitude (fraction of screen)
+  SCOPE_SWAY_SPEED: 1.4,         // base oscillation speed
+  SCOPE_SWAY_MOUSE_MULT: 0.08,   // mouse movement amplifies sway
+  SCOPE_BREATH_HOLD_DURATION: 2.0, // seconds of stable breath hold
+  SCOPE_BREATH_PENALTY_MULT: 2.5,  // sway multiplier after breath hold expires
+  SCOPE_STABLE_TIME: 3.0,        // seconds fully stable when scoped
+  SCOPE_DRIFT_TIME: 6.0,         // seconds until drift becomes severe (3-6s = drifting)
+  SCOPE_FORCE_UNSCOPE_TIME: 6.0, // force unscope after this many seconds
+  SCOPE_DRIFT_MULT: 3.0,         // sway multiplier at max drift
+
   // ── Weapon switching ──
   WEAPON_SWAP_TIME: 0.3,        // seconds to switch weapons
 

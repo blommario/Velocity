@@ -48,14 +48,14 @@
 - ✅ Crosshair fade vid ADS (opacitet → 0 under transition)
 - ✅ Alt-fire (Mouse2) håller = ADS, release = hip
 
-### V2 — Sniper Scope Overlay
+### V2 — Sniper Scope Overlay ✅
 *Riktig scope-UI ovanpå ADS-systemet. Bara aktiv när sniper + ADS.*
-- 🔲 `ScopeOverlay.tsx` — fullscreen HUD-element med scope-reticle SVG
-- 🔲 Scope-vignettering (svart mask runt cirkel, ~70% av skärm)
-- 🔲 Scope-sway — subtilt drift-mönster kopplat till musrörelser
-- 🔲 Breath-hold: Shift vid ADS → stabilisera sway 2s (sedan ökat sway)
-- 🔲 Glint-effekt (lens flare emissive sprite, synlig av andra i multiplayer)
-- 🔲 Scope unsteadiness ökar med tid: stabilt 0-3s → drift 3-6s → tvinga unscope 6s+
+- ✅ `ScopeOverlay.tsx` — fullscreen HUD-element med scope-reticle SVG
+- ✅ Scope-vignettering (svart mask runt cirkel, ~70% av skärm)
+- ✅ Scope-sway — subtilt drift-mönster kopplat till musrörelser
+- ✅ Breath-hold: Shift vid ADS → stabilisera sway 2s (sedan ökat sway)
+- ✅ Glint-effekt (lens flare emissive sprite, synlig av andra i multiplayer)
+- ✅ Scope unsteadiness ökar med tid: stabilt 0-3s → drift 3-6s → tvinga unscope 6s+
 
 ### V3 — Weapon Inspect
 *Håll inspect-knapp → vapnet lyfts framför kameran och roteras långsamt.*

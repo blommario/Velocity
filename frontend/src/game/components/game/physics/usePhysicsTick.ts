@@ -32,6 +32,7 @@ import { audioManager, SOUNDS } from '@engine/audio/AudioManager';
 import { useExplosionStore } from '@engine/effects/ExplosionEffect';
 import { spawnDecal } from '@engine/effects/DecalPool';
 import { nextRandom } from '@engine/physics/seededRandom';
+import { tickScopeSway, createScopeSwayState, resetScopeSwayState, type ScopeSwayConfig } from '@engine/physics/scopeSway';
 import { devLog } from '@engine/stores/devLogStore';
 import {
   spawnProjectile, deactivateAt, updatePositions,
@@ -59,6 +60,7 @@ const _hitPos: [number, number, number] = [0, 0, 0];
 const _gPos: [number, number, number] = [0, 0, 0];
 
 let lastHudUpdate = 0;
+let lastScopeSwayUpdate = 0;
 let lastDevLogUpdate = 0;
 const DEV_LOG_INTERVAL = 2000; // log physics state every 2s
 let lastDevSpeedMult = 1.0;
@@ -80,6 +82,20 @@ let wasAltFire = false;
 
 // ADS state (driven each tick, written to store when changed)
 let adsProgress = 0;
+
+// Scope sway state (sniper ADS overlay) — uses engine scope sway system
+const scopeSwayState = createScopeSwayState();
+const scopeSwayConfig: ScopeSwayConfig = {
+  swayBase: PHYSICS.SCOPE_SWAY_BASE,
+  swaySpeed: PHYSICS.SCOPE_SWAY_SPEED,
+  mouseInfluence: PHYSICS.SCOPE_SWAY_MOUSE_MULT,
+  breathHoldDuration: PHYSICS.SCOPE_BREATH_HOLD_DURATION,
+  breathPenaltyMult: PHYSICS.SCOPE_BREATH_PENALTY_MULT,
+  stableTime: PHYSICS.SCOPE_STABLE_TIME,
+  driftTime: PHYSICS.SCOPE_DRIFT_TIME,
+  forceUnscopeTime: PHYSICS.SCOPE_FORCE_UNSCOPE_TIME,
+  driftMult: PHYSICS.SCOPE_DRIFT_MULT,
+};
 
 // Camera effects
 let cameraTilt = 0;            // Z-axis roll for wall run tilt (radians)
@@ -142,6 +158,8 @@ export function resetPhysicsTickState(): void {
   storedGroundNormalY = 1.0;
 
   lastHudUpdate = 0;
+  lastScopeSwayUpdate = 0;
+  resetScopeSwayState(scopeSwayState);
   lastDevLogUpdate = 0;
   lastDevSpeedMult = 1.0;
   lastDevGravMult = 1.0;
@@ -410,6 +428,40 @@ export function physicsTick(
     useCombatStore.setState({ adsProgress });
   }
   wasAltFire = input.altFire;
+
+  // --- Sniper scope sway / breath hold / unsteadiness ---
+  const isSniperScoped = weapon === 'sniper' && adsProgress > 0.9;
+  if (isSniperScoped) {
+    const mouseMag = Math.sqrt(dx * dx + dy * dy);
+    tickScopeSway(scopeSwayState, scopeSwayConfig, dt, input.crouch, mouseMag);
+
+    // Force unscope
+    if (scopeSwayState.forceUnscope) {
+      adsProgress = 0;
+      useCombatStore.setState({ adsProgress: 0 });
+    }
+
+    // Write scope state to store at ~30Hz (matches HUD update rate)
+    const now = performance.now();
+    if (now - lastScopeSwayUpdate > HUD_UPDATE_INTERVAL) {
+      lastScopeSwayUpdate = now;
+      useCombatStore.setState({
+        scopeSwayX: scopeSwayState.swayX,
+        scopeSwayY: scopeSwayState.swayY,
+        isHoldingBreath: scopeSwayState.isHoldingBreath,
+        breathHoldTime: scopeSwayState.breathHoldTime,
+        scopeTime: scopeSwayState.scopeTime,
+      });
+    }
+  } else if (scopeSwayState.scopeTime > 0 || scopeSwayState.swayX !== 0 || scopeSwayState.swayY !== 0) {
+    // Reset scope state when not scoped
+    resetScopeSwayState(scopeSwayState);
+    lastScopeSwayUpdate = 0;
+    useCombatStore.setState({
+      scopeSwayX: 0, scopeSwayY: 0,
+      isHoldingBreath: false, breathHoldTime: 0, scopeTime: 0,
+    });
+  }
 
   // Knife lunge movement (applied during lunge timer)
   if (combat.knifeLungeTimer > 0) {
