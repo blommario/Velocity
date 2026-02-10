@@ -1,6 +1,7 @@
 import type { MapData } from '../types';
 import { FIRST_STEPS } from './firstSteps';
 import { SHOWCASE_MAP } from './showcaseMap';
+import { HILL_RUN } from './hillRun';
 
 export interface OfficialMap {
   id: string;
@@ -28,10 +29,18 @@ export const OFFICIAL_MAPS: OfficialMap[] = [
     parTime: 120,
     data: SHOWCASE_MAP,
   },
+  {
+    id: 'hill-run',
+    name: 'Hill Run',
+    difficulty: 'Easy',
+    description: 'Sprint over a smooth hill. Slope physics: uphill slows you, downhill speeds you up.',
+    parTime: 30,
+    data: HILL_RUN,
+  },
 ];
 
 export const OFFICIAL_MAP_BY_ID: Record<string, OfficialMap> = Object.fromEntries(
   OFFICIAL_MAPS.map((m) => [m.id, m]),
 );
 
-export { FIRST_STEPS, SHOWCASE_MAP };
+export { FIRST_STEPS, SHOWCASE_MAP, HILL_RUN };

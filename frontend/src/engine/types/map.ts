@@ -140,6 +140,17 @@ export interface FogVolumeData {
   heightFalloff?: number; // density fades toward top, default 0.0 (uniform)
 }
 
+// ── Heightmap terrain ──
+export interface HeightmapTerrainData {
+  position: Vec3;
+  size: [number, number];         // [widthX, depthZ] in world units
+  heights: number[][];            // 2D array [row][col], row=Z, col=X, values = Y height
+  color?: Color;
+  colorHigh?: Color;              // gradient color at peak heights
+  roughness?: number;             // PBR roughness (default 0.85)
+  metalness?: number;             // PBR metalness (default 0.05)
+}
+
 export type ParticleEmitterPreset = 'smoke' | 'sparks' | 'ash' | 'dust' | 'trail' | 'snow' | 'pollen';
 
 export interface ParticleEmitterData {

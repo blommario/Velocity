@@ -51,6 +51,7 @@ export {
   useViewmodelAnimation,
   type ViewmodelAnimationInput, type ViewmodelAnimationOutput,
 } from './useViewmodelAnimation';
+export { createHeightmapGeometry } from './heightmapGeometry';
 export { valueNoise2D, valueNoise3D, fbm2D } from './tslNoise';
 export {
   createProceduralMaterial, getPresetNodes, buildEmissiveAnimationNode, disposeProceduralMaterials,

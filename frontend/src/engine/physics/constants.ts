@@ -56,6 +56,11 @@ export const ENGINE_PHYSICS = {
   WALL_RUN_DETECTION_DIST: 0.8,
   WALL_RUN_MIN_HEIGHT: 1.0,
 
+  // Slope physics (walkable surfaces 0-45°)
+  SLOPE_GRAVITY_SCALE: 1.0,             // how strongly gravity projects along slope (1.0 = full Quake)
+  SLOPE_GROUND_NORMAL_THRESHOLD: 0.7,   // min normal.y to count as ground (~45°)
+  SLOPE_MIN_ANGLE_DEG: 2,               // below this = flat, no slope effect
+
   // Surfing
   SURF_MIN_ANGLE: 30,
   SURF_MAX_ANGLE: 60,

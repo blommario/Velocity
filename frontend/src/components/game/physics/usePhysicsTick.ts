@@ -9,9 +9,11 @@ import {
   applySlideFriction,
   applyGroundAcceleration,
   applyAirAcceleration,
+  applySlopeGravity,
   getWishDir,
   getHorizontalSpeed,
 } from '../../../engine/physics/useMovement';
+import { getGroundNormal, getSlopeAngleDeg } from '../../../engine/physics/slopeDetection';
 import {
   applyGrappleSwing,
   applyExplosionKnockback,
@@ -85,6 +87,10 @@ const LANDING_DIP_AMOUNT = 0.12;  // max dip in units
 const LANDING_DIP_DECAY = 8;      // exponential decay rate
 const LANDING_DIP_MIN_FALL = 150;  // min fall speed to trigger dip
 
+// Slope physics: stored ground normal from previous tick's KCC collisions
+let storedGroundNormal: [number, number, number] | null = null;
+let storedGroundNormalY = 1.0;
+
 // Respawn grace — skip gravity for a few ticks after respawn to let colliders register
 let respawnGraceTicks = 0;
 const RESPAWN_GRACE_TICKS = 16; // ~125ms at 128Hz
@@ -127,6 +133,9 @@ export function resetPhysicsTickState(): void {
   mantleStartY = 0;
   mantleFwdX = 0;
   mantleFwdZ = 0;
+
+  storedGroundNormal = null;
+  storedGroundNormalY = 1.0;
 
   lastHudUpdate = 0;
   lastDevLogUpdate = 0;
@@ -175,7 +184,7 @@ export function physicsTick(
   // --- Respawn check (use actual physics position, not HUD position) ---
   const store = useGameStore.getState();
   const pos = rb.translation();
-  if (pos.y < -50) {
+  if (pos.y < -50 || !Number.isFinite(pos.y)) {
     store.triggerDeathFlash();
     store.requestRespawn();
   }
@@ -748,6 +757,16 @@ export function physicsTick(
     audioManager.play(SOUNDS.JUMP, 0.1);
     if (hasInput) applyAirAcceleration(velocity, wishDir, dt, speedMult);
   } else if (refs.grounded.current) {
+    // Slope gravity: project gravity along slope surface (uses previous tick's normal)
+    if (storedGroundNormal) {
+      applySlopeGravity(
+        velocity,
+        storedGroundNormal[0], storedGroundNormal[1], storedGroundNormal[2],
+        PHYSICS.GRAVITY * gravMult, dt,
+        PHYSICS.SLOPE_GRAVITY_SCALE, PHYSICS.SLOPE_MIN_ANGLE_DEG,
+      );
+    }
+
     if (refs.isSliding.current) {
       applySlideFriction(velocity, dt);
     } else if (combat.isPlasmaFiring) {
@@ -820,6 +839,21 @@ export function physicsTick(
 
   // --- Ground detection ---
   refs.grounded.current = controller.computedGrounded();
+
+  // --- Ground normal for slope physics (store for next tick) ---
+  if (refs.grounded.current) {
+    const gn = getGroundNormal(controller, PHYSICS.SLOPE_GROUND_NORMAL_THRESHOLD);
+    if (gn) {
+      storedGroundNormal = gn;
+      storedGroundNormalY = gn[1];
+    } else {
+      storedGroundNormal = null;
+      storedGroundNormalY = 1.0;
+    }
+  } else {
+    storedGroundNormal = null;
+    storedGroundNormalY = 1.0;
+  }
 
   // --- Wall detection from KCC collisions ---
   const numCollisions = controller.numComputedCollisions();
@@ -1048,8 +1082,9 @@ export function physicsTick(
     const crouch = refs.isCrouching.current ? ' [crouch]' : '';
     const wallRun = wallRunState.isWallRunning ? ' [wallrun]' : '';
     const grapple = combat.isGrappling ? ' [grapple]' : '';
+    const slope = storedGroundNormalY < 0.999 ? ` slope=${getSlopeAngleDeg(storedGroundNormalY).toFixed(1)}°` : '';
     devLog.info('Physics',
-      `${state}${slide}${crouch}${wallRun}${grapple} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
+      `${state}${slide}${crouch}${wallRun}${grapple}${slope} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
     );
 
     // Log projectile count if any

@@ -4,6 +4,7 @@ import { ENGINE_PHYSICS as PHYSICS } from './constants';
 const _wishDir = new Vector3();
 
 const FRICTION_DEAD_ZONE = 0.1;
+const FRICTION_DEAD_ZONE_SQ = FRICTION_DEAD_ZONE * FRICTION_DEAD_ZONE;
 
 /**
  * Apply ground friction to velocity (horizontal only).
@@ -17,12 +18,13 @@ export function applyFriction(
   hasInput?: boolean,
   wishDir?: Vector3,
 ): void {
-  const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-  if (speed < FRICTION_DEAD_ZONE) {
+  const speedSq = velocity.x * velocity.x + velocity.z * velocity.z;
+  if (speedSq < FRICTION_DEAD_ZONE_SQ) {
     velocity.x = 0;
     velocity.z = 0;
     return;
   }
+  const speed = Math.sqrt(speedSq);
 
   // Detect counter-strafe: input direction opposes current velocity
   let friction = PHYSICS.GROUND_FRICTION;
@@ -136,12 +138,13 @@ export function getWishDir(
  * Same Quake friction model but with CROUCH_FRICTION instead of GROUND_FRICTION.
  */
 export function applySlideFriction(velocity: Vector3, dt: number): void {
-  const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-  if (speed < FRICTION_DEAD_ZONE) {
+  const speedSq = velocity.x * velocity.x + velocity.z * velocity.z;
+  if (speedSq < FRICTION_DEAD_ZONE_SQ) {
     velocity.x = 0;
     velocity.z = 0;
     return;
   }
+  const speed = Math.sqrt(speedSq);
 
   const control = speed < PHYSICS.STOP_SPEED ? PHYSICS.STOP_SPEED : speed;
   const drop = control * PHYSICS.CROUCH_FRICTION * dt;
@@ -152,6 +155,40 @@ export function applySlideFriction(velocity: Vector3, dt: number): void {
 
   velocity.x *= scale;
   velocity.z *= scale;
+}
+
+/**
+ * Apply Quake-style slope gravity to grounded velocity.
+ *
+ * Projects gravity along the slope surface:
+ * - Uphill: parallel component opposes movement → deceleration
+ * - Downhill: parallel component aids movement → acceleration
+ * - Flat: near-zero effect (skipped below minAngleDeg)
+ *
+ * Works WITH normal ground friction (unlike surf physics which has zero friction).
+ * Apply BEFORE friction/accel in the grounded branch.
+ */
+export function applySlopeGravity(
+  velocity: Vector3,
+  normalX: number,
+  normalY: number,
+  normalZ: number,
+  gravity: number,
+  dt: number,
+  scale: number,
+  minAngleDeg: number,
+): void {
+  const angleDeg = Math.acos(Math.min(normalY, 1.0)) * (180 / Math.PI);
+  if (angleDeg < minAngleDeg) return;
+
+  // Gravity vector: g = (0, -gravity * dt, 0)
+  // Project onto surface plane: gParallel = g - (g·n)·n
+  const gY = -gravity * dt;
+  const gDotN = gY * normalY; // g · n = -gravity*dt * normalY
+
+  velocity.x += (0 - gDotN * normalX) * scale;
+  velocity.y += (gY - gDotN * normalY) * scale;
+  velocity.z += (0 - gDotN * normalZ) * scale;
 }
 
 /**

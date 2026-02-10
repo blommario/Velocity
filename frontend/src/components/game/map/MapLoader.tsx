@@ -22,6 +22,7 @@ import { ModelBlock } from './ModelBlock';
 import { WaterSurface } from '../environment/WaterSurface';
 import { FogVolume } from '../environment/FogVolume';
 import { ParticleEmitter } from '../environment/ParticleEmitter';
+import { HeightmapTerrain } from './HeightmapTerrain';
 import { useGameStore } from '../../../stores/gameStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useCombatStore } from '../../../stores/combatStore';
@@ -248,6 +249,11 @@ export function MapLoader({ data, mapId }: MapLoaderProps) {
       {/* Particle emitters (smoke, fire, ash, etc.) */}
       {data.particleEmitters?.map((pe, i) => (
         <ParticleEmitter key={`pe-${i}`} data={pe} />
+      ))}
+
+      {/* Heightmap terrains (smooth hills/valleys) */}
+      {data.heightmapTerrains?.map((ht, i) => (
+        <HeightmapTerrain key={`ht-${i}`} data={ht} />
       ))}
 
       {/* Lighting */}

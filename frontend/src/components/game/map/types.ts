@@ -10,6 +10,7 @@ import type {
   WaterSurfaceData, WaterSurfaceType,
   FogVolumeData, FogVolumeShape,
   ParticleEmitterData, ParticleEmitterPreset,
+  HeightmapTerrainData,
 } from '../../../engine/types/map';
 import type { FogOfWarConfig } from '../../../engine/effects/FogOfWar';
 
@@ -24,6 +25,7 @@ export type {
   WaterSurfaceData, WaterSurfaceType,
   FogVolumeData, FogVolumeShape,
   ParticleEmitterData, ParticleEmitterPreset,
+  HeightmapTerrainData,
 };
 
 // ── Game-specific types ──
@@ -71,4 +73,6 @@ export interface MapData {
   fogVolumes?: FogVolumeData[];
   /** Particle emitters (smoke, fire, ash, etc.) */
   particleEmitters?: ParticleEmitterData[];
+  /** Heightmap terrain patches (smooth hills/valleys) */
+  heightmapTerrains?: HeightmapTerrainData[];
 }
