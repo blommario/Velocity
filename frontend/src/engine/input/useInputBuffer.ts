@@ -4,7 +4,7 @@ import { getNormalizedWheelDelta } from './inputUtils';
 import { useSettingsStore } from '../stores/settingsStore';
 
 type BooleanInputKey = keyof Pick<InputState,
-  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'prone' | 'fire' | 'altFire' | 'grapple' | 'reload' | 'inspect'
+  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'prone' | 'fire' | 'altFire' | 'grapple' | 'reload' | 'inspect' | 'weaponWheel'
 >;
 
 /** Maps settingsStore action names → engine InputState boolean field names. */
@@ -21,10 +21,11 @@ const SETTINGS_TO_INPUT: Record<string, BooleanInputKey> = {
   fireRocket: 'fire',
   fireGrenade: 'altFire',
   inspect: 'inspect',
+  weaponWheel: 'weaponWheel',
 } as const;
 
 const BOOLEAN_KEYS: readonly BooleanInputKey[] = [
-  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'prone', 'fire', 'altFire', 'grapple', 'reload', 'inspect',
+  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'prone', 'fire', 'altFire', 'grapple', 'reload', 'inspect', 'weaponWheel',
 ] as const;
 
 /** Maps Digit keys to weapon slots (1-7) */
@@ -70,6 +71,7 @@ const createEmptyInput = (): InputState => ({
   grapple: false,
   reload: false,
   inspect: false,
+  weaponWheel: false,
   mouseDeltaX: 0,
   mouseDeltaY: 0,
   weaponSlot: 0,
@@ -106,6 +108,7 @@ export function useInputBuffer() {
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
       const action = mappingsRef.current.keyMap[e.code];
       if (action) input[action] = true;
 

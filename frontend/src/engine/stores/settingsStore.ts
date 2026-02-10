@@ -24,6 +24,7 @@ export const DEFAULT_KEY_BINDINGS: Record<string, string> = {
   grapple: 'KeyE',
   reload: 'KeyR',
   inspect: 'KeyF',
+  weaponWheel: 'KeyQ',
 } as const;
 
 export type BindingAction = keyof typeof DEFAULT_KEY_BINDINGS;

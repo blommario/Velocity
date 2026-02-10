@@ -129,12 +129,12 @@
 - ✅ Raycast hitbox-check via extra collider-shapes på target (head sphere, torso box)
 - ✅ Kritisk-skada indikator (>50% hp i ett slag → screen flash röd)
 
-### V8 — Weapon Wheel & Quick-Switch
+### V8 — Weapon Wheel & Quick-Switch ✅
 *Snabbare vapenval utöver 1-7 tangenter.*
-- 🔲 Weapon wheel: håll `Q` → radialmeny med alla vapen + ammo-status
-- 🔲 Quick-switch: `Q` tap → senaste vapnet (last weapon toggle)
-- 🔲 Scroll wheel cyklar vapen (befintligt, men lägg till wrap-around + HUD-indikator)
-- 🔲 Weapon wheel visar: ikon, namn, ammo, keybind
+- ✅ Weapon wheel: håll `Q` → radialmeny med alla vapen + ammo-status
+- ✅ Quick-switch: `Q` tap → senaste vapnet (last weapon toggle)
+- ✅ Scroll wheel cyklar vapen (befintligt, wrap-around redan implementerat via modulo)
+- ✅ Weapon wheel visar: ikon, namn, ammo, keybind
 - 🔲 Slow-mo under wheel (0.3× timescale, bara i singleplayer)
 
 ### V9 — Killstreak & Combat Feedback

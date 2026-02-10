@@ -11,6 +11,7 @@ import type { InputState } from './types';
 import { createScopeSwayState, resetScopeSwayState } from '@engine/physics/scopeSway';
 import { resetRecoilState, type RecoilState } from '@engine/physics/recoil';
 import { resetReloadTickState } from './combatTick';
+import { resetWeaponWheelState } from './respawnAndInput';
 
 // ── Physics tick state — single struct replaces ~30 let vars ──
 
@@ -107,6 +108,7 @@ export function resetPhysicsTickState(): void {
   if (_activeSwayState) resetScopeSwayState(_activeSwayState);
   if (_activeRecoilState) resetRecoilState(_activeRecoilState);
   resetReloadTickState();
+  resetWeaponWheelState();
 }
 
 // ── Refs & context interfaces ──

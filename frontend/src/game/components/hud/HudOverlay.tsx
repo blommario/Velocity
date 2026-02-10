@@ -24,6 +24,7 @@ import { StanceIndicator } from './StanceIndicator';
 import { ReloadIndicator } from './ReloadIndicator';
 import { HeadshotStreak } from './HeadshotStreak';
 import { CriticalHitFlash } from './CriticalHitFlash';
+import { WeaponWheelOverlay } from './WeaponWheelOverlay';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 
 export function HudOverlay() {
@@ -49,6 +50,7 @@ export function HudOverlay() {
       <EventFeed />
       <KillFeed />
       <StanceIndicator />
+      <WeaponWheelOverlay />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}
 

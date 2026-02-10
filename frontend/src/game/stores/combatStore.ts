@@ -92,6 +92,10 @@ interface CombatState {
   // Grapple point registry
   registeredGrapplePoints: [number, number, number][];
 
+  // Weapon wheel & quick-switch
+  weaponWheelOpen: boolean;
+  lastWeapon: WeaponType;    // for Q tap quick-switch (last-used weapon)
+
   // Headshot tracking
   headshotStreak: number;
   lastHeadshotTime: number;
@@ -116,6 +120,11 @@ interface CombatState {
   cancelReload: () => void;
   tickCooldown: (dt: number) => void;
   canFire: () => boolean;
+
+  // Weapon wheel
+  openWeaponWheel: () => void;
+  closeWeaponWheel: () => void;
+  quickSwitch: () => void;
 
   // Hitbox
   registerHit: (zone: HitboxZone, baseDamage: number, entityId: string) => number;
@@ -174,6 +183,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   pendingZoneEvents: [],
   registeredGrapplePoints: [],
 
+  weaponWheelOpen: false,
+  lastWeapon: 'rocket',
+
   headshotStreak: 0,
   lastHeadshotTime: 0,
   lastCriticalHitTime: 0,
@@ -214,6 +226,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const state = get();
     if (state.activeWeapon === w || state.swapCooldown > 0) return;
     set({
+      lastWeapon: state.activeWeapon,
       previousWeapon: state.activeWeapon,
       activeWeapon: w,
       swapCooldown: PHYSICS.WEAPON_SWAP_TIME,
@@ -398,6 +411,15 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return finalDamage;
   },
 
+  openWeaponWheel: () => set({ weaponWheelOpen: true }),
+  closeWeaponWheel: () => set({ weaponWheelOpen: false }),
+  quickSwitch: () => {
+    const state = get();
+    if (state.lastWeapon !== state.activeWeapon) {
+      state.switchWeapon(state.lastWeapon);
+    }
+  },
+
   startGrapple: (target, length) => set({ isGrappling: true, grappleTarget: target, grappleLength: length }),
   stopGrapple: () => set({ isGrappling: false, grappleTarget: null, grappleLength: 0 }),
 
@@ -464,6 +486,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       grappleLength: 0,
       pendingZoneEvents: [],
       registeredGrapplePoints: [],
+      weaponWheelOpen: false,
+      lastWeapon: 'rocket',
       headshotStreak: 0,
       lastHeadshotTime: 0,
       lastCriticalHitTime: 0,

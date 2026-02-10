@@ -54,3 +54,6 @@ export type { HeadshotStreakProps } from './HeadshotStreak';
 
 export { CriticalHitFlash } from './CriticalHitFlash';
 export type { CriticalHitFlashProps } from './CriticalHitFlash';
+
+export { WeaponWheel } from './WeaponWheel';
+export type { WeaponWheelProps, WeaponWheelSlot } from './WeaponWheel';

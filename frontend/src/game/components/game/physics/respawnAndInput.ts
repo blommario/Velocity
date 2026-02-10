@@ -84,10 +84,56 @@ export function handleMouseLook(ctx: TickContext, dx: number, dy: number): void 
   refs.pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, refs.pitch.current));
 }
 
+/** Hold threshold (seconds) — Q held longer than this opens the weapon wheel. */
+const WEAPON_WHEEL_HOLD_THRESHOLD = 0.2;
+
+/** Module-level state for weapon wheel hold detection. */
+let _weaponWheelHoldStart = 0;
+let _wasWeaponWheelPressed = false;
+
+export function resetWeaponWheelState(): void {
+  _weaponWheelHoldStart = 0;
+  _wasWeaponWheelPressed = false;
+}
+
 export function handleWeaponSwitch(ctx: TickContext): void {
-  const { s, input, recoilState } = ctx;
+  const { s, input, recoilState, now } = ctx;
   const combat = useCombatStore.getState();
   const prevWeapon = combat.activeWeapon;
+
+  // ── Weapon wheel / quick-switch (Q key) ──
+  if (input.weaponWheel && !_wasWeaponWheelPressed) {
+    // Key just pressed — record start time
+    _weaponWheelHoldStart = now;
+  }
+  if (input.weaponWheel) {
+    // Still held — open wheel after threshold
+    const holdDuration = (now - _weaponWheelHoldStart) / 1000;
+    if (holdDuration >= WEAPON_WHEEL_HOLD_THRESHOLD && !combat.weaponWheelOpen) {
+      combat.openWeaponWheel();
+    }
+  }
+  if (!input.weaponWheel && _wasWeaponWheelPressed) {
+    // Key just released
+    const holdDuration = (now - _weaponWheelHoldStart) / 1000;
+    if (holdDuration < WEAPON_WHEEL_HOLD_THRESHOLD) {
+      // Short tap → quick-switch to last weapon
+      combat.quickSwitch();
+    } else if (combat.weaponWheelOpen) {
+      // Released after hold — close wheel (selection via click already handled in HUD)
+      combat.closeWeaponWheel();
+    }
+  }
+  _wasWeaponWheelPressed = input.weaponWheel;
+
+  // ── Suppress slot/scroll input while weapon wheel is open ──
+  if (combat.weaponWheelOpen) {
+    input.weaponSlot = 0;
+    input.scrollDelta = 0;
+    return;
+  }
+
+  // ── Standard weapon switching (digit keys + scroll) ──
   if (input.weaponSlot > 0) {
     combat.switchWeaponBySlot(input.weaponSlot);
     input.weaponSlot = 0;

@@ -13,6 +13,7 @@ export interface InputState {
   grapple: boolean;
   reload: boolean;
   inspect: boolean;
+  weaponWheel: boolean;   // held = show weapon wheel
   mouseDeltaX: number;
   mouseDeltaY: number;
   weaponSlot: number;     // 0 = no switch, 1-7 = switch to slot
