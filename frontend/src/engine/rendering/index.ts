@@ -48,8 +48,8 @@ export {
   type ViewmodelLayerProps, type ViewmodelSceneRef,
 } from './ViewmodelLayer';
 export {
-  useViewmodelAnimation,
-  type ViewmodelAnimationInput, type ViewmodelAnimationOutput,
+  useViewmodelAnimation, VM_ANIM_DEFAULTS,
+  type ViewmodelAnimationInput, type ViewmodelAnimationOutput, type ViewmodelAnimationConfig,
 } from './useViewmodelAnimation';
 export { createHeightmapGeometry } from './heightmapGeometry';
 export { valueNoise2D, valueNoise3D, fbm2D } from './tslNoise';

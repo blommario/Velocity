@@ -11,38 +11,45 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
 
-const VM_ANIM = {
-  // Idle sway — subtle breathing motion when standing still
-  SWAY_SPEED: 1.0,
-  SWAY_AMOUNT_X: 0.002,
-  SWAY_AMOUNT_Y: 0.0015,
+export interface ViewmodelAnimationConfig {
+  swaySpeed: number;
+  swayAmountX: number;
+  swayAmountY: number;
+  bobSpeed: number;
+  bobAmountX: number;
+  bobAmountY: number;
+  bobSpeedScale: number;
+  recoilKickZ: number;
+  recoilKickRotX: number;
+  recoilRecoverySpeed: number;
+  drawSpeed: number;
+  drawOffsetY: number;
+  lookSwayFactor: number;
+  lookSwayRecovery: number;
+  tiltFactor: number;
+  tiltRecovery: number;
+  lerpSpeed: number;
+}
 
-  // Movement bob — weapon bounces when running
-  BOB_SPEED: 11,
-  BOB_AMOUNT_X: 0.018,
-  BOB_AMOUNT_Y: 0.012,
-  BOB_SPEED_SCALE: 0.003,
-
-  // Recoil — kick on fire
-  RECOIL_KICK_Z: 0.05,
-  RECOIL_KICK_ROT_X: 0.10,
-  RECOIL_RECOVERY_SPEED: 10,
-
-  // Draw/holster
-  DRAW_SPEED: 8,
-  DRAW_OFFSET_Y: -0.5,
-
-  // Mouse look sway — weapon trails behind camera movement
-  LOOK_SWAY_FACTOR: 0.002,
-  LOOK_SWAY_RECOVERY: 10,
-
-  // Banking/tilt — weapon rolls when turning (airplane effect)
-  TILT_FACTOR: 0.002,
-  TILT_RECOVERY: 5,
-
-  // Lerp speed for smooth transitions (higher = tighter, snappier)
-  LERP_SPEED: 20,
-} as const;
+export const VM_ANIM_DEFAULTS: ViewmodelAnimationConfig = {
+  swaySpeed: 1.0,
+  swayAmountX: 0.002,
+  swayAmountY: 0.0015,
+  bobSpeed: 11,
+  bobAmountX: 0.018,
+  bobAmountY: 0.012,
+  bobSpeedScale: 0.003,
+  recoilKickZ: 0.05,
+  recoilKickRotX: 0.10,
+  recoilRecoverySpeed: 10,
+  drawSpeed: 8,
+  drawOffsetY: -0.5,
+  lookSwayFactor: 0.002,
+  lookSwayRecovery: 10,
+  tiltFactor: 0.002,
+  tiltRecovery: 5,
+  lerpSpeed: 20,
+};
 
 export interface ViewmodelAnimationInput {
   /** Horizontal speed (units/sec). */
@@ -76,6 +83,7 @@ const _output: ViewmodelAnimationOutput = {
 
 export function useViewmodelAnimation(
   getInput: () => ViewmodelAnimationInput,
+  config: ViewmodelAnimationConfig = VM_ANIM_DEFAULTS,
 ): ViewmodelAnimationOutput {
   const timeRef = useRef(0);
   const recoilRef = useRef(0);
@@ -92,54 +100,59 @@ export function useViewmodelAnimation(
   const smoothRotYRef = useRef(0);
   const smoothRotZRef = useRef(0);
 
+  // Store config in ref so useFrame always reads latest without re-registering
+  const cfgRef = useRef(config);
+  cfgRef.current = config;
+
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05); // cap for tab-away
     const input = getInput();
+    const c = cfgRef.current;
     timeRef.current += dt;
     const t = timeRef.current;
 
     // ── Idle sway ──
-    const swayX = Math.sin(t * VM_ANIM.SWAY_SPEED) * VM_ANIM.SWAY_AMOUNT_X;
-    const swayY = Math.cos(t * VM_ANIM.SWAY_SPEED * 0.7) * VM_ANIM.SWAY_AMOUNT_Y;
+    const swayX = Math.sin(t * c.swaySpeed) * c.swayAmountX;
+    const swayY = Math.cos(t * c.swaySpeed * 0.7) * c.swayAmountY;
 
     // ── Movement bob ──
     const bobScale = input.grounded
-      ? MathUtils.clamp(input.speed * VM_ANIM.BOB_SPEED_SCALE, 0, 1)
+      ? MathUtils.clamp(input.speed * c.bobSpeedScale, 0, 1)
       : 0;
-    const bobPhase = t * VM_ANIM.BOB_SPEED * Math.min(input.speed * 0.005, 1.5);
-    const bobX = Math.sin(bobPhase) * VM_ANIM.BOB_AMOUNT_X * bobScale;
-    const bobY = Math.abs(Math.sin(bobPhase * 0.5)) * VM_ANIM.BOB_AMOUNT_Y * bobScale;
+    const bobPhase = t * c.bobSpeed * Math.min(input.speed * 0.005, 1.5);
+    const bobX = Math.sin(bobPhase) * c.bobAmountX * bobScale;
+    const bobY = Math.abs(Math.sin(bobPhase * 0.5)) * c.bobAmountY * bobScale;
 
     // ── Recoil ──
     if (input.isFiring) {
       recoilRef.current = 1;
     }
-    recoilRef.current = MathUtils.lerp(recoilRef.current, 0, 1 - Math.exp(-VM_ANIM.RECOIL_RECOVERY_SPEED * dt));
-    const recoilZ = recoilRef.current * VM_ANIM.RECOIL_KICK_Z;
-    const recoilRotX = recoilRef.current * VM_ANIM.RECOIL_KICK_ROT_X;
+    recoilRef.current = MathUtils.lerp(recoilRef.current, 0, 1 - Math.exp(-c.recoilRecoverySpeed * dt));
+    const recoilZ = recoilRef.current * c.recoilKickZ;
+    const recoilRotX = recoilRef.current * c.recoilKickRotX;
 
     // ── Draw/holster ──
     const drawTarget = input.isDrawing ? 0 : 1;
-    drawRef.current = MathUtils.lerp(drawRef.current, drawTarget, 1 - Math.exp(-VM_ANIM.DRAW_SPEED * dt));
-    const drawOffset = (1 - drawRef.current) * VM_ANIM.DRAW_OFFSET_Y;
+    drawRef.current = MathUtils.lerp(drawRef.current, drawTarget, 1 - Math.exp(-c.drawSpeed * dt));
+    const drawOffset = (1 - drawRef.current) * c.drawOffsetY;
 
     // ── Mouse look sway ──
     lookSwayXRef.current = MathUtils.lerp(
       lookSwayXRef.current,
-      -input.mouseDeltaX * VM_ANIM.LOOK_SWAY_FACTOR,
-      1 - Math.exp(-VM_ANIM.LOOK_SWAY_RECOVERY * dt),
+      -input.mouseDeltaX * c.lookSwayFactor,
+      1 - Math.exp(-c.lookSwayRecovery * dt),
     );
     lookSwayYRef.current = MathUtils.lerp(
       lookSwayYRef.current,
-      -input.mouseDeltaY * VM_ANIM.LOOK_SWAY_FACTOR,
-      1 - Math.exp(-VM_ANIM.LOOK_SWAY_RECOVERY * dt),
+      -input.mouseDeltaY * c.lookSwayFactor,
+      1 - Math.exp(-c.lookSwayRecovery * dt),
     );
 
     // ── Banking/tilt — weapon rolls when looking left/right ──
     tiltRef.current = MathUtils.lerp(
       tiltRef.current,
-      input.mouseDeltaX * VM_ANIM.TILT_FACTOR,
-      1 - Math.exp(-VM_ANIM.TILT_RECOVERY * dt),
+      input.mouseDeltaX * c.tiltFactor,
+      1 - Math.exp(-c.tiltRecovery * dt),
     );
 
     // ── Combine ──
@@ -151,7 +164,7 @@ export function useViewmodelAnimation(
     const targetRotZ = -tiltRef.current;
 
     // Smooth final values
-    const lerpFactor = 1 - Math.exp(-VM_ANIM.LERP_SPEED * dt);
+    const lerpFactor = 1 - Math.exp(-c.lerpSpeed * dt);
     smoothPosXRef.current = MathUtils.lerp(smoothPosXRef.current, targetPosX, lerpFactor);
     smoothPosYRef.current = MathUtils.lerp(smoothPosYRef.current, targetPosY, lerpFactor);
     smoothPosZRef.current = MathUtils.lerp(smoothPosZRef.current, targetPosZ, lerpFactor);

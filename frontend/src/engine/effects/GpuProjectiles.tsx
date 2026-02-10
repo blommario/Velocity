@@ -29,20 +29,21 @@ const GPU_PROJ = {
   HIDDEN_Y: -9999,
 } as const;
 
-interface GpuProjectilesConfig {
+export interface GpuProjectilesConfig {
   maxSlots: number;
   trailLength: number;
-  rocketColor: [number, number, number]; // RGB 0-1
-  grenadeColor: [number, number, number]; // RGB 0-1
+  /** Map from type index → RGB color. Defaults to white for unknown types. */
+  projectileColors: Record<number, [number, number, number]>;
   spriteSize: number;
   trailSpriteSize: number;
 }
 
+const DEFAULT_FALLBACK_COLOR: [number, number, number] = [1.0, 1.0, 1.0];
+
 const DEFAULT_CONFIG: GpuProjectilesConfig = {
   maxSlots: 16,
   trailLength: 6,
-  rocketColor: [1.0, 0.4, 0.05],      // brighter orange-red
-  grenadeColor: [0.3, 1.0, 0.1],      // bright green
+  projectileColors: {},
   spriteSize: 0.6,
   trailSpriteSize: 0.4,
 };
@@ -51,7 +52,7 @@ const DEFAULT_CONFIG: GpuProjectilesConfig = {
 export interface GpuProjectileSlot {
   setActive(active: boolean): void;
   setPosition(x: number, y: number, z: number): void;
-  setType(type: number): void; // 0=rocket, 1=grenade
+  setType(type: number): void;
 }
 
 // Module-level singleton for the hook
@@ -76,7 +77,7 @@ interface SlotState {
   posX: number;
   posY: number;
   posZ: number;
-  type: number; // 0=rocket, 1=grenade
+  type: number;
 }
 
 export function GpuProjectiles(props: Partial<GpuProjectilesConfig> = {}) {
@@ -198,7 +199,7 @@ export function GpuProjectiles(props: Partial<GpuProjectilesConfig> = {}) {
       scaleAttrRef.current = null;
       devLog.info('Projectile', 'GPU pool disposed');
     };
-  }, [scene, maxSlots, trailLength, totalPoints, pointsPerSlot, createSlotApi, config.rocketColor, config.grenadeColor, config.spriteSize, config.trailSpriteSize]);
+  }, [scene, maxSlots, trailLength, totalPoints, pointsPerSlot, createSlotApi, config.projectileColors, config.spriteSize, config.trailSpriteSize]);
 
   // Per-frame: shift trails, write head positions, mark buffers dirty
   useFrame(() => {
@@ -245,10 +246,10 @@ export function GpuProjectiles(props: Partial<GpuProjectilesConfig> = {}) {
       posData[headOff + 2] = state.posZ;
 
       // Color + alpha based on type and trail position
-      const isRocket = state.type === 0;
-      const r = isRocket ? config.rocketColor[0] : config.grenadeColor[0];
-      const g = isRocket ? config.rocketColor[1] : config.grenadeColor[1];
-      const b = isRocket ? config.rocketColor[2] : config.grenadeColor[2];
+      const color = config.projectileColors[state.type] ?? DEFAULT_FALLBACK_COLOR;
+      const r = color[0];
+      const g = color[1];
+      const b = color[2];
 
       for (let p = 0; p < pointsPerSlot; p++) {
         const idx = baseIdx + p;

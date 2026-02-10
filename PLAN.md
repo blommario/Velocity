@@ -53,10 +53,10 @@
 
 ### E4 — Konfigurerbar Effects
 *Gör engine-effects konfigurationsdrivna istället för hårdkodade Velocity-värden.*
-- 🔲 `GpuProjectiles.tsx` — färger/sprites via props (ta bort hårdkodade rocket=orange etc.)
-- 🔲 `particlePresets.ts` — splitta: generiska (explosion, smoke, dust) kvar i engine, Velocity-specifika (grapple trail, boost) → `components/game/effects/gameParticlePresets.ts`
-- 🔲 `MuzzleFlash.tsx` — flytta från engine till `components/game/effects/` (beror på WeaponType)
-- 🔲 `useViewmodelAnimation.ts` — gör recoil-mönster injicerbara via config-objekt
+- ✅ `GpuProjectiles.tsx` — generisk `projectileColors: Record<number, RGB>` via props, game-specifika färger i `ProjectileRenderer.tsx`
+- ✅ `particlePresets.ts` — generiska kvar i engine, `gameParticlePresets.ts` med boost/grappleTrail i `components/game/effects/`
+- ✅ `MuzzleFlash.tsx` — redan generisk engine-komponent (färg injiceras via `triggerMuzzleFlash`), ingen flytt behövs
+- ✅ `useViewmodelAnimation.ts` — `ViewmodelAnimationConfig`-interface med `VM_ANIM_DEFAULTS`, alla parametrar injicerbara
 
 ### E5 — Rendering & Environment → `engine/effects/`
 *Generiska skybox, fog, vatten och visuella effekter utan spellogik.*

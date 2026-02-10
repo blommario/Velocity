@@ -12,6 +12,12 @@ import {
   MeshStandardMaterial, Vector3, Quaternion, Matrix4, Object3D,
 } from 'three';
 
+/** Velocity projectile colors: 0=rocket, 1=grenade */
+const PROJECTILE_COLORS: Record<number, [number, number, number]> = {
+  0: [1.0, 0.4, 0.05],  // rocket — orange-red
+  1: [0.3, 1.0, 0.1],   // grenade — bright green
+} as const;
+
 /** Rocket instanced mesh config */
 const ROCKET_MESH = {
   MAX_INSTANCES: 16,
@@ -182,5 +188,5 @@ function ProjectileBridge() {
     }
   });
 
-  return <GpuProjectiles />;
+  return <GpuProjectiles projectileColors={PROJECTILE_COLORS} />;
 }
