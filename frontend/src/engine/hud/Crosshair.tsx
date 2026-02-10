@@ -12,9 +12,11 @@ export interface CrosshairProps {
   showScope?: boolean;
   /** Opacity override (0–1). Used for ADS fade. */
   opacity?: number;
+  /** Bloom/spread expansion in pixels. Arms spread outward by this amount. */
+  bloom?: number;
 }
 
-export function Crosshair({ config, showScope, opacity = 1 }: CrosshairProps) {
+export function Crosshair({ config, showScope, opacity = 1, bloom = 0 }: CrosshairProps) {
   const { type, size, color } = config;
 
   return (
@@ -23,11 +25,11 @@ export function Crosshair({ config, showScope, opacity = 1 }: CrosshairProps) {
       style={opacity < 1 ? { opacity } : undefined}
     >
       {type === 'dot' && <DotCrosshair size={size} color={color} />}
-      {type === 'cross' && <CrossCrosshair size={size} color={color} />}
-      {type === 'ring' && <RingCrosshair size={size} color={color} />}
+      {type === 'cross' && <CrossCrosshair size={size} color={color} bloom={bloom} />}
+      {type === 'ring' && <RingCrosshair size={size} color={color} bloom={bloom} />}
       {type === 'scope' && (showScope
         ? <ScopeCrosshair size={size * 3} color={color} />
-        : <CrossCrosshair size={size / 3} color={color} />
+        : <CrossCrosshair size={size / 3} color={color} bloom={bloom} />
       )}
     </div>
   );
@@ -37,26 +39,29 @@ function DotCrosshair({ size, color }: { size: number; color: string }) {
   return <div style={{ width: size, height: size, backgroundColor: color, borderRadius: '50%' }} />;
 }
 
-function CrossCrosshair({ size, color }: { size: number; color: string }) {
-  const gap = 3;
+function CrossCrosshair({ size, color, bloom = 0 }: { size: number; color: string; bloom?: number }) {
+  const gap = 3 + bloom;
   const thickness = 2;
-  const arm = (size - gap) / 2;
+  const totalSize = size + bloom * 2;
+  const arm = (totalSize - gap) / 2;
+  const center = totalSize / 2;
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <div className="absolute" style={{ left: size / 2 - 1, top: size / 2 - 1, width: 2, height: 2, backgroundColor: color }} />
-      <div className="absolute" style={{ left: size / 2 - thickness / 2, top: 0, width: thickness, height: arm, backgroundColor: color }} />
-      <div className="absolute" style={{ left: size / 2 - thickness / 2, bottom: 0, width: thickness, height: arm, backgroundColor: color }} />
-      <div className="absolute" style={{ top: size / 2 - thickness / 2, left: 0, width: arm, height: thickness, backgroundColor: color }} />
-      <div className="absolute" style={{ top: size / 2 - thickness / 2, right: 0, width: arm, height: thickness, backgroundColor: color }} />
+    <div className="relative" style={{ width: totalSize, height: totalSize }}>
+      <div className="absolute" style={{ left: center - 1, top: center - 1, width: 2, height: 2, backgroundColor: color }} />
+      <div className="absolute" style={{ left: center - thickness / 2, top: 0, width: thickness, height: arm, backgroundColor: color }} />
+      <div className="absolute" style={{ left: center - thickness / 2, bottom: 0, width: thickness, height: arm, backgroundColor: color }} />
+      <div className="absolute" style={{ top: center - thickness / 2, left: 0, width: arm, height: thickness, backgroundColor: color }} />
+      <div className="absolute" style={{ top: center - thickness / 2, right: 0, width: arm, height: thickness, backgroundColor: color }} />
     </div>
   );
 }
 
-function RingCrosshair({ size, color }: { size: number; color: string }) {
+function RingCrosshair({ size, color, bloom = 0 }: { size: number; color: string; bloom?: number }) {
+  const totalSize = size + bloom * 2;
   return (
     <div
       style={{
-        width: size, height: size,
+        width: totalSize, height: totalSize,
         border: `2px solid ${color}`,
         borderRadius: '50%',
       }}

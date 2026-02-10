@@ -1,4 +1,5 @@
 import { ENGINE_PHYSICS, DEG2RAD as _DEG2RAD, RAD2DEG as _RAD2DEG } from '@engine/physics/constants';
+import type { RecoilPattern, RecoilConfig } from '@engine/physics/recoil';
 import type { WeaponType } from './types';
 
 /** Full physics constants = engine core + Velocity-specific game balance. */
@@ -21,6 +22,7 @@ export const PHYSICS = {
   GRENADE_BOUNCE_DAMPING: 0.6,
   GRENADE_EXPLOSION_RADIUS: 7,  // blast radius in game units
   GRENADE_KNOCKBACK_FORCE: 110, // knockback force — toned down for grenade jumps
+  GRENADE_SELF_DAMAGE_MULT: 0.6, // self-damage fraction (grenades hurt more than rockets at close range)
   GRENADE_DAMAGE: 80,
   GRENADE_FIRE_COOLDOWN: 0.6,
 
@@ -90,6 +92,16 @@ export const PHYSICS = {
   // ── Prone accuracy ──
   PRONE_SPREAD_MULT: 0.3,      // weapon spread multiplier when prone
 
+  // ── Recoil & spread ──
+  RECOIL_RECOVERY_SPEED: 6,        // radians/sec recovery lerp
+  RECOIL_RECOVERY_DELAY: 0.3,      // seconds after last shot before recovery starts
+  BLOOM_DECAY_SPEED: 40,           // bloom units/sec decay
+  ADS_RECOIL_MULT: 0.5,            // recoil × 0.5 when fully ADS
+  PRONE_RECOIL_MULT: 0.3,          // recoil × 0.3 when prone
+  MOVING_SPREAD_MULT: 1.5,         // spread × 1.5 when moving on ground
+  AIR_SPREAD_MULT: 2.0,            // spread × 2.0 when airborne
+  CROUCH_SPREAD_MULT: 0.7,         // spread × 0.7 when crouching
+
   // ── Weapon inspect ──
   INSPECT_TRANSITION_SPEED: 5,  // lerp speed for hip↔inspect transition
   INSPECT_SPIN_SPEED: 0.8,     // Y-axis rotation speed (radians/sec)
@@ -128,4 +140,27 @@ export const ADS_CONFIG: Record<WeaponType, AdsWeaponConfig> = {
   grenade: { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
   plasma:  { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
   knife:   { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+} as const;
+
+/** Per-weapon recoil patterns. */
+export const RECOIL_PATTERNS: Record<WeaponType, RecoilPattern> = {
+  assault: { pitchPerShot: 0.012, yawPerShot: 0.005, accumulation: 0.15, baseSpread: 0.03 },
+  sniper:  { pitchPerShot: 0.087, yawPerShot: 0.01,  accumulation: 0,    baseSpread: 0 },      // ~5° single kick
+  shotgun: { pitchPerShot: 0.035, yawPerShot: 0.025, accumulation: 0,    baseSpread: 0.1 },     // ~2° random
+  rocket:  { pitchPerShot: 0.005, yawPerShot: 0.003, accumulation: 0,    baseSpread: 0 },       // minimal
+  grenade: { pitchPerShot: 0.005, yawPerShot: 0.003, accumulation: 0,    baseSpread: 0 },
+  plasma:  { pitchPerShot: 0.002, yawPerShot: 0.001, accumulation: 0.05, baseSpread: 0.02 },
+  knife:   { pitchPerShot: 0,     yawPerShot: 0,     accumulation: 0,    baseSpread: 0 },
+} as const;
+
+/** System-wide recoil configuration derived from PHYSICS constants. */
+export const RECOIL_CONFIG: RecoilConfig = {
+  recoverySpeed: PHYSICS.RECOIL_RECOVERY_SPEED,
+  recoveryDelay: PHYSICS.RECOIL_RECOVERY_DELAY,
+  bloomDecaySpeed: PHYSICS.BLOOM_DECAY_SPEED,
+  adsRecoilMult: PHYSICS.ADS_RECOIL_MULT,
+  proneRecoilMult: PHYSICS.PRONE_RECOIL_MULT,
+  movingSpreadMult: PHYSICS.MOVING_SPREAD_MULT,
+  airSpreadMult: PHYSICS.AIR_SPREAD_MULT,
+  crouchSpreadMult: PHYSICS.CROUCH_SPREAD_MULT,
 } as const;

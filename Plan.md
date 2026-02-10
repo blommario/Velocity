@@ -88,18 +88,18 @@
   - Automatisk stand-up vid landing om utrymme finns
 - ✅ **Stance-indikator i HUD** — ikon: standing / crouching / prone / sliding
 
-### V5 — Weapon Recoil & Spread
+### V5 — Weapon Recoil & Spread ✅
 *Kamera-recoil + visuell spread-feedback, inte bara viewmodel-bob.*
-- 🔲 Recoil-pattern per vapen: vertikal + horisontell offset per skott
+- ✅ Recoil-pattern per vapen: vertikal + horisontell offset per skott
   - Assault: litet vertikalt recoil, ackumulerar vid auto-fire, reset 0.3s
   - Sniper: stort engångs-recoil (5° pitch up), snabb recovery
   - Shotgun: brett recoil (2° random), snabb recovery
   - Rocket: minimal (exploision-knockback är feedbacken)
-- 🔲 Recoil-recovery: kameran återgår automatiskt (lerp mot origin, `RECOIL_RECOVERY_SPEED`)
-- 🔲 Crosshair bloom: dynamic spread-indikator, expanderar vid fire → krymper vid stasis
-- 🔲 ADS reducerar recoil: `ADS_RECOIL_MULT: 0.5`
-- 🔲 Prone reducerar recoil ytterligare: `PRONE_RECOIL_MULT: 0.3`
-- 🔲 Movement ökar spread: `MOVING_SPREAD_MULT: 1.5` (ground), `AIR_SPREAD_MULT: 2.0`
+- ✅ Recoil-recovery: kameran återgår automatiskt (lerp mot origin, `RECOIL_RECOVERY_SPEED`)
+- ✅ Crosshair bloom: dynamic spread-indikator, expanderar vid fire → krymper vid stasis
+- ✅ ADS reducerar recoil: `ADS_RECOIL_MULT: 0.5`
+- ✅ Prone reducerar recoil ytterligare: `PRONE_RECOIL_MULT: 0.3`
+- ✅ Movement ökar spread: `MOVING_SPREAD_MULT: 1.5` (ground), `AIR_SPREAD_MULT: 2.0`
 
 ### V6 — Reload System
 *Faktisk reload-mekanik med animation och timing.*

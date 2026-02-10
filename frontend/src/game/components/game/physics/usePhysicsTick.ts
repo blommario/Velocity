@@ -2,7 +2,7 @@ import { type MutableRefObject } from 'react';
 import { Vector3, type Camera } from 'three';
 import type { RapierRigidBody, RapierCollider } from '@react-three/rapier';
 import { Ray, QueryFilterFlags } from '@dimforge/rapier3d-compat';
-import { PHYSICS, ADS_CONFIG } from './constants';
+import { PHYSICS, ADS_CONFIG, RECOIL_PATTERNS, RECOIL_CONFIG } from './constants';
 import type { InputState } from './types';
 import {
   applyFriction,
@@ -33,6 +33,11 @@ import { useExplosionStore } from '@engine/effects/ExplosionEffect';
 import { spawnDecal } from '@engine/effects/DecalPool';
 import { nextRandom } from '@engine/physics/seededRandom';
 import { tickScopeSway, createScopeSwayState, resetScopeSwayState, type ScopeSwayConfig } from '@engine/physics/scopeSway';
+import {
+  applyRecoilKick, tickRecoil, getSpreadMultiplier,
+  createRecoilState, resetRecoilState,
+  type RecoilState,
+} from '@engine/physics/recoil';
 import { devLog } from '@engine/stores/devLogStore';
 import {
   spawnProjectile, deactivateAt, updatePositions,
@@ -164,20 +169,24 @@ export function createPhysicsTickState(): PhysicsTickState {
 
 let _activeState: PhysicsTickState | null = null;
 let _activeSwayState: ReturnType<typeof createScopeSwayState> | null = null;
+let _activeRecoilState: RecoilState | null = null;
 
 /** Called by PlayerController to register its owned state instances. */
 export function registerPhysicsTickState(
   state: PhysicsTickState,
   swayState: ReturnType<typeof createScopeSwayState>,
+  recoilState?: RecoilState,
 ): void {
   _activeState = state;
   _activeSwayState = swayState;
+  _activeRecoilState = recoilState ?? null;
 }
 
 /** Reset active physics tick state. Call on map load / game restart. */
 export function resetPhysicsTickState(): void {
   if (_activeState) Object.assign(_activeState, createPhysicsTickState());
   if (_activeSwayState) resetScopeSwayState(_activeSwayState);
+  if (_activeRecoilState) resetRecoilState(_activeRecoilState);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -207,6 +216,7 @@ export interface PhysicsTickRefs {
 interface TickContext {
   s: PhysicsTickState;
   swayState: ReturnType<typeof createScopeSwayState>;
+  recoilState: RecoilState;
   refs: PhysicsTickRefs;
   camera: Camera;
   rapierWorld: import('@dimforge/rapier3d-compat').World;
@@ -331,8 +341,9 @@ function handleZoneEvents(ctx: TickContext): void {
 }
 
 function handleWeaponSwitch(ctx: TickContext): void {
-  const { input } = ctx;
+  const { s, input, recoilState } = ctx;
   const combat = useCombatStore.getState();
+  const prevWeapon = combat.activeWeapon;
   if (input.weaponSlot > 0) {
     combat.switchWeaponBySlot(input.weaponSlot);
     input.weaponSlot = 0;
@@ -340,6 +351,13 @@ function handleWeaponSwitch(ctx: TickContext): void {
   if (input.scrollDelta !== 0) {
     combat.scrollWeapon(input.scrollDelta > 0 ? 1 : -1);
     input.scrollDelta = 0;
+  }
+  // Sync physics tick state when weapon actually changed
+  // Re-read store since switchWeapon updates it synchronously
+  if (useCombatStore.getState().activeWeapon !== prevWeapon) {
+    s.adsProgress = 0;
+    s.inspectProgress = 0;
+    resetRecoilState(recoilState);
   }
 }
 
@@ -477,6 +495,14 @@ function handleCombatState(ctx: TickContext, dx: number, dy: number): void {
     useCombatStore.setState({ inspectProgress: s.inspectProgress, isInspecting });
   }
 
+  // Recoil recovery tick (runs every frame, recovers camera toward origin)
+  const recoilRecovery = tickRecoil(ctx.recoilState, RECOIL_CONFIG, dt);
+  if (recoilRecovery.dpitch !== 0 || recoilRecovery.dyaw !== 0) {
+    refs.pitch.current += recoilRecovery.dpitch;
+    refs.yaw.current += recoilRecovery.dyaw;
+  }
+  // Write bloom to store (throttled with HUD updates in handleHudAndReplay)
+
   // Knife lunge movement
   if (combat.knifeLungeTimer > 0) {
     const ld = combat.knifeLungeDir;
@@ -502,7 +528,7 @@ function handleCombatState(ctx: TickContext, dx: number, dy: number): void {
 }
 
 function handleWeaponFire(ctx: TickContext): void {
-  const { refs, velocity, rapierWorld, rb } = ctx;
+  const { refs, velocity, rapierWorld, rb, recoilState } = ctx;
   const combat = useCombatStore.getState();
   const weapon = combat.activeWeapon;
   const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
@@ -510,6 +536,13 @@ function handleWeaponFire(ctx: TickContext): void {
     : refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
 
   if (!ctx.input.fire || !canFireNow) return;
+
+  // Compute spread multiplier based on movement/stance/ADS
+  const hasInput = ctx.input.forward || ctx.input.backward || ctx.input.left || ctx.input.right;
+  const spreadMult = getSpreadMultiplier(
+    hasInput, refs.grounded.current, refs.isCrouching.current,
+    refs.isProne.current, ctx.s.adsProgress, RECOIL_CONFIG, PHYSICS.PRONE_SPREAD_MULT,
+  );
 
   switch (weapon) {
     case 'rocket': {
@@ -525,6 +558,12 @@ function handleWeaponFire(ctx: TickContext): void {
           ammo: { ...s.ammo, rocket: { ...s.ammo.rocket, current: newAmmo } },
         }));
         audioManager.play(SOUNDS.ROCKET_FIRE);
+        const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.rocket,
+          ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
+          RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
+          nextRandom() * 2 - 1);
+        refs.pitch.current += rk.dpitch;
+        refs.yaw.current += rk.dyaw;
         devLog.info('Combat', `Rocket fired → ammo=${newAmmo}`);
       }
       break;
@@ -542,6 +581,12 @@ function handleWeaponFire(ctx: TickContext): void {
           ammo: { ...s.ammo, grenade: { ...s.ammo.grenade, current: newAmmo } },
         }));
         audioManager.play(SOUNDS.GRENADE_THROW);
+        const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.grenade,
+          ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
+          RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
+          nextRandom() * 2 - 1);
+        refs.pitch.current += rk.dpitch;
+        refs.yaw.current += rk.dyaw;
         devLog.info('Combat', `Grenade thrown → ammo=${newAmmo}`);
       }
       break;
@@ -550,76 +595,78 @@ function handleWeaponFire(ctx: TickContext): void {
       if (combat.fireHitscan('sniper')) {
         _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
         _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
-        // D: castRay first (cheaper), castRayAndGetNormal only on hit
-        const sniperHit = rapierWorld.castRay(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
+        const sniperHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
         if (sniperHit) {
-          const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, sniperHit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
-          if (hitWithNormal) {
-            const shx = _playerPos.x + _fireDir.x * hitWithNormal.timeOfImpact;
-            const shy = (_playerPos.y + eyeOff) + _fireDir.y * hitWithNormal.timeOfImpact;
-            const shz = _playerPos.z + _fireDir.z * hitWithNormal.timeOfImpact;
-            spawnWallSparks(shx, shy, shz, hitWithNormal.normal.x, hitWithNormal.normal.y, hitWithNormal.normal.z, 'heavy');
-          }
+          const shx = _playerPos.x + _fireDir.x * sniperHit.timeOfImpact;
+          const shy = (_playerPos.y + eyeOff) + _fireDir.y * sniperHit.timeOfImpact;
+          const shz = _playerPos.z + _fireDir.z * sniperHit.timeOfImpact;
+          spawnWallSparks(shx, shy, shz, sniperHit.normal.x, sniperHit.normal.y, sniperHit.normal.z, 'heavy');
           pushHitMarker();
         }
         velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
         velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
         velocity.z -= _fireDir.z * PHYSICS.SNIPER_KNOCKBACK;
         audioManager.play(SOUNDS.ROCKET_FIRE);
+        const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.sniper,
+          ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
+          RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
+          nextRandom() * 2 - 1);
+        refs.pitch.current += rk.dpitch;
+        refs.yaw.current += rk.dyaw;
         devLog.info('Combat', `Sniper fired → ammo=${combat.ammo.sniper.current}`);
       }
       break;
     }
     case 'assault': {
       if (combat.fireHitscan('assault')) {
-        const spreadX = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
-        const spreadY = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+        const effectiveSpread = PHYSICS.ASSAULT_SPREAD * spreadMult;
+        const spreadX = (nextRandom() - 0.5) * effectiveSpread * 2;
+        const spreadY = (nextRandom() - 0.5) * effectiveSpread * 2;
         const aimX = _fireDir.x + spreadX;
         const aimY = _fireDir.y + spreadY;
         const aimZ = _fireDir.z;
         const aimLen = Math.sqrt(aimX * aimX + aimY * aimY + aimZ * aimZ);
         _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
         _reusableRay.dir.x = aimX / aimLen; _reusableRay.dir.y = aimY / aimLen; _reusableRay.dir.z = aimZ / aimLen;
-        // D: castRay first, castRayAndGetNormal only on hit
-        const arHit = rapierWorld.castRay(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
+        const arHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
         if (arHit) {
-          const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, arHit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
-          if (hitWithNormal) {
-            const hx = _reusableRay.origin.x + _reusableRay.dir.x * hitWithNormal.timeOfImpact;
-            const hy = _reusableRay.origin.y + _reusableRay.dir.y * hitWithNormal.timeOfImpact;
-            const hz = _reusableRay.origin.z + _reusableRay.dir.z * hitWithNormal.timeOfImpact;
-            spawnWallSparks(hx, hy, hz, hitWithNormal.normal.x, hitWithNormal.normal.y, hitWithNormal.normal.z, 'light');
-          }
+          const hx = _reusableRay.origin.x + _reusableRay.dir.x * arHit.timeOfImpact;
+          const hy = _reusableRay.origin.y + _reusableRay.dir.y * arHit.timeOfImpact;
+          const hz = _reusableRay.origin.z + _reusableRay.dir.z * arHit.timeOfImpact;
+          spawnWallSparks(hx, hy, hz, arHit.normal.x, arHit.normal.y, arHit.normal.z, 'light');
           pushHitMarker();
         }
         velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
         velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
         audioManager.play(SOUNDS.LAND_SOFT, 0.05);
+        const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.assault,
+          ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
+          RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
+          nextRandom() * 2 - 1);
+        refs.pitch.current += rk.dpitch;
+        refs.yaw.current += rk.dyaw;
       }
       break;
     }
     case 'shotgun': {
       if (combat.fireHitscan('shotgun')) {
+        const effectiveSgSpread = PHYSICS.SHOTGUN_SPREAD * spreadMult;
         const physicalPellets = Math.min(PHYSICS.SHOTGUN_PELLETS, 4);
         for (let i = 0; i < physicalPellets; i++) {
-          const sx = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
-          const sy = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+          const sx = (nextRandom() - 0.5) * effectiveSgSpread * 2;
+          const sy = (nextRandom() - 0.5) * effectiveSgSpread * 2;
           const px = _fireDir.x + sx;
           const py = _fireDir.y + sy;
           const pz = _fireDir.z;
           const pl = Math.sqrt(px * px + py * py + pz * pz);
           _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
           _reusableRay.dir.x = px / pl; _reusableRay.dir.y = py / pl; _reusableRay.dir.z = pz / pl;
-          // D: castRay first, castRayAndGetNormal only on hit
-          const hit = rapierWorld.castRay(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
+          const hit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
           if (hit) {
-            const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, hit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
-            if (hitWithNormal) {
-              const hx = _reusableRay.origin.x + _reusableRay.dir.x * hitWithNormal.timeOfImpact;
-              const hy = _reusableRay.origin.y + _reusableRay.dir.y * hitWithNormal.timeOfImpact;
-              const hz = _reusableRay.origin.z + _reusableRay.dir.z * hitWithNormal.timeOfImpact;
-              spawnWallSparks(hx, hy, hz, hitWithNormal.normal.x, hitWithNormal.normal.y, hitWithNormal.normal.z, 'medium');
-            }
+            const hx = _reusableRay.origin.x + _reusableRay.dir.x * hit.timeOfImpact;
+            const hy = _reusableRay.origin.y + _reusableRay.dir.y * hit.timeOfImpact;
+            const hz = _reusableRay.origin.z + _reusableRay.dir.z * hit.timeOfImpact;
+            spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, 'medium');
           }
         }
         for (let i = physicalPellets; i < PHYSICS.SHOTGUN_PELLETS; i++) {
@@ -634,6 +681,12 @@ function handleWeaponFire(ctx: TickContext): void {
           refs.grounded.current = false;
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
+        const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.shotgun,
+          ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
+          RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
+          nextRandom() * 2 - 1);
+        refs.pitch.current += rk.dpitch;
+        refs.yaw.current += rk.dyaw;
         devLog.info('Combat', `Shotgun fired → ammo=${combat.ammo.shotgun.current}`);
       }
       break;
@@ -713,7 +766,7 @@ function handleProjectiles(ctx: TickContext): void {
         _gPos[0] = p.posX; _gPos[1] = p.posY; _gPos[2] = p.posZ;
         const damage = applyExplosionKnockback(
           velocity, _playerPos, _gPos,
-          PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
+          PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.GRENADE_SELF_DAMAGE_MULT,
           ctx.refs.grounded.current,
         );
         if (damage > 0) {
@@ -748,7 +801,7 @@ function handleProjectiles(ctx: TickContext): void {
           _gPos[0] = p.posX; _gPos[1] = p.posY; _gPos[2] = p.posZ;
           const damage = applyExplosionKnockback(
             velocity, _playerPos, _gPos,
-            PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
+            PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.GRENADE_SELF_DAMAGE_MULT,
             ctx.refs.grounded.current,
           );
           if (damage > 0) {
@@ -1281,6 +1334,8 @@ function handleHudAndReplay(ctx: TickContext, numCollisions: number): void {
     store.updateHud(finalHSpeed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current, stance);
     if (store.timerRunning) store.tickTimer();
     store.tickScreenEffects(1 / HUD_UPDATE_HZ);
+    // Write recoil bloom to store for crosshair display
+    useCombatStore.setState({ recoilBloom: ctx.recoilState.bloom });
   }
 
   // Dev logging
@@ -1331,6 +1386,7 @@ export function physicsTick(
   rapierWorld: import('@dimforge/rapier3d-compat').World,
   state: PhysicsTickState,
   swayState: ReturnType<typeof createScopeSwayState>,
+  recoilState: RecoilState,
 ): void {
   const rb = refs.rigidBody.current;
   const collider = refs.collider.current;
@@ -1341,6 +1397,7 @@ export function physicsTick(
   const ctx: TickContext = {
     s: state,
     swayState,
+    recoilState,
     refs,
     camera,
     rapierWorld,

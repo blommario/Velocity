@@ -12,6 +12,7 @@ import { PHYSICS, DEG2RAD } from './physics/constants';
 import { useInputBuffer } from '@engine/input/useInputBuffer';
 import { physicsTick, createPhysicsTickState, registerPhysicsTickState } from './physics/usePhysicsTick';
 import { createScopeSwayState } from '@engine/physics/scopeSway';
+import { createRecoilState } from '@engine/physics/recoil';
 import { useGameStore } from '@game/stores/gameStore';
 import { devLog, frameTiming } from '@engine/stores/devLogStore';
 
@@ -34,8 +35,9 @@ export function PlayerController() {
   const isProneRef = useRef(false);
   const physicsStateRef = useRef(createPhysicsTickState());
   const scopeSwayStateRef = useRef(createScopeSwayState());
+  const recoilStateRef = useRef(createRecoilState());
   // Register so resetPhysicsTickState() can find the active instance
-  registerPhysicsTickState(physicsStateRef.current, scopeSwayStateRef.current);
+  registerPhysicsTickState(physicsStateRef.current, scopeSwayStateRef.current, recoilStateRef.current);
 
   const controllerRef = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
 
@@ -81,6 +83,7 @@ export function PlayerController() {
       world,
       physicsStateRef.current,
       scopeSwayStateRef.current,
+      recoilStateRef.current,
     );
     frameTiming.end('Physics');
   });

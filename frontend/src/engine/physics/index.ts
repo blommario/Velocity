@@ -29,3 +29,13 @@ export {
   type ScopeSwayConfig,
   type ScopeSwayState,
 } from './scopeSway';
+export {
+  applyRecoilKick,
+  tickRecoil,
+  getSpreadMultiplier,
+  createRecoilState,
+  resetRecoilState,
+  type RecoilPattern,
+  type RecoilConfig,
+  type RecoilState,
+} from './recoil';

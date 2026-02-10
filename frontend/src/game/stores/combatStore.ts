@@ -64,6 +64,9 @@ interface CombatState {
   breathHoldTime: number;     // seconds of breath held (0-2 = stable, then penalty)
   scopeTime: number;          // total time scoped in (0-3 stable, 3-6 drift, 6+ force unscope)
 
+  // Recoil bloom (for HUD crosshair spread indicator)
+  recoilBloom: number;      // 0 = no bloom, higher = wider crosshair spread
+
   // Weapon inspect
   isInspecting: boolean;
   inspectProgress: number;  // 0 = hip, 1 = fully inspecting
@@ -135,6 +138,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   breathHoldTime: 0,
   scopeTime: 0,
 
+  recoilBloom: 0,
+
   isInspecting: false,
   inspectProgress: 0,
 
@@ -189,6 +194,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       swapCooldown: PHYSICS.WEAPON_SWAP_TIME,
       adsProgress: 0,
       isPlasmaFiring: false,
+      recoilBloom: 0,
       isInspecting: false,
       inspectProgress: 0,
       scopeSwayX: 0,
@@ -333,6 +339,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       swapCooldown: 0,
       adsProgress: 0,
       isPlasmaFiring: false,
+      recoilBloom: 0,
       isInspecting: false,
       inspectProgress: 0,
       scopeSwayX: 0,
