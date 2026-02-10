@@ -99,6 +99,7 @@ export function WeaponWheel({
   }, [open, slots, activeWeaponId]);
 
   // O(1) angle-based index lookup with sticky selection (center keeps last pick)
+  const prevIdxRef = useRef(-1);
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -109,12 +110,15 @@ export function WeaponWheel({
     // Dead zone — keep current selection (sticky)
     if (dist < CENTER_RADIUS) return;
 
-    // O(1) index from angle
+    // O(1) index from angle — only trigger re-render when index actually changes
     let angle = Math.atan2(dy, dx) - ANGLE_OFFSET;
     if (angle < 0) angle += TWO_PI;
     const slotCount = slots.length;
     const idx = Math.floor(angle / (TWO_PI / slotCount)) % slotCount;
-    setHoveredIdx(idx);
+    if (idx !== prevIdxRef.current) {
+      prevIdxRef.current = idx;
+      setHoveredIdx(idx);
+    }
   }, [slots.length]);
 
   const handleClick = useCallback(() => {

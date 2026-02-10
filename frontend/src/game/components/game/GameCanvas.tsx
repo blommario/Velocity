@@ -14,7 +14,7 @@ import { MapLoader } from './map/MapLoader';
 import { ScreenShake } from '@engine/effects/ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
-import { SpeedTrail, GrappleBeam, ExplosionManager, CheckpointShimmer, DecalPool, ScopeGlint } from './effects';
+import { SpeedTrail, GhostTrail, GrappleBeam, ExplosionManager, CheckpointShimmer, DecalPool, ScopeGlint } from './effects';
 import { Viewmodel } from './Viewmodel';
 import { PerfMonitor } from '@engine/stores/PerfMonitor';
 import { HudOverlay } from '../hud/HudOverlay';
@@ -93,6 +93,7 @@ export function GameCanvas() {
           <GhostRenderer />
         </Physics>
         <SpeedTrail />
+        <GhostTrail />
         <GrappleBeam />
         <ExplosionManager />
         <DecalPool />

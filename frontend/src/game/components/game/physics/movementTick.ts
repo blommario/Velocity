@@ -120,6 +120,59 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
   }
   ctx.collider.setHalfHeight(targetHeight / 2 - PHYSICS.PLAYER_RADIUS);
 
+  // ── Dash / dodge — double-tap strafe ──
+  if (s.dashCooldown > 0) s.dashCooldown -= dt;
+  if (s.dashTimer > 0) {
+    // Apply dash burst velocity each tick during the dash duration
+    s.dashTimer -= dt;
+    const burstFraction = PHYSICS.DASH_SPEED * dt / PHYSICS.DASH_DURATION;
+    velocity.x += s.dashDirX * burstFraction;
+    velocity.z += s.dashDirZ * burstFraction;
+  }
+  if (s.dashCooldown <= 0 && s.dashTimer <= 0 && !refs.isProne.current) {
+    const now_dash = ctx.now;
+    // Detect double-tap left
+    if (input.left && !input.right) {
+      if (s.lastLeftPress === 0) {
+        s.lastLeftPress = now_dash;
+      } else if ((now_dash - s.lastLeftPress) < PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
+        const sinYaw = Math.sin(refs.yaw.current);
+        const cosYaw = Math.cos(refs.yaw.current);
+        s.dashDirX = -cosYaw; // left = negative right vector
+        s.dashDirZ = -sinYaw;
+        s.dashTimer = PHYSICS.DASH_DURATION;
+        s.dashCooldown = PHYSICS.DASH_COOLDOWN;
+        s.lastLeftPress = 0;
+        audioManager.play(SOUNDS.JUMP, 0.08);
+        devLog.info('Physics', 'Dash left!');
+      }
+    } else {
+      if (s.lastLeftPress > 0 && (now_dash - s.lastLeftPress) > PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
+        s.lastLeftPress = 0;
+      }
+    }
+    // Detect double-tap right
+    if (input.right && !input.left) {
+      if (s.lastRightPress === 0) {
+        s.lastRightPress = now_dash;
+      } else if ((now_dash - s.lastRightPress) < PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
+        const sinYaw = Math.sin(refs.yaw.current);
+        const cosYaw = Math.cos(refs.yaw.current);
+        s.dashDirX = cosYaw; // right vector
+        s.dashDirZ = sinYaw;
+        s.dashTimer = PHYSICS.DASH_DURATION;
+        s.dashCooldown = PHYSICS.DASH_COOLDOWN;
+        s.lastRightPress = 0;
+        audioManager.play(SOUNDS.JUMP, 0.08);
+        devLog.info('Physics', 'Dash right!');
+      }
+    } else {
+      if (s.lastRightPress > 0 && (now_dash - s.lastRightPress) > PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
+        s.lastRightPress = 0;
+      }
+    }
+  }
+
   const isWallRunning = !refs.grounded.current && !combat.isGrappling && !refs.isProne.current && updateWallRun(
     s.wallRunState, velocity, refs.grounded.current,
     input.left, input.right, false, false,
@@ -131,9 +184,13 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
   const jumpBlocked = refs.isProne.current || (s.proneTransition > 0);
 
   if (isWallRunning && wantsJump) {
-    wallJump(s.wallRunState, velocity);
+    const chainCount = wallJump(s.wallRunState, velocity);
     refs.jumpBufferTime.current = 0;
     store.recordJump();
+    if (chainCount > 1) {
+      audioManager.play(SOUNDS.WALL_RUN, 0.12 + chainCount * 0.03);
+      devLog.info('Physics', `Wall-jump chain ×${chainCount} bonus=${chainCount * PHYSICS.WALL_JUMP_CHAIN_BONUS}`);
+    }
   }
 
   const adsFactor = 1 - s.adsProgress * (1 - PHYSICS.ADS_SPEED_MULT);
@@ -152,6 +209,16 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
         velocity.z += (velocity.z / hSpeed) * slideHopBoost;
       }
     }
+    // Bhop timing window — perfect jump within window after landing adds speed boost
+    if (s.lastLandingTime > 0 && (ctx.now - s.lastLandingTime) <= PHYSICS.BHOP_TIMING_WINDOW_MS && hSpeed > 0) {
+      const bhopBoost = PHYSICS.BHOP_PERFECT_BOOST;
+      velocity.x += (velocity.x / hSpeed) * bhopBoost;
+      velocity.z += (velocity.z / hSpeed) * bhopBoost;
+      s.bhopPerfect = true;
+      audioManager.play(SOUNDS.SPEED_GATE, 0.06);
+      devLog.info('Physics', `Bhop perfect! +${bhopBoost} u/s (window=${(ctx.now - s.lastLandingTime).toFixed(0)}ms)`);
+    }
+    s.lastLandingTime = 0;
     velocity.y = PHYSICS.JUMP_FORCE;
     refs.grounded.current = false;
     refs.coyoteTime.current = 0;
@@ -315,6 +382,8 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
       const intensity = Math.min((fallSpeed - LANDING_DIP_MIN_FALL) / 400, 1);
       s.landingDip = -LANDING_DIP_AMOUNT * intensity;
     }
+    s.lastLandingTime = ctx.now;
+    s.bhopPerfect = false;
     devLog.info('Physics', `Landed | fallSpeed=${fallSpeed.toFixed(0)} hSpeed=${landHSpeed.toFixed(0)}`);
   }
   if (refs.grounded.current && hSpeed > 50 && !refs.isSliding.current) {

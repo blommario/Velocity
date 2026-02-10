@@ -15,6 +15,8 @@ export interface WallRunState {
   lastWallNormalX: number;
   lastWallNormalZ: number;
   wallRunCooldown: boolean; // can't re-run same wall without touching ground
+  consecutiveWallJumps: number;
+  lastWallJumpTime: number;
 }
 
 export function createWallRunState(): WallRunState {
@@ -25,6 +27,8 @@ export function createWallRunState(): WallRunState {
     lastWallNormalX: 0,
     lastWallNormalZ: 0,
     wallRunCooldown: false,
+    consecutiveWallJumps: 0,
+    lastWallJumpTime: 0,
   };
 }
 
@@ -49,6 +53,8 @@ export function updateWallRun(
     state.wallRunCooldown = false;
     state.isWallRunning = false;
     state.wallRunTime = 0;
+    // Reset wall-jump chain if grounded (chain only counts in air)
+    state.consecutiveWallJumps = 0;
     return false;
   }
 
@@ -97,18 +103,29 @@ export function updateWallRun(
 
 /**
  * Wall jump: push away from wall + upward.
+ * Consecutive wall-jumps on different walls within WALL_JUMP_CHAIN_WINDOW add a speed bonus.
+ * Returns the chain count (0 = first jump, 1+ = chained).
  */
-export function wallJump(state: WallRunState, velocity: Vector3): void {
-  if (!state.isWallRunning) return;
+export function wallJump(state: WallRunState, velocity: Vector3): number {
+  if (!state.isWallRunning) return 0;
 
   _wallNormal.set(state.wallNormal[0], 0, state.wallNormal[2]).normalize();
 
-  velocity.x += _wallNormal.x * PHYSICS.WALL_RUN_JUMP_FORCE_NORMAL;
-  velocity.z += _wallNormal.z * PHYSICS.WALL_RUN_JUMP_FORCE_NORMAL;
-  velocity.y = PHYSICS.WALL_RUN_JUMP_FORCE_UP;
+  const now = performance.now() / 1000;
+  const withinChainWindow = (now - state.lastWallJumpTime) < PHYSICS.WALL_JUMP_CHAIN_WINDOW;
+  const chainCount = withinChainWindow ? Math.min(state.consecutiveWallJumps + 1, PHYSICS.WALL_JUMP_CHAIN_MAX) : 1;
+  const chainBonus = chainCount * PHYSICS.WALL_JUMP_CHAIN_BONUS;
+
+  velocity.x += _wallNormal.x * (PHYSICS.WALL_RUN_JUMP_FORCE_NORMAL + chainBonus);
+  velocity.z += _wallNormal.z * (PHYSICS.WALL_RUN_JUMP_FORCE_NORMAL + chainBonus);
+  velocity.y = PHYSICS.WALL_RUN_JUMP_FORCE_UP + chainBonus * 0.5;
 
   state.isWallRunning = false;
   state.wallRunCooldown = true;
+  state.consecutiveWallJumps = chainCount;
+  state.lastWallJumpTime = now;
+
+  return chainCount;
 }
 
 // ── Surfing ──
@@ -149,10 +166,10 @@ export function applySurfPhysics(
     velocity.z -= velIntoSurface * _surfNormal.z;
   }
 
-  // Safety clamp — prevent surf from exceeding engine speed limit
+  // Safety clamp — use the higher surf-specific cap so surfing stays fun
   const surfSpeed = velocity.length();
-  if (surfSpeed > PHYSICS.MAX_SPEED) {
-    velocity.multiplyScalar(PHYSICS.MAX_SPEED / surfSpeed);
+  if (surfSpeed > PHYSICS.SURF_SPEED_CAP) {
+    velocity.multiplyScalar(PHYSICS.SURF_SPEED_CAP / surfSpeed);
   }
 }
 

@@ -2,7 +2,7 @@ export { Timer } from './Timer';
 export type { TimerProps } from './Timer';
 
 export { SpeedMeter } from './SpeedMeter';
-export type { SpeedMeterProps, SpeedThreshold } from './SpeedMeter';
+export type { SpeedMeterProps, SpeedThreshold, SpeedTier } from './SpeedMeter';
 
 export { Crosshair } from './Crosshair';
 export type { CrosshairProps, CrosshairConfig, CrosshairType } from './Crosshair';

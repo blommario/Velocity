@@ -1,4 +1,5 @@
 export { SpeedTrail } from './SpeedTrail';
+export { GhostTrail } from './GhostTrail';
 export { GrappleBeam } from './GrappleBeam';
 export { ExplosionManager, useExplosionStore } from '@engine/effects/ExplosionEffect';
 export { CheckpointShimmer } from './CheckpointShimmer';

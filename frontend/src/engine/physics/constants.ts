@@ -76,6 +76,7 @@ export const ENGINE_PHYSICS = {
   SURF_MIN_ANGLE: 30,
   SURF_MAX_ANGLE: 60,
   SURF_FRICTION: 0,
+  SURF_SPEED_CAP: 3500,              // separate cap — surfing should exceed MAX_SPEED
 
   // Boost pads
   BOOST_PAD_DEFAULT_SPEED: 280,
@@ -93,6 +94,32 @@ export const ENGINE_PHYSICS = {
   GRAPPLE_PULL_FORCE: 900,
   GRAPPLE_SWING_GRAVITY: 400,
   GRAPPLE_RELEASE_BOOST: 1.12,
+
+  // Bunny hop timing window
+  BHOP_TIMING_WINDOW_MS: 150,       // ms after landing to jump for perfect bhop
+  BHOP_PERFECT_BOOST: 10,           // u/s bonus for perfect bhop timing
+
+  // Dash / dodge
+  DASH_SPEED: 100,                   // burst velocity (u/s)
+  DASH_COOLDOWN: 2.0,               // seconds before next dash
+  DASH_DURATION: 0.15,              // seconds the burst lasts
+  DASH_DOUBLE_TAP_WINDOW: 250,      // ms window for double-tap detection
+
+  // Wall-jump chaining
+  WALL_JUMP_CHAIN_WINDOW: 1.0,      // seconds to chain wall jumps for bonus
+  WALL_JUMP_CHAIN_BONUS: 20,        // u/s per consecutive chain jump
+  WALL_JUMP_CHAIN_MAX: 5,           // max chain multiplier
+
+  // Grapple release timing
+  GRAPPLE_EARLY_RELEASE: 0.3,       // seconds — release before this = upward bias
+  GRAPPLE_LATE_RELEASE: 0.6,        // seconds — release after this = forward bias
+  GRAPPLE_EARLY_UP_MULT: 0.6,       // fraction of boost applied upward on early release
+  GRAPPLE_LATE_FORWARD_MULT: 0.9,   // fraction of boost applied forward on late release
+
+  // Speed tier thresholds (for HUD visualization)
+  SPEED_TIER_1: 500,
+  SPEED_TIER_2: 800,
+  SPEED_TIER_3: 1000,
 } as const;
 
 export const DEG2RAD = Math.PI / 180;

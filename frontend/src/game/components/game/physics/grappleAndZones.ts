@@ -54,11 +54,36 @@ export function handleGrapple(ctx: TickContext): void {
 
   if (combat.isGrappling) {
     if (!grapplePressed && combat.grappleTarget) {
+      // Timing-based release boost: early = upward bias, late = forward bias
+      const swingTime = (performance.now() - s.grappleAttachTime) / 1000;
       const speed = velocity.length();
-      velocity.multiplyScalar(PHYSICS.GRAPPLE_RELEASE_BOOST);
-      if (velocity.length() < speed) {
-        velocity.normalize().multiplyScalar(speed * PHYSICS.GRAPPLE_RELEASE_BOOST);
+      const baseBoost = PHYSICS.GRAPPLE_RELEASE_BOOST;
+
+      if (swingTime < PHYSICS.GRAPPLE_EARLY_RELEASE) {
+        // Early release — add strong upward component
+        velocity.multiplyScalar(baseBoost);
+        velocity.y += speed * PHYSICS.GRAPPLE_EARLY_UP_MULT;
+        devLog.info('Combat', `Grapple early release (${swingTime.toFixed(2)}s) → upward boost`);
+      } else if (swingTime < PHYSICS.GRAPPLE_LATE_RELEASE) {
+        // Mid release — balanced boost (original behavior)
+        velocity.multiplyScalar(baseBoost);
+        devLog.info('Combat', `Grapple mid release (${swingTime.toFixed(2)}s) → balanced`);
+      } else {
+        // Late release — strong forward momentum preservation
+        const hSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+        if (hSpeed > 0) {
+          const forwardMult = baseBoost * PHYSICS.GRAPPLE_LATE_FORWARD_MULT;
+          velocity.x *= forwardMult;
+          velocity.z *= forwardMult;
+        }
+        velocity.y *= baseBoost * 0.6; // less vertical on late release
+        devLog.info('Combat', `Grapple late release (${swingTime.toFixed(2)}s) → forward boost`);
       }
+
+      if (velocity.length() < speed) {
+        velocity.normalize().multiplyScalar(speed * baseBoost);
+      }
+      s.grappleAttachTime = 0;
       combat.stopGrapple();
       audioManager.play(SOUNDS.GRAPPLE_RELEASE);
     } else if (combat.grappleTarget) {
@@ -102,6 +127,7 @@ export function handleGrapple(ctx: TickContext): void {
 
     if (bestPoint) {
       combat.startGrapple(bestPoint, bestDist);
+      s.grappleAttachTime = performance.now();
       audioManager.play(SOUNDS.GRAPPLE_ATTACH);
       devLog.info('Combat', `Grapple attached → dist=${bestDist.toFixed(1)}`);
     }

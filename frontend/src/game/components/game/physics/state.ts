@@ -45,6 +45,18 @@ export interface PhysicsTickState {
   proneTransitionTarget: boolean;
   lastCrouchPress: number;
   slidePitchOffset: number;
+  // Bunny hop timing
+  lastLandingTime: number;
+  bhopPerfect: boolean;
+  // Dash / dodge
+  lastLeftPress: number;
+  lastRightPress: number;
+  dashCooldown: number;
+  dashTimer: number;
+  dashDirX: number;
+  dashDirZ: number;
+  // Grapple timing
+  grappleAttachTime: number;
 }
 
 export function createPhysicsTickState(): PhysicsTickState {
@@ -61,6 +73,8 @@ export function createPhysicsTickState(): PhysicsTickState {
       lastWallNormalX: 0,
       lastWallNormalZ: 0,
       wallRunCooldown: false,
+      consecutiveWallJumps: 0,
+      lastWallJumpTime: 0,
     },
     wasGrapplePressed: false,
     wasAltFire: false,
@@ -84,6 +98,15 @@ export function createPhysicsTickState(): PhysicsTickState {
     proneTransitionTarget: false,
     lastCrouchPress: 0,
     slidePitchOffset: 0,
+    lastLandingTime: 0,
+    bhopPerfect: false,
+    lastLeftPress: 0,
+    lastRightPress: 0,
+    dashCooldown: 0,
+    dashTimer: 0,
+    dashDirX: 0,
+    dashDirZ: 0,
+    grappleAttachTime: 0,
   };
 }
 
