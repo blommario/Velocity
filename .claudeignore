@@ -1,6 +1,16 @@
 # ── Docs som inte behövs i AI-context ──
 RESOURCES.md
 DESIGN.md
+ENGINE.md
+TODO.md
+frontend/README.md
+
+# ── Temp / skräpfiler ──
+nul
+frontend/Temp.Assets/
+
+# ── CI/CD ──
+.github/
 
 # ── Assets (binärer, texturer, modeller, kartor) ──
 frontend/public/assets/
