@@ -29,6 +29,10 @@ export interface ViewmodelAnimationConfig {
   tiltFactor: number;
   tiltRecovery: number;
   lerpSpeed: number;
+  inspectOffsetX: number;
+  inspectOffsetY: number;
+  inspectOffsetZ: number;
+  inspectSpinSpeed: number;
 }
 
 export const VM_ANIM_DEFAULTS: ViewmodelAnimationConfig = {
@@ -49,6 +53,10 @@ export const VM_ANIM_DEFAULTS: ViewmodelAnimationConfig = {
   tiltFactor: 0.002,
   tiltRecovery: 5,
   lerpSpeed: 20,
+  inspectOffsetX: -0.04,
+  inspectOffsetY: 0.15,
+  inspectOffsetZ: -0.08,
+  inspectSpinSpeed: 0.8,
 };
 
 export interface ViewmodelAnimationInput {
@@ -66,6 +74,8 @@ export interface ViewmodelAnimationInput {
   mouseDeltaY: number;
   /** ADS progress (0 = hip, 1 = fully aimed). Reduces sway/bob. */
   adsProgress?: number;
+  /** Inspect progress (0 = hip, 1 = fully inspecting). Overrides bob/sway. */
+  inspectProgress?: number;
 }
 
 export interface ViewmodelAnimationOutput {
@@ -92,6 +102,7 @@ export function useViewmodelAnimation(
   const lookSwayXRef = useRef(0);
   const lookSwayYRef = useRef(0);
   const tiltRef = useRef(0);
+  const inspectSpinRef = useRef(0);
 
   // Smoothed values
   const smoothPosXRef = useRef(0);
@@ -162,13 +173,30 @@ export function useViewmodelAnimation(
       1 - Math.exp(-c.tiltRecovery * dt),
     );
 
+    // ── Inspect spin ──
+    const inspect = input.inspectProgress ?? 0;
+    if (inspect > 0.01) {
+      inspectSpinRef.current += c.inspectSpinSpeed * dt;
+    } else {
+      // Reset spin when not inspecting (wrap to avoid large values)
+      inspectSpinRef.current = 0;
+    }
+
     // ── Combine ──
-    const targetPosX = swayX + bobX + lookSwayXRef.current;
-    const targetPosY = swayY - bobY + drawOffset + lookSwayYRef.current;
-    const targetPosZ = -recoilZ;
-    const targetRotX = -recoilRotX;
-    const targetRotY = 0;
-    const targetRotZ = -tiltRef.current;
+    const hipPosX = swayX + bobX + lookSwayXRef.current;
+    const hipPosY = swayY - bobY + drawOffset + lookSwayYRef.current;
+    const hipPosZ = -recoilZ;
+    const hipRotX = -recoilRotX;
+    const hipRotY = 0;
+    const hipRotZ = -tiltRef.current;
+
+    // Blend between hip and inspect pose
+    const targetPosX = hipPosX + (c.inspectOffsetX - hipPosX) * inspect;
+    const targetPosY = hipPosY + (c.inspectOffsetY - hipPosY) * inspect;
+    const targetPosZ = hipPosZ + (c.inspectOffsetZ - hipPosZ) * inspect;
+    const targetRotX = hipRotX * (1 - inspect);
+    const targetRotY = hipRotY + inspectSpinRef.current * inspect;
+    const targetRotZ = hipRotZ * (1 - inspect);
 
     // Smooth final values
     const lerpFactor = 1 - Math.exp(-c.lerpSpeed * dt);

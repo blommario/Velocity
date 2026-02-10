@@ -57,15 +57,15 @@
 - ✅ Glint-effekt (lens flare emissive sprite, synlig av andra i multiplayer)
 - ✅ Scope unsteadiness ökar med tid: stabilt 0-3s → drift 3-6s → tvinga unscope 6s+
 
-### V3 — Weapon Inspect
+### V3 — Weapon Inspect ✅
 *Håll inspect-knapp → vapnet lyfts framför kameran och roteras långsamt.*
-- 🔲 Keybind: `inspect` (default `F`) i settingsStore
-- 🔲 Inspect-state i combatStore: `isInspecting: boolean`
-- 🔲 Viewmodel inspect-animation: position → center-screen, rotation → slow Y-axis spin
-- 🔲 Inspect kräver: inte ADS, inte firing, inte reloading
-- 🔲 Avbryt inspect automatiskt vid: fire, ADS, weapon switch, damage taken, movement input
-- 🔲 Kamera-DOF under inspect (bakgrund blurras subtilt)
-- 🔲 Inspect-ljus — liten punktljuskälla framför modellen (emissive boost)
+- ✅ Keybind: `inspect` (default `F`) i settingsStore
+- ✅ Inspect-state i combatStore: `isInspecting: boolean`, `inspectProgress: number`
+- ✅ Viewmodel inspect-animation: position → center-screen, rotation → slow Y-axis spin
+- ✅ Inspect kräver: inte ADS, inte firing, inte reloading
+- ✅ Avbryt inspect automatiskt vid: fire, ADS, weapon switch, damage taken, movement input
+- ✅ Kamera-DOF under inspect (bakgrund blurras subtilt)
+- ✅ Inspect-ljus — ambient boost i ViewmodelLayer (emissive boost)
 
 ### V4 — Stances (Crouch / Prone / Slide)
 *Utöka befintligt crouch-system med prone och förbättrad slide.*

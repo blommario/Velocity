@@ -41,49 +41,37 @@ import {
 import { pushHitMarker } from '../../hud/HitMarker';
 import { spawnWallSparks } from '../effects/wallSparks';
 
+// ── Constants ──
+
 const MAX_PITCH = Math.PI / 2 - 0.01;
 const HUD_UPDATE_HZ = 30;
 const HUD_UPDATE_INTERVAL = 1000 / HUD_UPDATE_HZ;
+const DEV_LOG_INTERVAL = 2000;
 
-// Reusable vectors to avoid per-tick allocations
+const WALL_RUN_TILT = 0.15;
+const TILT_LERP_SPEED = 10;
+const LANDING_DIP_AMOUNT = 0.12;
+const LANDING_DIP_DECAY = 8;
+const LANDING_DIP_MIN_FALL = 150;
+
+const RESPAWN_GRACE_TICKS = 16;
+const FOOTSTEP_INTERVAL_BASE = 0.4;
+const FOOTSTEP_INTERVAL_MIN = 0.2;
+
+// ── Pre-allocated scratch objects (stateless, zero GC) ──
+
 const _desiredTranslation = new Vector3();
 const _correctedMovement = new Vector3();
 const _newPos = new Vector3();
 const _playerPos = new Vector3();
 const _fireDir = new Vector3();
-
-// Reusable Ray to avoid per-tick allocations (Rapier Ray origin/dir are mutable)
 const _reusableRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
-
-// Pre-allocated tuples for explosion positions — zero GC at 128Hz
+const _mantleRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 const _hitPos: [number, number, number] = [0, 0, 0];
 const _gPos: [number, number, number] = [0, 0, 0];
 
-let lastHudUpdate = 0;
-let lastScopeSwayUpdate = 0;
-let lastDevLogUpdate = 0;
-const DEV_LOG_INTERVAL = 2000; // log physics state every 2s
-let lastDevSpeedMult = 1.0;
-let lastDevGravMult = 1.0;
+// ── Scope sway (engine struct, managed separately) ──
 
-// Persistent state for wall running (survives across ticks)
-let wallRunState: WallRunState = {
-  isWallRunning: false,
-  wallRunTime: 0,
-  wallNormal: [0, 0, 0],
-  lastWallNormalX: 0,
-  lastWallNormalZ: 0,
-  wallRunCooldown: false,
-};
-
-// Track input edges (press/release)
-let wasGrapplePressed = false;
-let wasAltFire = false;
-
-// ADS state (driven each tick, written to store when changed)
-let adsProgress = 0;
-
-// Scope sway state (sniper ADS overlay) — uses engine scope sway system
 const scopeSwayState = createScopeSwayState();
 const scopeSwayConfig: ScopeSwayConfig = {
   swayBase: PHYSICS.SCOPE_SWAY_BASE,
@@ -97,73 +85,82 @@ const scopeSwayConfig: ScopeSwayConfig = {
   driftMult: PHYSICS.SCOPE_DRIFT_MULT,
 };
 
-// Camera effects
-let cameraTilt = 0;            // Z-axis roll for wall run tilt (radians)
-let landingDip = 0;            // Y offset for landing impact
-const WALL_RUN_TILT = 0.15;   // max tilt radians (~8.6°)
-const TILT_LERP_SPEED = 10;   // how fast tilt changes
-const LANDING_DIP_AMOUNT = 0.12;  // max dip in units
-const LANDING_DIP_DECAY = 8;      // exponential decay rate
-const LANDING_DIP_MIN_FALL = 150;  // min fall speed to trigger dip
+// ══════════════════════════════════════════════════════════
+// A: Physics tick state — single struct replaces ~30 let vars
+// ══════════════════════════════════════════════════════════
 
-// Slope physics: stored ground normal from previous tick's KCC collisions
-let storedGroundNormal: [number, number, number] | null = null;
-let storedGroundNormalY = 1.0;
+interface PhysicsTickState {
+  lastHudUpdate: number;
+  lastScopeSwayUpdate: number;
+  lastDevLogUpdate: number;
+  lastDevSpeedMult: number;
+  lastDevGravMult: number;
+  wallRunState: WallRunState;
+  wasGrapplePressed: boolean;
+  wasAltFire: boolean;
+  adsProgress: number;
+  inspectProgress: number;
+  cameraTilt: number;
+  landingDip: number;
+  storedGroundNormal: [number, number, number] | null;
+  storedGroundNormalY: number;
+  respawnGraceTicks: number;
+  wasGrounded: boolean;
+  footstepTimer: number;
+  mantleTimer: number;
+  mantleCooldown: number;
+  mantleTargetY: number;
+  mantleStartY: number;
+  mantleFwdX: number;
+  mantleFwdZ: number;
+}
 
-// Respawn grace — skip gravity for a few ticks after respawn to let colliders register
-let respawnGraceTicks = 0;
-const RESPAWN_GRACE_TICKS = 16; // ~125ms at 128Hz
+function createPhysicsTickState(): PhysicsTickState {
+  return {
+    lastHudUpdate: 0,
+    lastScopeSwayUpdate: 0,
+    lastDevLogUpdate: 0,
+    lastDevSpeedMult: 1.0,
+    lastDevGravMult: 1.0,
+    wallRunState: {
+      isWallRunning: false,
+      wallRunTime: 0,
+      wallNormal: [0, 0, 0],
+      lastWallNormalX: 0,
+      lastWallNormalZ: 0,
+      wallRunCooldown: false,
+    },
+    wasGrapplePressed: false,
+    wasAltFire: false,
+    adsProgress: 0,
+    inspectProgress: 0,
+    cameraTilt: 0,
+    landingDip: 0,
+    storedGroundNormal: null,
+    storedGroundNormalY: 1.0,
+    respawnGraceTicks: 0,
+    wasGrounded: false,
+    footstepTimer: 0,
+    mantleTimer: 0,
+    mantleCooldown: 0,
+    mantleTargetY: 0,
+    mantleStartY: 0,
+    mantleFwdX: 0,
+    mantleFwdZ: 0,
+  };
+}
 
-// Audio tracking
-let wasGrounded = false;
-let footstepTimer = 0;
-const FOOTSTEP_INTERVAL_BASE = 0.4;
-const FOOTSTEP_INTERVAL_MIN = 0.2;
-
-// Edge grab / mantle state
-let mantleTimer = 0;       // >0 = currently mantling (lerp progress)
-let mantleCooldown = 0;    // >0 = can't mantle yet
-let mantleTargetY = 0;     // target Y position (ledge top)
-let mantleStartY = 0;      // starting Y position
-let mantleFwdX = 0;        // forward direction during mantle
-let mantleFwdZ = 0;
-const _mantleRay = new Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+const state = createPhysicsTickState();
 
 /** Reset all module-level physics state. Call on map load / game restart. */
 export function resetPhysicsTickState(): void {
-  wallRunState.isWallRunning = false;
-  wallRunState.wallRunTime = 0;
-  wallRunState.wallNormal[0] = 0; wallRunState.wallNormal[1] = 0; wallRunState.wallNormal[2] = 0;
-  wallRunState.lastWallNormalX = 0;
-  wallRunState.lastWallNormalZ = 0;
-  wallRunState.wallRunCooldown = false;
-
-  wasGrapplePressed = false;
-  wasAltFire = false;
-  adsProgress = 0;
-  cameraTilt = 0;
-  landingDip = 0;
-  respawnGraceTicks = 0;
-  wasGrounded = false;
-  footstepTimer = 0;
-
-  mantleTimer = 0;
-  mantleCooldown = 0;
-  mantleTargetY = 0;
-  mantleStartY = 0;
-  mantleFwdX = 0;
-  mantleFwdZ = 0;
-
-  storedGroundNormal = null;
-  storedGroundNormalY = 1.0;
-
-  lastHudUpdate = 0;
-  lastScopeSwayUpdate = 0;
+  Object.assign(state, createPhysicsTickState());
   resetScopeSwayState(scopeSwayState);
-  lastDevLogUpdate = 0;
-  lastDevSpeedMult = 1.0;
-  lastDevGravMult = 1.0;
 }
+
+// ══════════════════════════════════════════════════════════
+// B: Tick context — shared parameter object for sub-functions
+// ══════════════════════════════════════════════════════════
 
 export interface PhysicsTickRefs {
   rigidBody: MutableRefObject<RapierRigidBody | null>;
@@ -184,32 +181,43 @@ export interface PhysicsTickRefs {
   input: MutableRefObject<InputState>;
 }
 
-/** Execute a single 128Hz physics tick */
-export function physicsTick(
-  refs: PhysicsTickRefs,
-  camera: Camera,
+interface TickContext {
+  s: PhysicsTickState;
+  refs: PhysicsTickRefs;
+  camera: Camera;
+  rapierWorld: import('@dimforge/rapier3d-compat').World;
+  rb: RapierRigidBody;
+  collider: RapierCollider;
+  controller: ReturnType<import('@dimforge/rapier3d-compat').World['createCharacterController']>;
+  input: InputState;
+  velocity: Vector3;
+  dt: number;
+  speedMult: number;
+  gravMult: number;
+  sensitivity: number;
+  adsSensitivityMult: number;
+  autoBhop: boolean;
+  edgeGrab: boolean;
+  now: number;
+}
+
+// ══════════════════════════════════════════════════════════
+// Sub-functions (B: composition)
+// ══════════════════════════════════════════════════════════
+
+function handleRespawn(
+  ctx: TickContext,
   consumeMouseDelta: () => { dx: number; dy: number },
-  rapierWorld: import('@dimforge/rapier3d-compat').World,
-): void {
-  const rb = refs.rigidBody.current;
-  const collider = refs.collider.current;
-  const controller = refs.controller.current;
-  if (!rb || !collider || !controller) return;
-
-  const input = refs.input.current;
-  const velocity = refs.velocity.current;
-  const { sensitivity, adsSensitivityMult, autoBhop, edgeGrab, devSpeedMultiplier, devGravityMultiplier } = useSettingsStore.getState();
-  const dt = PHYSICS.TICK_DELTA;
-  const speedMult = devSpeedMultiplier;
-  const gravMult = devGravityMultiplier;
-
-  // --- Respawn check (use actual physics position, not HUD position) ---
+): boolean {
+  const { s, refs, rb, velocity, camera } = ctx;
   const store = useGameStore.getState();
   const pos = rb.translation();
+
   if (pos.y < -50 || !Number.isFinite(pos.y)) {
     store.triggerDeathFlash();
     store.requestRespawn();
   }
+
   const respawn = store.consumeRespawn();
   if (respawn) {
     store.triggerRespawnFade();
@@ -224,84 +232,48 @@ export function physicsTick(
     refs.isJumping.current = false;
     refs.coyoteTime.current = 0;
     refs.jumpHoldTime.current = 0;
-    wallRunState.isWallRunning = false;
-    wallRunState.wallRunCooldown = false;
-    mantleTimer = 0;
-    mantleCooldown = 0;
-    respawnGraceTicks = RESPAWN_GRACE_TICKS;
-    collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+    s.wallRunState.isWallRunning = false;
+    s.wallRunState.wallRunCooldown = false;
+    s.mantleTimer = 0;
+    s.mantleCooldown = 0;
+    s.respawnGraceTicks = RESPAWN_GRACE_TICKS;
+    ctx.collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
     camera.position.set(respawn.pos[0], respawn.pos[1] + PHYSICS.PLAYER_EYE_OFFSET, respawn.pos[2]);
     camera.rotation.order = 'YXZ';
     camera.rotation.y = respawn.yaw;
     camera.rotation.x = 0;
     useCombatStore.getState().stopGrapple();
     devLog.info('Physics', `Respawn → [${respawn.pos.map(v => v.toFixed(1)).join(', ')}] yaw=${(respawn.yaw * 180 / Math.PI).toFixed(0)}°`);
-    return;
+    return true;
   }
 
-  // Respawn grace: skip gravity to let colliders register in physics world
-  if (respawnGraceTicks > 0) {
-    respawnGraceTicks--;
-    // Allow mouse look but hold position
+  if (s.respawnGraceTicks > 0) {
+    s.respawnGraceTicks--;
     const { dx: gDx, dy: gDy } = consumeMouseDelta();
-    refs.yaw.current -= gDx * sensitivity;
-    refs.pitch.current -= gDy * sensitivity;
+    refs.yaw.current -= gDx * ctx.sensitivity;
+    refs.pitch.current -= gDy * ctx.sensitivity;
     refs.pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, refs.pitch.current));
     camera.position.set(pos.x, pos.y + PHYSICS.PLAYER_EYE_OFFSET, pos.z);
     camera.rotation.order = 'YXZ';
     camera.rotation.y = refs.yaw.current;
     camera.rotation.x = refs.pitch.current;
-    return;
+    return true;
   }
 
-  // --- Mouse look (with ADS sensitivity reduction) ---
-  const { dx, dy } = consumeMouseDelta();
-  const effectiveSens = sensitivity * (1 - adsProgress * (1 - adsSensitivityMult));
+  return false;
+}
+
+function handleMouseLook(ctx: TickContext, dx: number, dy: number): void {
+  const { s, refs } = ctx;
+  const effectiveSens = ctx.sensitivity * (1 - s.adsProgress * (1 - ctx.adsSensitivityMult));
   refs.yaw.current -= dx * effectiveSens;
   refs.pitch.current -= dy * effectiveSens;
   refs.pitch.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, refs.pitch.current));
+}
 
-  // --- Wish direction ---
-  const wishDir = getWishDir(
-    input.forward, input.backward,
-    input.left, input.right,
-    refs.yaw.current,
-  );
-  const hasInput = wishDir.lengthSq() > 0;
-
-  // --- Jump buffer ---
-  if (input.jump) {
-    refs.jumpBufferTime.current = PHYSICS.JUMP_BUFFER_MS;
-  } else if (refs.jumpBufferTime.current > 0) {
-    refs.jumpBufferTime.current -= dt * 1000;
-  }
-
-  // --- Coyote time ---
-  if (refs.grounded.current) {
-    refs.coyoteTime.current = PHYSICS.COYOTE_TIME_MS;
-  } else if (refs.coyoteTime.current > 0 && !refs.isJumping.current) {
-    refs.coyoteTime.current -= dt * 1000;
-  }
-
-  const canJump = refs.grounded.current || refs.coyoteTime.current > 0;
-  const wantsJump = autoBhop ? input.jump : refs.jumpBufferTime.current > 0;
-
-  // --- Variable jump height ---
-  if (refs.isJumping.current) {
-    refs.jumpHoldTime.current += dt * 1000;
-    if (!input.jump && velocity.y > 0 && refs.jumpHoldTime.current < PHYSICS.JUMP_RELEASE_WINDOW_MS) {
-      velocity.y = Math.max(velocity.y * 0.5, PHYSICS.JUMP_FORCE_MIN * 0.5);
-      refs.isJumping.current = false;
-    }
-    if (refs.grounded.current || velocity.y <= 0) {
-      refs.isJumping.current = false;
-    }
-  }
-
-  // --- Combat store reads ---
+function handleZoneEvents(ctx: TickContext): void {
+  const { refs, velocity } = ctx;
   const combat = useCombatStore.getState();
-
-  // --- Process zone events (from sensor callbacks) ---
   const zoneEvents = combat.drainZoneEvents();
   for (const evt of zoneEvents) {
     switch (evt.type) {
@@ -328,8 +300,11 @@ export function physicsTick(
         break;
     }
   }
+}
 
-  // --- Weapon switching (number keys + scroll wheel) ---
+function handleWeaponSwitch(ctx: TickContext): void {
+  const { input } = ctx;
+  const combat = useCombatStore.getState();
   if (input.weaponSlot > 0) {
     combat.switchWeaponBySlot(input.weaponSlot);
     input.weaponSlot = 0;
@@ -338,12 +313,16 @@ export function physicsTick(
     combat.scrollWeapon(input.scrollDelta > 0 ? 1 : -1);
     input.scrollDelta = 0;
   }
+}
 
-  // --- Grappling hook (free-aim: raycast to find surface) ---
-  const grapplePressed = input.grapple;
-  const grappleJustPressed = grapplePressed && !wasGrapplePressed;
-  wasGrapplePressed = grapplePressed;
+function handleGrapple(ctx: TickContext): void {
+  const { s, refs, velocity, rb, rapierWorld, dt } = ctx;
+  const combat = useCombatStore.getState();
+  const grapplePressed = ctx.input.grapple;
+  const grappleJustPressed = grapplePressed && !s.wasGrapplePressed;
+  s.wasGrapplePressed = grapplePressed;
 
+  const pos = rb.translation();
   _playerPos.set(pos.x, pos.y, pos.z);
 
   if (combat.isGrappling) {
@@ -365,7 +344,6 @@ export function physicsTick(
       -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
     ).normalize();
 
-    // Free-aim grapple: first check registered points, then raycast walls
     const grapplePoints = combat.registeredGrapplePoints;
     let bestDist = PHYSICS.GRAPPLE_MAX_DISTANCE;
     let bestPoint: [number, number, number] | null = null;
@@ -381,7 +359,6 @@ export function physicsTick(
       if (dist < bestDist) { bestDist = dist; bestPoint = gp; }
     }
 
-    // If no grapple point found, raycast to nearest surface
     if (!bestPoint) {
       _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y; _reusableRay.origin.z = _playerPos.z;
       _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
@@ -402,49 +379,45 @@ export function physicsTick(
       devLog.info('Combat', `Grapple attached → dist=${bestDist.toFixed(1)}`);
     }
   }
+}
 
-  // --- Weapon firing ---
+function handleCombatState(ctx: TickContext, dx: number, dy: number): void {
+  const { s, refs, input, velocity, dt } = ctx;
+  const combat = useCombatStore.getState();
+  const weapon = combat.activeWeapon;
+
+  // Cooldowns
   combat.tickCooldown(dt);
 
-  // Compute fire direction from camera
+  // Compute fire direction
   _fireDir.set(
     -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
     Math.sin(refs.pitch.current),
     -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
   ).normalize();
 
-  const eyeOff = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
-  const weapon = combat.activeWeapon;
-  const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
-
-  // --- ADS state machine (hold altFire for weapons that support ADS) ---
+  // ADS state machine
   const adsTarget = (input.altFire && ADS_CONFIG[weapon].canAds && combat.swapCooldown <= 0) ? 1 : 0;
-  const prevAds = adsProgress;
-  adsProgress += (adsTarget - adsProgress) * (1 - Math.exp(-PHYSICS.ADS_TRANSITION_SPEED * dt));
-  // Snap to target when close enough
-  if (Math.abs(adsProgress - adsTarget) < 0.005) adsProgress = adsTarget;
-  // Write to store only when changed (avoid unnecessary set calls at 128Hz)
-  if (Math.abs(adsProgress - prevAds) > 0.001) {
-    useCombatStore.setState({ adsProgress });
+  const prevAds = s.adsProgress;
+  s.adsProgress += (adsTarget - s.adsProgress) * (1 - Math.exp(-PHYSICS.ADS_TRANSITION_SPEED * dt));
+  if (Math.abs(s.adsProgress - adsTarget) < 0.005) s.adsProgress = adsTarget;
+  if (Math.abs(s.adsProgress - prevAds) > 0.001) {
+    useCombatStore.setState({ adsProgress: s.adsProgress });
   }
-  wasAltFire = input.altFire;
+  s.wasAltFire = input.altFire;
 
-  // --- Sniper scope sway / breath hold / unsteadiness ---
-  const isSniperScoped = weapon === 'sniper' && adsProgress > 0.9;
+  // Sniper scope sway
+  const isSniperScoped = weapon === 'sniper' && s.adsProgress > 0.9;
   if (isSniperScoped) {
     const mouseMag = Math.sqrt(dx * dx + dy * dy);
     tickScopeSway(scopeSwayState, scopeSwayConfig, dt, input.crouch, mouseMag);
-
-    // Force unscope
     if (scopeSwayState.forceUnscope) {
-      adsProgress = 0;
+      s.adsProgress = 0;
       useCombatStore.setState({ adsProgress: 0 });
     }
-
-    // Write scope state to store at ~30Hz (matches HUD update rate)
     const now = performance.now();
-    if (now - lastScopeSwayUpdate > HUD_UPDATE_INTERVAL) {
-      lastScopeSwayUpdate = now;
+    if (now - s.lastScopeSwayUpdate > HUD_UPDATE_INTERVAL) {
+      s.lastScopeSwayUpdate = now;
       useCombatStore.setState({
         scopeSwayX: scopeSwayState.swayX,
         scopeSwayY: scopeSwayState.swayY,
@@ -454,16 +427,29 @@ export function physicsTick(
       });
     }
   } else if (scopeSwayState.scopeTime > 0 || scopeSwayState.swayX !== 0 || scopeSwayState.swayY !== 0) {
-    // Reset scope state when not scoped
     resetScopeSwayState(scopeSwayState);
-    lastScopeSwayUpdate = 0;
+    s.lastScopeSwayUpdate = 0;
     useCombatStore.setState({
       scopeSwayX: 0, scopeSwayY: 0,
       isHoldingBreath: false, breathHoldTime: 0, scopeTime: 0,
     });
   }
 
-  // Knife lunge movement (applied during lunge timer)
+  // Weapon inspect state machine
+  const hasMovementInput = input.forward || input.backward || input.left || input.right;
+  const shouldCancelInspect = input.fire || input.altFire || combat.swapCooldown > 0
+    || combat.fireCooldown > 0 || hasMovementInput;
+  const wantsInspect = input.inspect && !shouldCancelInspect && s.adsProgress < 0.01;
+  const inspectTarget = wantsInspect ? 1 : 0;
+  const prevInspect = s.inspectProgress;
+  s.inspectProgress += (inspectTarget - s.inspectProgress) * (1 - Math.exp(-PHYSICS.INSPECT_TRANSITION_SPEED * dt));
+  if (Math.abs(s.inspectProgress - inspectTarget) < 0.005) s.inspectProgress = inspectTarget;
+  if (Math.abs(s.inspectProgress - prevInspect) > 0.001) {
+    const isInspecting = s.inspectProgress > 0.1;
+    useCombatStore.setState({ inspectProgress: s.inspectProgress, isInspecting });
+  }
+
+  // Knife lunge movement
   if (combat.knifeLungeTimer > 0) {
     const ld = combat.knifeLungeDir;
     velocity.x = ld[0] * PHYSICS.KNIFE_LUNGE_SPEED;
@@ -471,15 +457,13 @@ export function physicsTick(
     velocity.y = Math.max(velocity.y, ld[1] * PHYSICS.KNIFE_LUNGE_SPEED * 0.3);
   }
 
-  // Plasma beam tick — plasma surf: pushback + reduced friction for surfing movement
+  // Plasma beam — plasma surf
   if (weapon === 'plasma' && input.fire && combat.ammo.plasma.current > 0) {
     if (!combat.isPlasmaFiring) combat.startPlasma();
     combat.tickPlasma(dt);
-    // Continuous self-pushback opposite to aim (plasma surf)
     velocity.x -= _fireDir.x * PHYSICS.PLASMA_PUSHBACK * dt;
     velocity.y -= _fireDir.y * PHYSICS.PLASMA_PUSHBACK * dt;
     velocity.z -= _fireDir.z * PHYSICS.PLASMA_PUSHBACK * dt;
-    // Ensure uplift when aimed downward while grounded
     if (refs.grounded.current && _fireDir.y < -0.3 && velocity.y < 60) {
       velocity.y = 60;
       refs.grounded.current = false;
@@ -487,148 +471,160 @@ export function physicsTick(
   } else if (combat.isPlasmaFiring) {
     combat.stopPlasma();
   }
+}
 
-  if (input.fire && canFireNow) {
-    switch (weapon) {
-      case 'rocket': {
-        if (combat.ammo.rocket.current > 0) {
-          const sx = _playerPos.x + _fireDir.x;
-          const sy = _playerPos.y + eyeOff + _fireDir.y;
-          const sz = _playerPos.z + _fireDir.z;
-          spawnProjectile('rocket', sx, sy, sz,
-            _fireDir.x * PHYSICS.ROCKET_SPEED, _fireDir.y * PHYSICS.ROCKET_SPEED, _fireDir.z * PHYSICS.ROCKET_SPEED);
-          // Only update ammo in Zustand (UI-relevant)
-          const newAmmo = combat.ammo.rocket.current - 1;
-          useCombatStore.setState((s) => ({
-            rocketAmmo: newAmmo,
-            fireCooldown: PHYSICS.ROCKET_FIRE_COOLDOWN,
-            ammo: { ...s.ammo, rocket: { ...s.ammo.rocket, current: newAmmo } },
-          }));
-          audioManager.play(SOUNDS.ROCKET_FIRE);
-          devLog.info('Combat', `Rocket fired → ammo=${newAmmo}`);
-        }
-        break;
+function handleWeaponFire(ctx: TickContext): void {
+  const { refs, velocity, rapierWorld, rb } = ctx;
+  const combat = useCombatStore.getState();
+  const weapon = combat.activeWeapon;
+  const canFireNow = combat.fireCooldown <= 0 && combat.swapCooldown <= 0;
+  const eyeOff = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
+
+  if (!ctx.input.fire || !canFireNow) return;
+
+  switch (weapon) {
+    case 'rocket': {
+      if (combat.ammo.rocket.current > 0) {
+        const sx = _playerPos.x + _fireDir.x;
+        const sy = _playerPos.y + eyeOff + _fireDir.y;
+        const sz = _playerPos.z + _fireDir.z;
+        spawnProjectile('rocket', sx, sy, sz,
+          _fireDir.x * PHYSICS.ROCKET_SPEED, _fireDir.y * PHYSICS.ROCKET_SPEED, _fireDir.z * PHYSICS.ROCKET_SPEED);
+        const newAmmo = combat.ammo.rocket.current - 1;
+        useCombatStore.setState((s) => ({
+          fireCooldown: PHYSICS.ROCKET_FIRE_COOLDOWN,
+          ammo: { ...s.ammo, rocket: { ...s.ammo.rocket, current: newAmmo } },
+        }));
+        audioManager.play(SOUNDS.ROCKET_FIRE);
+        devLog.info('Combat', `Rocket fired → ammo=${newAmmo}`);
       }
-      case 'grenade': {
-        if (combat.ammo.grenade.current > 0) {
-          const sx = _playerPos.x + _fireDir.x * 0.8;
-          const sy = _playerPos.y + eyeOff + _fireDir.y * 0.8;
-          const sz = _playerPos.z + _fireDir.z * 0.8;
-          spawnProjectile('grenade', sx, sy, sz,
-            _fireDir.x * PHYSICS.GRENADE_SPEED, _fireDir.y * PHYSICS.GRENADE_SPEED + 100, _fireDir.z * PHYSICS.GRENADE_SPEED);
-          const newAmmo = combat.ammo.grenade.current - 1;
-          useCombatStore.setState((s) => ({
-            grenadeAmmo: newAmmo,
-            fireCooldown: PHYSICS.GRENADE_FIRE_COOLDOWN,
-            ammo: { ...s.ammo, grenade: { ...s.ammo.grenade, current: newAmmo } },
-          }));
-          audioManager.play(SOUNDS.GRENADE_THROW);
-          devLog.info('Combat', `Grenade thrown → ammo=${newAmmo}`);
-        }
-        break;
+      break;
+    }
+    case 'grenade': {
+      if (combat.ammo.grenade.current > 0) {
+        const sx = _playerPos.x + _fireDir.x * 0.8;
+        const sy = _playerPos.y + eyeOff + _fireDir.y * 0.8;
+        const sz = _playerPos.z + _fireDir.z * 0.8;
+        spawnProjectile('grenade', sx, sy, sz,
+          _fireDir.x * PHYSICS.GRENADE_SPEED, _fireDir.y * PHYSICS.GRENADE_SPEED + 100, _fireDir.z * PHYSICS.GRENADE_SPEED);
+        const newAmmo = combat.ammo.grenade.current - 1;
+        useCombatStore.setState((s) => ({
+          fireCooldown: PHYSICS.GRENADE_FIRE_COOLDOWN,
+          ammo: { ...s.ammo, grenade: { ...s.ammo.grenade, current: newAmmo } },
+        }));
+        audioManager.play(SOUNDS.GRENADE_THROW);
+        devLog.info('Combat', `Grenade thrown → ammo=${newAmmo}`);
       }
-      case 'sniper': {
-        if (combat.fireHitscan('sniper')) {
-          // Hitscan raycast
-          _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
-          _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
-          const sniperHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
-          if (sniperHit) {
-            const shx = _playerPos.x + _fireDir.x * sniperHit.timeOfImpact;
-            const shy = (_playerPos.y + eyeOff) + _fireDir.y * sniperHit.timeOfImpact;
-            const shz = _playerPos.z + _fireDir.z * sniperHit.timeOfImpact;
-            spawnWallSparks(shx, shy, shz, sniperHit.normal.x, sniperHit.normal.y, sniperHit.normal.z, 'heavy');
-            pushHitMarker();
-          }
-          // Self-knockback backward
-          velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
-          velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
-          velocity.z -= _fireDir.z * PHYSICS.SNIPER_KNOCKBACK;
-          audioManager.play(SOUNDS.ROCKET_FIRE); // reuse sound for now
-          devLog.info('Combat', `Sniper fired → ammo=${combat.ammo.sniper.current}`);
-        }
-        break;
-      }
-      case 'assault': {
-        if (combat.fireHitscan('assault')) {
-          // Spread: random offset within cone
-          const spreadX = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
-          const spreadY = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
-          const aimX = _fireDir.x + spreadX;
-          const aimY = _fireDir.y + spreadY;
-          const aimZ = _fireDir.z;
-          const aimLen = Math.sqrt(aimX * aimX + aimY * aimY + aimZ * aimZ);
-          _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
-          _reusableRay.dir.x = aimX / aimLen; _reusableRay.dir.y = aimY / aimLen; _reusableRay.dir.z = aimZ / aimLen;
-          const arHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
-          if (arHit) {
-            const hx = _reusableRay.origin.x + (aimX / aimLen) * arHit.timeOfImpact;
-            const hy = _reusableRay.origin.y + (aimY / aimLen) * arHit.timeOfImpact;
-            const hz = _reusableRay.origin.z + (aimZ / aimLen) * arHit.timeOfImpact;
-            spawnWallSparks(hx, hy, hz, arHit.normal.x, arHit.normal.y, arHit.normal.z, 'light');
-            pushHitMarker();
-          }
-          // Small knockback
-          velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * dt;
-          velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * dt;
-          audioManager.play(SOUNDS.LAND_SOFT, 0.05); // light tick sound
-        }
-        break;
-      }
-      case 'shotgun': {
-        if (combat.fireHitscan('shotgun')) {
-          // Fire pellets in a cone — limit physical raycasts to 4 representative rays
-          const physicalPellets = Math.min(PHYSICS.SHOTGUN_PELLETS, 4);
-          for (let i = 0; i < physicalPellets; i++) {
-            const sx = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
-            const sy = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
-            const px = _fireDir.x + sx;
-            const py = _fireDir.y + sy;
-            const pz = _fireDir.z;
-            const pl = Math.sqrt(px * px + py * py + pz * pz);
-            _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
-            _reusableRay.dir.x = px / pl; _reusableRay.dir.y = py / pl; _reusableRay.dir.z = pz / pl;
-            const hit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
-            if (hit) {
-              const hx = _reusableRay.origin.x + (px / pl) * hit.timeOfImpact;
-              const hy = _reusableRay.origin.y + (py / pl) * hit.timeOfImpact;
-              const hz = _reusableRay.origin.z + (pz / pl) * hit.timeOfImpact;
-              spawnWallSparks(hx, hy, hz, hit.normal.x, hit.normal.y, hit.normal.z, 'medium');
-            }
-          }
-          // Consume remaining PRNG values to keep determinism regardless of pellet cap
-          for (let i = physicalPellets; i < PHYSICS.SHOTGUN_PELLETS; i++) {
-            nextRandom(); nextRandom();
+      break;
+    }
+    case 'sniper': {
+      if (combat.fireHitscan('sniper')) {
+        _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+        _reusableRay.dir.x = _fireDir.x; _reusableRay.dir.y = _fireDir.y; _reusableRay.dir.z = _fireDir.z;
+        // D: castRay first (cheaper), castRayAndGetNormal only on hit
+        const sniperHit = rapierWorld.castRay(_reusableRay, PHYSICS.SNIPER_RANGE, true, undefined, undefined, undefined, rb);
+        if (sniperHit) {
+          const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, sniperHit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
+          if (hitWithNormal) {
+            const shx = _playerPos.x + _fireDir.x * hitWithNormal.timeOfImpact;
+            const shy = (_playerPos.y + eyeOff) + _fireDir.y * hitWithNormal.timeOfImpact;
+            const shz = _playerPos.z + _fireDir.z * hitWithNormal.timeOfImpact;
+            spawnWallSparks(shx, shy, shz, hitWithNormal.normal.x, hitWithNormal.normal.y, hitWithNormal.normal.z, 'heavy');
           }
           pushHitMarker();
-          // Shotgun jump — strong directional knockback opposite to aim
-          velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
-          velocity.y -= _fireDir.y * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
-          velocity.z -= _fireDir.z * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
-          // Ensure grounded players get lifted (like rocket jump)
-          if (refs.grounded.current && velocity.y < PHYSICS.SHOTGUN_JUMP_UPLIFT) {
-            velocity.y = PHYSICS.SHOTGUN_JUMP_UPLIFT;
-            refs.grounded.current = false;
-          }
-          audioManager.play(SOUNDS.ROCKET_EXPLODE); // reuse explosive sound
-          devLog.info('Combat', `Shotgun fired → ammo=${combat.ammo.shotgun.current}`);
         }
-        break;
+        velocity.x -= _fireDir.x * PHYSICS.SNIPER_KNOCKBACK;
+        velocity.y -= _fireDir.y * PHYSICS.SNIPER_KNOCKBACK;
+        velocity.z -= _fireDir.z * PHYSICS.SNIPER_KNOCKBACK;
+        audioManager.play(SOUNDS.ROCKET_FIRE);
+        devLog.info('Combat', `Sniper fired → ammo=${combat.ammo.sniper.current}`);
       }
-      case 'knife': {
-        if (combat.fireKnife([_fireDir.x, _fireDir.y, _fireDir.z])) {
-          audioManager.play(SOUNDS.GRAPPLE_ATTACH, 0.15);
-          devLog.info('Combat', 'Knife lunge');
-        }
-        break;
-      }
-      case 'plasma':
-        // Handled above in continuous beam section
-        break;
+      break;
     }
+    case 'assault': {
+      if (combat.fireHitscan('assault')) {
+        const spreadX = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+        const spreadY = (nextRandom() - 0.5) * PHYSICS.ASSAULT_SPREAD * 2;
+        const aimX = _fireDir.x + spreadX;
+        const aimY = _fireDir.y + spreadY;
+        const aimZ = _fireDir.z;
+        const aimLen = Math.sqrt(aimX * aimX + aimY * aimY + aimZ * aimZ);
+        _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+        _reusableRay.dir.x = aimX / aimLen; _reusableRay.dir.y = aimY / aimLen; _reusableRay.dir.z = aimZ / aimLen;
+        // D: castRay first, castRayAndGetNormal only on hit
+        const arHit = rapierWorld.castRay(_reusableRay, PHYSICS.ASSAULT_RANGE, true, undefined, undefined, undefined, rb);
+        if (arHit) {
+          const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, arHit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
+          if (hitWithNormal) {
+            const hx = _reusableRay.origin.x + _reusableRay.dir.x * hitWithNormal.timeOfImpact;
+            const hy = _reusableRay.origin.y + _reusableRay.dir.y * hitWithNormal.timeOfImpact;
+            const hz = _reusableRay.origin.z + _reusableRay.dir.z * hitWithNormal.timeOfImpact;
+            spawnWallSparks(hx, hy, hz, hitWithNormal.normal.x, hitWithNormal.normal.y, hitWithNormal.normal.z, 'light');
+          }
+          pushHitMarker();
+        }
+        velocity.x -= _fireDir.x * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
+        velocity.z -= _fireDir.z * PHYSICS.ASSAULT_KNOCKBACK * ctx.dt;
+        audioManager.play(SOUNDS.LAND_SOFT, 0.05);
+      }
+      break;
+    }
+    case 'shotgun': {
+      if (combat.fireHitscan('shotgun')) {
+        const physicalPellets = Math.min(PHYSICS.SHOTGUN_PELLETS, 4);
+        for (let i = 0; i < physicalPellets; i++) {
+          const sx = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+          const sy = (nextRandom() - 0.5) * PHYSICS.SHOTGUN_SPREAD * 2;
+          const px = _fireDir.x + sx;
+          const py = _fireDir.y + sy;
+          const pz = _fireDir.z;
+          const pl = Math.sqrt(px * px + py * py + pz * pz);
+          _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+          _reusableRay.dir.x = px / pl; _reusableRay.dir.y = py / pl; _reusableRay.dir.z = pz / pl;
+          // D: castRay first, castRayAndGetNormal only on hit
+          const hit = rapierWorld.castRay(_reusableRay, PHYSICS.SHOTGUN_RANGE, true, undefined, undefined, undefined, rb);
+          if (hit) {
+            const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, hit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
+            if (hitWithNormal) {
+              const hx = _reusableRay.origin.x + _reusableRay.dir.x * hitWithNormal.timeOfImpact;
+              const hy = _reusableRay.origin.y + _reusableRay.dir.y * hitWithNormal.timeOfImpact;
+              const hz = _reusableRay.origin.z + _reusableRay.dir.z * hitWithNormal.timeOfImpact;
+              spawnWallSparks(hx, hy, hz, hitWithNormal.normal.x, hitWithNormal.normal.y, hitWithNormal.normal.z, 'medium');
+            }
+          }
+        }
+        for (let i = physicalPellets; i < PHYSICS.SHOTGUN_PELLETS; i++) {
+          nextRandom(); nextRandom();
+        }
+        pushHitMarker();
+        velocity.x -= _fireDir.x * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+        velocity.y -= _fireDir.y * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+        velocity.z -= _fireDir.z * PHYSICS.SHOTGUN_SELF_KNOCKBACK;
+        if (refs.grounded.current && velocity.y < PHYSICS.SHOTGUN_JUMP_UPLIFT) {
+          velocity.y = PHYSICS.SHOTGUN_JUMP_UPLIFT;
+          refs.grounded.current = false;
+        }
+        audioManager.play(SOUNDS.ROCKET_EXPLODE);
+        devLog.info('Combat', `Shotgun fired → ammo=${combat.ammo.shotgun.current}`);
+      }
+      break;
+    }
+    case 'knife': {
+      if (combat.fireKnife([_fireDir.x, _fireDir.y, _fireDir.z])) {
+        audioManager.play(SOUNDS.GRAPPLE_ATTACH, 0.15);
+        devLog.info('Combat', 'Knife lunge');
+      }
+      break;
+    }
+    case 'plasma':
+      break; // Handled in handleCombatState
   }
+}
 
-  // --- Projectile collision via raycasts (mutable pool, zero GC) ---
+function handleProjectiles(ctx: TickContext): void {
+  const { velocity, rapierWorld, rb, dt } = ctx;
+  const combat = useCombatStore.getState();
+  const store = useGameStore.getState();
   const now = performance.now();
   const pool = getPool();
   const poolSize = getPoolSize();
@@ -638,8 +634,6 @@ export function physicsTick(
     if (!p.active) continue;
 
     const age = (now - p.spawnTime) / 1000;
-
-    // Safety: remove projectiles that fell off map or timed out
     if (p.posY < -60 || age > 8) {
       deactivateAt(i);
       continue;
@@ -657,8 +651,8 @@ export function physicsTick(
       _reusableRay.origin.x = p.posX; _reusableRay.origin.y = p.posY; _reusableRay.origin.z = p.posZ;
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
-      // Raycast margin: at least projectile radius to catch near-contact hits
-      const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + PHYSICS.ROCKET_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
+      // D: castRay first (miss = no normal computation), castRayAndGetNormal on hit
+      const hit = rapierWorld.castRay(_reusableRay, travelDist + PHYSICS.ROCKET_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
 
       if (hit) {
         _hitPos[0] = p.posX + dirX * hit.timeOfImpact;
@@ -667,30 +661,34 @@ export function physicsTick(
         const damage = applyExplosionKnockback(
           velocity, _playerPos, _hitPos,
           PHYSICS.ROCKET_EXPLOSION_RADIUS, PHYSICS.ROCKET_KNOCKBACK_FORCE, PHYSICS.ROCKET_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
-          refs.grounded.current,
+          ctx.refs.grounded.current,
         );
         if (damage > 0) {
-          refs.grounded.current = false;
+          ctx.refs.grounded.current = false;
           combat.takeDamage(damage);
           store.triggerShake(Math.min(damage / PHYSICS.ROCKET_DAMAGE, 1) * 0.7);
         }
         audioManager.play(SOUNDS.ROCKET_EXPLODE);
         useExplosionStore.getState().spawnExplosion(_hitPos, '#ff6600', 8.0);
-        spawnDecal(_hitPos[0], _hitPos[1], _hitPos[2], hit.normal.x, hit.normal.y, hit.normal.z, 2.0, 0.08, 0.05, 0.03);
+        // Get normal for decal (only on confirmed hit)
+        const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, hit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
+        const nx = hitWithNormal?.normal.x ?? 0;
+        const ny = hitWithNormal?.normal.y ?? 1;
+        const nz = hitWithNormal?.normal.z ?? 0;
+        spawnDecal(_hitPos[0], _hitPos[1], _hitPos[2], nx, ny, nz, 2.0, 0.08, 0.05, 0.03);
         deactivateAt(i);
         devLog.info('Combat', `Rocket exploded at [${_hitPos[0].toFixed(1)}, ${_hitPos[1].toFixed(1)}, ${_hitPos[2].toFixed(1)}] dmg=${damage.toFixed(0)}`);
       }
     } else if (p.type === 'grenade') {
-      // Grenade fuse check
       if (age >= PHYSICS.GRENADE_FUSE_TIME) {
         _gPos[0] = p.posX; _gPos[1] = p.posY; _gPos[2] = p.posZ;
         const damage = applyExplosionKnockback(
           velocity, _playerPos, _gPos,
           PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
-          refs.grounded.current,
+          ctx.refs.grounded.current,
         );
         if (damage > 0) {
-          refs.grounded.current = false;
+          ctx.refs.grounded.current = false;
           combat.takeDamage(damage);
           store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
         }
@@ -701,7 +699,6 @@ export function physicsTick(
         continue;
       }
 
-      // Grenade bounce raycast
       const speed = Math.sqrt(p.velX * p.velX + p.velY * p.velY + p.velZ * p.velZ);
       if (speed < 0.01) continue;
 
@@ -713,28 +710,32 @@ export function physicsTick(
       _reusableRay.origin.x = p.posX; _reusableRay.origin.y = p.posY; _reusableRay.origin.z = p.posZ;
       _reusableRay.dir.x = dirX; _reusableRay.dir.y = dirY; _reusableRay.dir.z = dirZ;
 
-      const hit = rapierWorld.castRayAndGetNormal(_reusableRay, travelDist + PHYSICS.GRENADE_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
+      // D: castRay first, castRayAndGetNormal only on hit (need normal for bounce)
+      const hit = rapierWorld.castRay(_reusableRay, travelDist + PHYSICS.GRENADE_RADIUS + 0.3, true, undefined, undefined, undefined, rb);
 
       if (hit) {
+        const hitWithNormal = rapierWorld.castRayAndGetNormal(_reusableRay, hit.timeOfImpact + 0.01, true, undefined, undefined, undefined, rb);
         if (p.bounces >= 1) {
           _gPos[0] = p.posX; _gPos[1] = p.posY; _gPos[2] = p.posZ;
           const damage = applyExplosionKnockback(
             velocity, _playerPos, _gPos,
             PHYSICS.GRENADE_EXPLOSION_RADIUS, PHYSICS.GRENADE_KNOCKBACK_FORCE, PHYSICS.GRENADE_DAMAGE * PHYSICS.ROCKET_SELF_DAMAGE_MULT,
-            refs.grounded.current,
+            ctx.refs.grounded.current,
           );
           if (damage > 0) {
-            refs.grounded.current = false;
+            ctx.refs.grounded.current = false;
             combat.takeDamage(damage);
             store.triggerShake(Math.min(damage / PHYSICS.GRENADE_DAMAGE, 1) * 0.5);
           }
           audioManager.play(SOUNDS.GRENADE_EXPLODE);
           useExplosionStore.getState().spawnExplosion(_gPos, '#22c55e', 3.5);
-          spawnDecal(_gPos[0], _gPos[1], _gPos[2], hit.normal.x, hit.normal.y, hit.normal.z, 1.5, 0.05, 0.12, 0.04);
+          const gnx = hitWithNormal?.normal.x ?? 0;
+          const gny = hitWithNormal?.normal.y ?? 1;
+          const gnz = hitWithNormal?.normal.z ?? 0;
+          spawnDecal(_gPos[0], _gPos[1], _gPos[2], gnx, gny, gnz, 1.5, 0.05, 0.12, 0.04);
           deactivateAt(i);
-        } else {
-          // Reflect velocity off surface normal — mutate in-place, zero GC
-          const normal = hit.normal;
+        } else if (hitWithNormal) {
+          const normal = hitWithNormal.normal;
           const dot = p.velX * normal.x + p.velY * normal.y + p.velZ * normal.z;
           const damp = PHYSICS.GRENADE_BOUNCE_DAMPING;
           p.velX = (p.velX - 2 * dot * normal.x) * damp;
@@ -746,13 +747,16 @@ export function physicsTick(
     }
   }
 
-  // Update positions in-place (zero alloc)
   updatePositions(dt, PHYSICS.GRAVITY);
-
-  // --- Health regen ---
   combat.regenTick(dt);
+}
 
-  // --- Crouch sliding ---
+function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boolean): number {
+  const { s, refs, velocity, dt, speedMult, gravMult, input } = ctx;
+  const combat = useCombatStore.getState();
+  const store = useGameStore.getState();
+
+  // Crouch sliding
   const wantsCrouch = input.crouch;
   const hSpeed = getHorizontalSpeed(velocity);
 
@@ -777,34 +781,38 @@ export function physicsTick(
   const targetHalfHeight = refs.isCrouching.current
     ? PHYSICS.PLAYER_HEIGHT_CROUCH / 2 - PHYSICS.PLAYER_RADIUS
     : PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS;
-  collider.setHalfHeight(targetHalfHeight);
+  ctx.collider.setHalfHeight(targetHalfHeight);
 
-  // --- Wall running ---
+  // Wall running
   const isWallRunning = !refs.grounded.current && !combat.isGrappling && updateWallRun(
-    wallRunState,
+    s.wallRunState,
     velocity,
     refs.grounded.current,
     input.left,
     input.right,
     false,
     false,
-    wallRunState.wallNormal[0],
-    wallRunState.wallNormal[2],
+    s.wallRunState.wallNormal[0],
+    s.wallRunState.wallNormal[2],
     dt,
   );
 
+  const canJump = refs.grounded.current || refs.coyoteTime.current > 0;
+  const wantsJump = ctx.autoBhop ? input.jump : refs.jumpBufferTime.current > 0;
+
   if (isWallRunning && wantsJump) {
-    wallJump(wallRunState, velocity);
+    wallJump(s.wallRunState, velocity);
     refs.jumpBufferTime.current = 0;
     store.recordJump();
   }
 
-  // --- Movement (with dev speed/gravity multipliers + ADS penalty) ---
-  const adsFactor = 1 - adsProgress * (1 - PHYSICS.ADS_SPEED_MULT);
+  // Movement with ADS penalty
+  const adsFactor = 1 - s.adsProgress * (1 - PHYSICS.ADS_SPEED_MULT);
   const effectiveMaxSpeed = PHYSICS.GROUND_MAX_SPEED * speedMult * adsFactor;
+  // effectiveMaxSpeed used implicitly via speedMult passed to accel functions
 
   if (combat.isGrappling) {
-    // Grapple swing already applied above
+    // Grapple swing already applied in handleGrapple
   } else if (isWallRunning) {
     // Wall running handled by updateWallRun
   } else if (canJump && wantsJump) {
@@ -816,25 +824,22 @@ export function physicsTick(
     refs.jumpHoldTime.current = 0;
     refs.isSliding.current = false;
     refs.isCrouching.current = false;
-    collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
+    ctx.collider.setHalfHeight(PHYSICS.PLAYER_HEIGHT / 2 - PHYSICS.PLAYER_RADIUS);
     store.recordJump();
     audioManager.play(SOUNDS.JUMP, 0.1);
     if (hasInput) applyAirAcceleration(velocity, wishDir, dt, speedMult);
   } else if (refs.grounded.current) {
-    // Slope gravity: project gravity along slope surface (uses previous tick's normal)
-    if (storedGroundNormal) {
+    if (s.storedGroundNormal) {
       applySlopeGravity(
         velocity,
-        storedGroundNormal[0], storedGroundNormal[1], storedGroundNormal[2],
+        s.storedGroundNormal[0], s.storedGroundNormal[1], s.storedGroundNormal[2],
         PHYSICS.GRAVITY * gravMult, dt,
         PHYSICS.SLOPE_GRAVITY_SCALE, PHYSICS.SLOPE_MIN_ANGLE_DEG,
       );
     }
-
     if (refs.isSliding.current) {
       applySlideFriction(velocity, dt);
     } else if (combat.isPlasmaFiring) {
-      // Plasma surf: reduced friction while firing plasma on ground
       applyFriction(velocity, dt * PHYSICS.PLASMA_SURF_FRICTION_MULT, hasInput, wishDir);
       if (hasInput) applyGroundAcceleration(velocity, wishDir, dt, speedMult);
     } else {
@@ -842,7 +847,6 @@ export function physicsTick(
       if (hasInput) applyGroundAcceleration(velocity, wishDir, dt, speedMult);
     }
   } else {
-    // Airborne
     if (hasInput) applyAirAcceleration(velocity, wishDir, dt, speedMult);
     const gravity = (!input.jump && velocity.y > 0 && refs.isJumping.current)
       ? PHYSICS.GRAVITY_JUMP_RELEASE
@@ -850,23 +854,22 @@ export function physicsTick(
     velocity.y -= gravity * gravMult * dt;
   }
 
-  // --- Velocity cap (safety limit, scaled by speedMult) ---
+  // Velocity cap
   const maxSpeed = PHYSICS.MAX_SPEED * speedMult;
   const totalSpeed = velocity.length();
   if (totalSpeed > maxSpeed) {
     velocity.multiplyScalar(maxSpeed / totalSpeed);
   }
 
-  // --- Character controller with substepping (capped to prevent spiral of death) ---
+  // KCC substepping
   const displacement = totalSpeed * dt;
   const MAX_SUBSTEPS = 4;
   const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(displacement / PHYSICS.MAX_DISPLACEMENT_PER_STEP)));
   const subDt = dt / substeps;
 
+  const pos = ctx.rb.translation();
   _newPos.set(pos.x, pos.y, pos.z);
 
-  // Accumulate total desired vs corrected movement across all substeps
-  // to decide velocity correction AFTER the loop (not mid-loop which kills remaining substeps)
   let totalDesiredX = 0;
   let totalDesiredZ = 0;
   let totalCorrectedX = 0;
@@ -874,9 +877,9 @@ export function physicsTick(
 
   for (let step = 0; step < substeps; step++) {
     _desiredTranslation.copy(velocity).multiplyScalar(subDt);
-    controller.computeColliderMovement(collider, _desiredTranslation, QueryFilterFlags.EXCLUDE_SENSORS);
+    ctx.controller.computeColliderMovement(ctx.collider, _desiredTranslation, QueryFilterFlags.EXCLUDE_SENSORS);
 
-    const movement = controller.computedMovement();
+    const movement = ctx.controller.computedMovement();
     _correctedMovement.set(movement.x, movement.y, movement.z);
 
     totalDesiredX += _desiredTranslation.x;
@@ -888,12 +891,10 @@ export function physicsTick(
     _newPos.y += _correctedMovement.y;
     _newPos.z += _correctedMovement.z;
 
-    rb.setNextKinematicTranslation(_newPos);
+    ctx.rb.setNextKinematicTranslation(_newPos);
   }
 
-  // --- Horizontal velocity correction (post-substep) ---
-  // Zero velocity on an axis only when a real wall collision blocks significant movement
-  // across the entire tick. This prevents "sticky walls" from killing velocity mid-substep.
+  // Horizontal velocity correction
   if (Math.abs(totalDesiredX) > PHYSICS.SKIN_WIDTH && Math.abs(totalCorrectedX / totalDesiredX) < 0.3) {
     velocity.x = 0;
   }
@@ -901,33 +902,33 @@ export function physicsTick(
     velocity.z = 0;
   }
 
-  // --- Ground detection ---
-  refs.grounded.current = controller.computedGrounded();
+  // Ground detection
+  refs.grounded.current = ctx.controller.computedGrounded();
 
-  // --- Ground normal for slope physics (store for next tick) ---
+  // Ground normal for slope physics
   if (refs.grounded.current) {
-    const gn = getGroundNormal(controller, PHYSICS.SLOPE_GROUND_NORMAL_THRESHOLD);
+    const gn = getGroundNormal(ctx.controller, PHYSICS.SLOPE_GROUND_NORMAL_THRESHOLD);
     if (gn) {
-      storedGroundNormal = gn;
-      storedGroundNormalY = gn[1];
+      s.storedGroundNormal = gn;
+      s.storedGroundNormalY = gn[1];
     } else {
-      storedGroundNormal = null;
-      storedGroundNormalY = 1.0;
+      s.storedGroundNormal = null;
+      s.storedGroundNormalY = 1.0;
     }
   } else {
-    storedGroundNormal = null;
-    storedGroundNormalY = 1.0;
+    s.storedGroundNormal = null;
+    s.storedGroundNormalY = 1.0;
   }
 
-  // --- Wall detection from KCC collisions ---
-  const numCollisions = controller.numComputedCollisions();
+  // Wall detection from KCC collisions
+  const numCollisions = ctx.controller.numComputedCollisions();
   let detectedWallLeft = false;
   let detectedWallRight = false;
   let detectedWallNormalX = 0;
   let detectedWallNormalZ = 0;
 
   for (let i = 0; i < numCollisions; i++) {
-    const collision = controller.computedCollision(i);
+    const collision = ctx.controller.computedCollision(i);
     if (!collision) continue;
     const n1 = collision.normal1;
     if (!n1) continue;
@@ -951,7 +952,7 @@ export function physicsTick(
 
   if (!refs.grounded.current && !combat.isGrappling && (detectedWallLeft || detectedWallRight)) {
     updateWallRun(
-      wallRunState, velocity, refs.grounded.current,
+      s.wallRunState, velocity, refs.grounded.current,
       input.left, input.right,
       detectedWallLeft, detectedWallRight,
       detectedWallNormalX, detectedWallNormalZ,
@@ -959,80 +960,78 @@ export function physicsTick(
     );
   }
 
-  // --- Landing & footstep audio ---
-  if (refs.grounded.current && !wasGrounded) {
+  // Landing & footstep audio
+  if (refs.grounded.current && !s.wasGrounded) {
     const fallSpeed = Math.abs(velocity.y);
     const landHSpeed = getHorizontalSpeed(velocity);
     if (fallSpeed > 200) audioManager.play(SOUNDS.LAND_HARD, 0.1);
     else audioManager.play(SOUNDS.LAND_SOFT, 0.1);
-    // Landing camera dip — proportional to fall speed
     if (fallSpeed > LANDING_DIP_MIN_FALL) {
       const intensity = Math.min((fallSpeed - LANDING_DIP_MIN_FALL) / 400, 1);
-      landingDip = -LANDING_DIP_AMOUNT * intensity;
+      s.landingDip = -LANDING_DIP_AMOUNT * intensity;
     }
     devLog.info('Physics', `Landed | fallSpeed=${fallSpeed.toFixed(0)} hSpeed=${landHSpeed.toFixed(0)}`);
   }
   if (refs.grounded.current && hSpeed > 50 && !refs.isSliding.current) {
-    footstepTimer -= dt;
-    if (footstepTimer <= 0) {
+    s.footstepTimer -= dt;
+    if (s.footstepTimer <= 0) {
       const interval = FOOTSTEP_INTERVAL_BASE - (hSpeed / PHYSICS.MAX_SPEED) * (FOOTSTEP_INTERVAL_BASE - FOOTSTEP_INTERVAL_MIN);
-      footstepTimer = Math.max(interval, FOOTSTEP_INTERVAL_MIN);
+      s.footstepTimer = Math.max(interval, FOOTSTEP_INTERVAL_MIN);
       audioManager.playFootstep();
     }
   } else {
-    footstepTimer = 0;
+    s.footstepTimer = 0;
   }
-  wasGrounded = refs.grounded.current;
+  s.wasGrounded = refs.grounded.current;
 
-  // --- Vertical velocity correction ---
-  // Only zero upward velocity for ceiling hits (not during initial jump frames
-  // where snap-to-ground may fight the small vertical displacement)
-  if (velocity.y > 0 && !refs.isJumping.current && mantleTimer <= 0 && _correctedMovement.y < _desiredTranslation.y * 0.5) {
+  // Vertical velocity correction
+  if (velocity.y > 0 && !refs.isJumping.current && s.mantleTimer <= 0 && _correctedMovement.y < _desiredTranslation.y * 0.5) {
     velocity.y = 0;
   }
   if (refs.grounded.current && velocity.y < 0) {
     velocity.y = 0;
   }
 
-  // --- Edge grab / mantle ---
-  if (mantleCooldown > 0) mantleCooldown -= dt;
+  return numCollisions;
+}
 
-  if (mantleTimer > 0) {
-    // Currently mantling — lerp position upward + block input
-    mantleTimer -= dt;
-    const progress = 1 - Math.max(0, mantleTimer / PHYSICS.MANTLE_DURATION);
-    const easedProgress = progress * progress * (3 - 2 * progress); // smoothstep
+function handleMantle(ctx: TickContext): void {
+  const { s, refs, velocity, rapierWorld, rb, dt } = ctx;
+  const combat = useCombatStore.getState();
 
-    _newPos.y = mantleStartY + (mantleTargetY - mantleStartY) * easedProgress;
-    // Small forward push at end of mantle
-    if (mantleTimer <= 0) {
-      velocity.set(mantleFwdX * PHYSICS.MANTLE_SPEED_BOOST, 0, mantleFwdZ * PHYSICS.MANTLE_SPEED_BOOST);
+  if (s.mantleCooldown > 0) s.mantleCooldown -= dt;
+
+  if (s.mantleTimer > 0) {
+    s.mantleTimer -= dt;
+    const progress = 1 - Math.max(0, s.mantleTimer / PHYSICS.MANTLE_DURATION);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+
+    _newPos.y = s.mantleStartY + (s.mantleTargetY - s.mantleStartY) * easedProgress;
+    if (s.mantleTimer <= 0) {
+      velocity.set(s.mantleFwdX * PHYSICS.MANTLE_SPEED_BOOST, 0, s.mantleFwdZ * PHYSICS.MANTLE_SPEED_BOOST);
       refs.grounded.current = true;
       refs.isJumping.current = false;
-      mantleCooldown = PHYSICS.MANTLE_COOLDOWN;
+      s.mantleCooldown = PHYSICS.MANTLE_COOLDOWN;
       devLog.info('Physics', `Mantle complete → Y=${_newPos.y.toFixed(1)}`);
     } else {
       velocity.set(0, 0, 0);
     }
     rb.setNextKinematicTranslation(_newPos);
   } else if (
-    edgeGrab &&
+    ctx.edgeGrab &&
     !refs.grounded.current &&
-    !wallRunState.isWallRunning &&
+    !s.wallRunState.isWallRunning &&
     !combat.isGrappling &&
-    mantleCooldown <= 0 &&
-    velocity.y <= 0 // only grab when falling or at apex
+    s.mantleCooldown <= 0 &&
+    velocity.y <= 0
   ) {
-    // Edge detection: raycast forward from chest height
     const fwdX = -Math.sin(refs.yaw.current);
     const fwdZ = -Math.cos(refs.yaw.current);
-
-    // Check approach speed (must be moving toward wall)
     const approachSpeed = velocity.x * fwdX + velocity.z * fwdZ;
+
     if (approachSpeed > PHYSICS.MANTLE_MIN_APPROACH_SPEED) {
       const eyeY = _newPos.y + PHYSICS.PLAYER_EYE_OFFSET;
 
-      // Ray 1: Forward from eye level — detect wall
       _mantleRay.origin.x = _newPos.x;
       _mantleRay.origin.y = eyeY;
       _mantleRay.origin.z = _newPos.z;
@@ -1046,11 +1045,10 @@ export function physicsTick(
       );
 
       if (wallHit) {
-        // Ray 2: Upward from wall hit point — check no ceiling
         const wallX = _newPos.x + fwdX * wallHit.timeOfImpact;
         const wallZ = _newPos.z + fwdZ * wallHit.timeOfImpact;
 
-        _mantleRay.origin.x = wallX + fwdX * 0.3; // slightly past wall
+        _mantleRay.origin.x = wallX + fwdX * 0.3;
         _mantleRay.origin.y = eyeY + PHYSICS.MANTLE_UP_CHECK;
         _mantleRay.origin.z = wallZ + fwdZ * 0.3;
         _mantleRay.dir.x = 0;
@@ -1067,12 +1065,11 @@ export function physicsTick(
           const heightAboveFeet = ledgeY - (_newPos.y - PHYSICS.PLAYER_HEIGHT / 2);
 
           if (heightAboveFeet >= PHYSICS.MANTLE_MIN_HEIGHT && heightAboveFeet <= PHYSICS.MANTLE_MAX_HEIGHT) {
-            // Initiate mantle
-            mantleTimer = PHYSICS.MANTLE_DURATION;
-            mantleStartY = _newPos.y;
-            mantleTargetY = ledgeY + PHYSICS.PLAYER_HEIGHT / 2 + 0.1; // feet on ledge
-            mantleFwdX = fwdX;
-            mantleFwdZ = fwdZ;
+            s.mantleTimer = PHYSICS.MANTLE_DURATION;
+            s.mantleStartY = _newPos.y;
+            s.mantleTargetY = ledgeY + PHYSICS.PLAYER_HEIGHT / 2 + 0.1;
+            s.mantleFwdX = fwdX;
+            s.mantleFwdZ = fwdZ;
             velocity.set(0, 0, 0);
             refs.isJumping.current = false;
             audioManager.play(SOUNDS.LAND_SOFT, 0.1);
@@ -1082,32 +1079,40 @@ export function physicsTick(
       }
     }
   }
+}
 
-  // --- Camera effects ---
-  // Wall run tilt: lean into the wall
+function handleCamera(ctx: TickContext): void {
+  const { s, refs, camera, dt } = ctx;
+
+  // Wall run tilt
   let targetTilt = 0;
-  if (wallRunState.isWallRunning) {
-    // Determine which side the wall is on via wall normal dot with camera right
+  if (s.wallRunState.isWallRunning) {
     const sinYaw = Math.sin(refs.yaw.current);
     const cosYaw = Math.cos(refs.yaw.current);
-    const wallDot = wallRunState.wallNormal[0] * cosYaw + wallRunState.wallNormal[2] * sinYaw;
+    const wallDot = s.wallRunState.wallNormal[0] * cosYaw + s.wallRunState.wallNormal[2] * sinYaw;
     targetTilt = wallDot > 0 ? -WALL_RUN_TILT : WALL_RUN_TILT;
   }
-  cameraTilt += (targetTilt - cameraTilt) * Math.min(TILT_LERP_SPEED * dt, 1);
+  s.cameraTilt += (targetTilt - s.cameraTilt) * Math.min(TILT_LERP_SPEED * dt, 1);
 
   // Landing dip decay
-  landingDip *= Math.max(0, 1 - LANDING_DIP_DECAY * dt);
-  if (Math.abs(landingDip) < 0.001) landingDip = 0;
+  s.landingDip *= Math.max(0, 1 - LANDING_DIP_DECAY * dt);
+  if (Math.abs(s.landingDip) < 0.001) s.landingDip = 0;
 
-  // --- Camera ---
+  // Camera position/rotation
   const eyeOffset = refs.isCrouching.current ? PHYSICS.PLAYER_EYE_OFFSET_CROUCH : PHYSICS.PLAYER_EYE_OFFSET;
-  camera.position.set(_newPos.x, _newPos.y + eyeOffset + landingDip, _newPos.z);
+  camera.position.set(_newPos.x, _newPos.y + eyeOffset + s.landingDip, _newPos.z);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = refs.yaw.current;
   camera.rotation.x = refs.pitch.current;
-  camera.rotation.z = cameraTilt;
+  camera.rotation.z = s.cameraTilt;
+}
 
-  // --- Replay recording ---
+function handleHudAndReplay(ctx: TickContext, numCollisions: number): void {
+  const { s, refs, velocity, now, speedMult, gravMult } = ctx;
+  const store = useGameStore.getState();
+  const combat = useCombatStore.getState();
+
+  // Replay recording
   if (store.runState === RUN_STATES.RUNNING) {
     useReplayStore.getState().recordFrame(
       [_newPos.x, _newPos.y, _newPos.z],
@@ -1116,50 +1121,149 @@ export function physicsTick(
     );
   }
 
-  // --- HUD (throttled ~30Hz) ---
-  if (now - lastHudUpdate > HUD_UPDATE_INTERVAL) {
-    lastHudUpdate = now;
+  // HUD (throttled ~30Hz)
+  if (now - s.lastHudUpdate > HUD_UPDATE_INTERVAL) {
+    s.lastHudUpdate = now;
     const finalHSpeed = getHorizontalSpeed(velocity);
     store.updateHud(finalHSpeed, [_newPos.x, _newPos.y, _newPos.z], refs.grounded.current);
     if (store.timerRunning) store.tickTimer();
     store.tickScreenEffects(1 / HUD_UPDATE_HZ);
   }
 
-  // --- Dev logging (throttled ~0.5Hz) ---
-  // Log multiplier changes immediately
-  if (speedMult !== lastDevSpeedMult) {
+  // Dev logging
+  if (speedMult !== s.lastDevSpeedMult) {
     devLog.info('Physics', `Speed multiplier → ${speedMult.toFixed(2)}x (maxSpeed=${(PHYSICS.GROUND_MAX_SPEED * speedMult).toFixed(0)} u/s)`);
-    lastDevSpeedMult = speedMult;
+    s.lastDevSpeedMult = speedMult;
   }
-  if (gravMult !== lastDevGravMult) {
+  if (gravMult !== s.lastDevGravMult) {
     devLog.info('Physics', `Gravity multiplier → ${gravMult.toFixed(1)}x (gravity=${(PHYSICS.GRAVITY * gravMult).toFixed(0)} u/s²)`);
-    lastDevGravMult = gravMult;
+    s.lastDevGravMult = gravMult;
   }
 
-  // Periodic physics state dump
-  if (now - lastDevLogUpdate > DEV_LOG_INTERVAL) {
-    lastDevLogUpdate = now;
+  if (now - s.lastDevLogUpdate > DEV_LOG_INTERVAL) {
+    s.lastDevLogUpdate = now;
     const hSpd = getHorizontalSpeed(velocity);
     const vSpd = velocity.y;
-    const state = refs.grounded.current ? 'ground' : refs.isJumping.current ? 'jump' : 'air';
+    const stateLabel = refs.grounded.current ? 'ground' : refs.isJumping.current ? 'jump' : 'air';
     const slide = refs.isSliding.current ? ' [slide]' : '';
     const crouch = refs.isCrouching.current ? ' [crouch]' : '';
-    const wallRun = wallRunState.isWallRunning ? ' [wallrun]' : '';
+    const wallRun = s.wallRunState.isWallRunning ? ' [wallrun]' : '';
     const grapple = combat.isGrappling ? ' [grapple]' : '';
-    const slope = storedGroundNormalY < 0.999 ? ` slope=${getSlopeAngleDeg(storedGroundNormalY).toFixed(1)}°` : '';
+    const slope = s.storedGroundNormalY < 0.999 ? ` slope=${getSlopeAngleDeg(s.storedGroundNormalY).toFixed(1)}°` : '';
     devLog.info('Physics',
-      `${state}${slide}${crouch}${wallRun}${grapple}${slope} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
+      `${stateLabel}${slide}${crouch}${wallRun}${grapple}${slope} | hSpd=${hSpd.toFixed(0)} vSpd=${vSpd.toFixed(0)} | pos=[${_newPos.x.toFixed(1)}, ${_newPos.y.toFixed(1)}, ${_newPos.z.toFixed(1)}] | yaw=${(refs.yaw.current * 180 / Math.PI).toFixed(0)}°`,
     );
 
-    // Log projectile count if any
     const projCount = activeCount();
     if (projCount > 0) {
-      devLog.info('Combat', `${projCount} active projectiles | HP=${combat.health}/${PHYSICS.HEALTH_MAX} | R:${combat.rocketAmmo} G:${combat.grenadeAmmo}`);
+      devLog.info('Combat', `${projCount} active projectiles | HP=${combat.health}/${PHYSICS.HEALTH_MAX} | R:${combat.ammo.rocket.current} G:${combat.ammo.grenade.current}`);
     }
 
-    // Log collisions if hitting walls
     if (numCollisions > 0) {
-      devLog.info('Collision', `${numCollisions} contacts | substeps=${substeps}`);
+      devLog.info('Collision', `${numCollisions} contacts`);
     }
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// Main orchestrator
+// ══════════════════════════════════════════════════════════
+
+/** Execute a single 128Hz physics tick */
+export function physicsTick(
+  refs: PhysicsTickRefs,
+  camera: Camera,
+  consumeMouseDelta: () => { dx: number; dy: number },
+  rapierWorld: import('@dimforge/rapier3d-compat').World,
+): void {
+  const rb = refs.rigidBody.current;
+  const collider = refs.collider.current;
+  const controller = refs.controller.current;
+  if (!rb || !collider || !controller) return;
+
+  const settings = useSettingsStore.getState();
+  const ctx: TickContext = {
+    s: state,
+    refs,
+    camera,
+    rapierWorld,
+    rb,
+    collider,
+    controller,
+    input: refs.input.current,
+    velocity: refs.velocity.current,
+    dt: PHYSICS.TICK_DELTA,
+    speedMult: settings.devSpeedMultiplier,
+    gravMult: settings.devGravityMultiplier,
+    sensitivity: settings.sensitivity,
+    adsSensitivityMult: settings.adsSensitivityMult,
+    autoBhop: settings.autoBhop,
+    edgeGrab: settings.edgeGrab,
+    now: performance.now(),
+  };
+
+  // Respawn / grace (may early return)
+  if (handleRespawn(ctx, consumeMouseDelta)) return;
+
+  // Mouse look
+  const { dx, dy } = consumeMouseDelta();
+  handleMouseLook(ctx, dx, dy);
+
+  // Wish direction
+  const wishDir = getWishDir(
+    ctx.input.forward, ctx.input.backward,
+    ctx.input.left, ctx.input.right,
+    refs.yaw.current,
+  );
+  const hasInput = wishDir.lengthSq() > 0;
+
+  // Jump buffer
+  if (ctx.input.jump) {
+    refs.jumpBufferTime.current = PHYSICS.JUMP_BUFFER_MS;
+  } else if (refs.jumpBufferTime.current > 0) {
+    refs.jumpBufferTime.current -= ctx.dt * 1000;
+  }
+
+  // Coyote time
+  if (refs.grounded.current) {
+    refs.coyoteTime.current = PHYSICS.COYOTE_TIME_MS;
+  } else if (refs.coyoteTime.current > 0 && !refs.isJumping.current) {
+    refs.coyoteTime.current -= ctx.dt * 1000;
+  }
+
+  // Variable jump height
+  if (refs.isJumping.current) {
+    refs.jumpHoldTime.current += ctx.dt * 1000;
+    if (!ctx.input.jump && ctx.velocity.y > 0 && refs.jumpHoldTime.current < PHYSICS.JUMP_RELEASE_WINDOW_MS) {
+      ctx.velocity.y = Math.max(ctx.velocity.y * 0.5, PHYSICS.JUMP_FORCE_MIN * 0.5);
+      refs.isJumping.current = false;
+    }
+    if (refs.grounded.current || ctx.velocity.y <= 0) {
+      refs.isJumping.current = false;
+    }
+  }
+
+  // Set player position for combat/grapple lookups
+  const pos = rb.translation();
+  _playerPos.set(pos.x, pos.y, pos.z);
+
+  // Fire direction (used by grapple, combat, weapon fire)
+  _fireDir.set(
+    -Math.sin(refs.yaw.current) * Math.cos(refs.pitch.current),
+    Math.sin(refs.pitch.current),
+    -Math.cos(refs.yaw.current) * Math.cos(refs.pitch.current),
+  ).normalize();
+
+  // Sub-systems
+  handleZoneEvents(ctx);
+  handleWeaponSwitch(ctx);
+  handleGrapple(ctx);
+  handleCombatState(ctx, dx, dy);
+  handleWeaponFire(ctx);
+  handleProjectiles(ctx);
+
+  const numCollisions = handleMovement(ctx, wishDir, hasInput);
+  handleMantle(ctx);
+  handleCamera(ctx);
+  handleHudAndReplay(ctx, numCollisions);
 }

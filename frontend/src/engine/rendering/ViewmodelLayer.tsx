@@ -28,6 +28,8 @@ export interface ViewmodelLayerProps {
   fov?: number;
   /** Whether the viewmodel is visible. Default: true */
   visible?: boolean;
+  /** Ambient light intensity multiplier (e.g. boost during inspect). Default: 1.0 */
+  lightBoost?: number;
 }
 
 export interface ViewmodelSceneRef {
@@ -47,6 +49,7 @@ export function ViewmodelLayer({
   children,
   fov = VIEWMODEL_DEFAULTS.FOV,
   visible = true,
+  lightBoost = 1.0,
 }: ViewmodelLayerProps) {
   const { camera: mainCamera, size } = useThree();
   const vmCameraRef = useRef<PerspectiveCamera | null>(null);
@@ -54,7 +57,7 @@ export function ViewmodelLayer({
   // Create viewmodel scene + camera once (stable across renders)
   // Register singleton ref synchronously so PostProcessing can read it
   // during its own useEffect pipeline build (same commit phase).
-  const { vmScene, vmCamera } = useMemo(() => {
+  const { vmScene, vmCamera, vmAmbient } = useMemo(() => {
     const scene = new Scene();
     scene.name = 'ViewmodelScene';
 
@@ -81,7 +84,7 @@ export function ViewmodelLayer({
     // Set ref synchronously — PostProcessing reads this in useEffect
     _viewmodelRef = { scene, camera };
 
-    return { vmScene: scene, vmCamera: camera };
+    return { vmScene: scene, vmCamera: camera, vmAmbient: ambient };
   }, []);
 
   vmCameraRef.current = vmCamera;
@@ -121,6 +124,12 @@ export function ViewmodelLayer({
     if (Math.abs(cam.aspect - aspect) > 0.001) {
       cam.aspect = aspect;
       cam.updateProjectionMatrix();
+    }
+
+    // Update ambient light boost (e.g. for weapon inspect)
+    const targetIntensity = VIEWMODEL_DEFAULTS.AMBIENT * lightBoost;
+    if (Math.abs(vmAmbient.intensity - targetIntensity) > 0.01) {
+      vmAmbient.intensity = targetIntensity;
     }
   }, 1);
 

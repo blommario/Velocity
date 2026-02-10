@@ -4,7 +4,7 @@ import { getNormalizedWheelDelta } from './inputUtils';
 import { useSettingsStore } from '../stores/settingsStore';
 
 type BooleanInputKey = keyof Pick<InputState,
-  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload'
+  'forward' | 'backward' | 'left' | 'right' | 'jump' | 'crouch' | 'fire' | 'altFire' | 'grapple' | 'reload' | 'inspect'
 >;
 
 /** Maps settingsStore action names → engine InputState boolean field names. */
@@ -19,10 +19,11 @@ const SETTINGS_TO_INPUT: Record<string, BooleanInputKey> = {
   reload: 'reload',
   fireRocket: 'fire',
   fireGrenade: 'altFire',
+  inspect: 'inspect',
 } as const;
 
 const BOOLEAN_KEYS: readonly BooleanInputKey[] = [
-  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'fire', 'altFire', 'grapple', 'reload',
+  'forward', 'backward', 'left', 'right', 'jump', 'crouch', 'fire', 'altFire', 'grapple', 'reload', 'inspect',
 ] as const;
 
 /** Maps Digit keys to weapon slots (1-7) */
@@ -66,6 +67,7 @@ const createEmptyInput = (): InputState => ({
   altFire: false,
   grapple: false,
   reload: false,
+  inspect: false,
   mouseDeltaX: 0,
   mouseDeltaY: 0,
   weaponSlot: 0,

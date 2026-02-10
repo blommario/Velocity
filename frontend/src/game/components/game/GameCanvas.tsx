@@ -63,6 +63,7 @@ function ScenePostProcessing({ fogConfig, blocks }: {
   const chromaticAberration = useSettingsStore((s) => s.chromaticAberration);
   const motionBlur = useSettingsStore((s) => s.motionBlur);
   const depthOfField = useSettingsStore((s) => s.depthOfField);
+  const isInspecting = useCombatStore((s) => s.isInspecting);
 
   return (
     <PostProcessingEffects
@@ -74,7 +75,9 @@ function ScenePostProcessing({ fogConfig, blocks }: {
       filmGrainEnabled={filmGrain}
       chromaticAberrationEnabled={chromaticAberration}
       motionBlurEnabled={motionBlur}
-      depthOfFieldEnabled={depthOfField}
+      depthOfFieldEnabled={depthOfField || isInspecting}
+      dofFocusDistance={isInspecting ? 0.5 : undefined}
+      dofAperture={isInspecting ? 5.0 : undefined}
     />
   );
 }

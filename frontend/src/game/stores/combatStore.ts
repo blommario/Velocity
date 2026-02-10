@@ -46,13 +46,7 @@ interface CombatState {
   health: number;
   lastDamageTime: number;
 
-  // Legacy ammo (backward compat for existing code)
-  rocketAmmo: number;
-  grenadeAmmo: number;
-  maxRocketAmmo: number;
-  maxGrenadeAmmo: number;
-
-  // Unified ammo system
+  // Ammo system
   ammo: Record<WeaponType, AmmoState>;
 
   // Weapon state
@@ -69,6 +63,10 @@ interface CombatState {
   isHoldingBreath: boolean;
   breathHoldTime: number;     // seconds of breath held (0-2 = stable, then penalty)
   scopeTime: number;          // total time scoped in (0-3 stable, 3-6 drift, 6+ force unscope)
+
+  // Weapon inspect
+  isInspecting: boolean;
+  inspectProgress: number;  // 0 = hip, 1 = fully inspecting
 
   // Knife lunge
   knifeLungeTimer: number;
@@ -122,10 +120,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   health: PHYSICS.HEALTH_MAX,
   lastDamageTime: 0,
 
-  rocketAmmo: 10,
-  grenadeAmmo: 3,
-  maxRocketAmmo: 10,
-  maxGrenadeAmmo: 3,
   ammo: cloneAmmo(),
 
   activeWeapon: 'rocket',
@@ -140,6 +134,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   isHoldingBreath: false,
   breathHoldTime: 0,
   scopeTime: 0,
+
+  isInspecting: false,
+  inspectProgress: 0,
 
   knifeLungeTimer: 0,
   knifeLungeDir: [0, 0, 0],
@@ -192,6 +189,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       swapCooldown: PHYSICS.WEAPON_SWAP_TIME,
       adsProgress: 0,
       isPlasmaFiring: false,
+      isInspecting: false,
+      inspectProgress: 0,
       scopeSwayX: 0,
       scopeSwayY: 0,
       isHoldingBreath: false,
@@ -265,11 +264,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const a = state.ammo[type];
     if (!a) return;
     const newCurrent = Math.min(a.max, a.current + amount);
-    const newAmmo = { ...state.ammo, [type]: { ...a, current: newCurrent } };
     set({
-      ammo: newAmmo,
-      rocketAmmo: type === 'rocket' ? newCurrent : state.rocketAmmo,
-      grenadeAmmo: type === 'grenade' ? newCurrent : state.grenadeAmmo,
+      ammo: { ...state.ammo, [type]: { ...a, current: newCurrent } },
     });
   },
 
@@ -330,10 +326,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     set({
       health: PHYSICS.HEALTH_MAX,
       lastDamageTime: 0,
-      rocketAmmo: rockets,
-      grenadeAmmo: grenades,
-      maxRocketAmmo: rockets,
-      maxGrenadeAmmo: grenades,
       ammo: fresh,
       activeWeapon: 'rocket',
       previousWeapon: 'rocket',
@@ -341,6 +333,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       swapCooldown: 0,
       adsProgress: 0,
       isPlasmaFiring: false,
+      isInspecting: false,
+      inspectProgress: 0,
       scopeSwayX: 0,
       scopeSwayY: 0,
       isHoldingBreath: false,

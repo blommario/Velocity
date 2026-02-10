@@ -11,6 +11,7 @@ export interface InputState {
   altFire: boolean;   // right click (zoom for sniper, alt-fire for others)
   grapple: boolean;
   reload: boolean;
+  inspect: boolean;
   mouseDeltaX: number;
   mouseDeltaY: number;
   weaponSlot: number;     // 0 = no switch, 1-7 = switch to slot

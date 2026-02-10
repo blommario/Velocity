@@ -57,13 +57,23 @@ const MUZZLE_COLORS: Record<WeaponType, [number, number, number]> = {
   plasma: [0.3, 0.6, 1.0],
 } as const;
 
-const RIFLE_MODEL = {
-  PATH: 'weapons/rifle.glb',
-  SCALE: 0.065,
-  ROTATION_Y: Math.PI / 2,
-  OFFSET_X: 0.00,
-  OFFSET_Y: -0.02,
-  OFFSET_Z: -0.35,
+interface WeaponModelConfig {
+  path: string | null;
+  scale: number;
+  rotationY: number;
+  offsetX: number;
+  offsetY: number;
+  offsetZ: number;
+}
+
+const WEAPON_MODELS: Record<WeaponType, WeaponModelConfig> = {
+  assault: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
+  sniper:  { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
+  shotgun: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35 },
+  rocket:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
+  grenade: { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
+  plasma:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
+  knife:   { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.20 },
 } as const;
 
 const knifeGeometry = new BoxGeometry(0.02, 0.02, 0.3);
@@ -85,23 +95,28 @@ interface ViewmodelState {
   prevFireCooldown: number;
 }
 
-function useRifleModel(): Group | null {
+function useWeaponModel(config: WeaponModelConfig): Group | null {
   const [model, setModel] = useState<Group | null>(null);
   useEffect(() => {
+    if (config.path === null) {
+      setModel(null);
+      return;
+    }
     let cancelled = false;
-    devLog.info('Viewmodel', 'Loading rifle model...');
-    loadModel(RIFLE_MODEL.PATH).then((scene) => {
+    const modelPath = config.path;
+    devLog.info('Viewmodel', `Loading weapon model: ${modelPath}...`);
+    loadModel(modelPath).then((scene) => {
       if (cancelled) return;
-      devLog.info('Viewmodel', `Rifle loaded: ${scene.children.length} children`);
-      scene.scale.setScalar(RIFLE_MODEL.SCALE);
-      scene.rotation.y = RIFLE_MODEL.ROTATION_Y;
-      scene.position.set(RIFLE_MODEL.OFFSET_X, RIFLE_MODEL.OFFSET_Y, RIFLE_MODEL.OFFSET_Z);
+      devLog.info('Viewmodel', `Weapon loaded: ${scene.children.length} children`);
+      scene.scale.setScalar(config.scale);
+      scene.rotation.y = config.rotationY;
+      scene.position.set(config.offsetX, config.offsetY, config.offsetZ);
       setModel(scene);
     }).catch((err) => {
-      devLog.error('Viewmodel', `Rifle model load failed: ${err}`);
+      devLog.error('Viewmodel', `Weapon model load failed: ${err}`);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [config.path, config.scale, config.rotationY, config.offsetX, config.offsetY, config.offsetZ]);
   return model;
 }
 
@@ -119,7 +134,10 @@ function ViewmodelContent() {
     return () => { document.removeEventListener('mousemove', handleMouseMove); };
   }, []);
 
-  const rifleModel = useRifleModel();
+  const activeWeapon = useCombatStore((s) => s.activeWeapon);
+  const weaponConfig = WEAPON_MODELS[activeWeapon];
+  const weaponModel = useWeaponModel(weaponConfig);
+
   const stateRef = useRef<ViewmodelState>({
     prevWeapon: 'rocket',
     drawTimer: 0,
@@ -151,6 +169,7 @@ function ViewmodelContent() {
       mouseDeltaX: mx,
       mouseDeltaY: my,
       adsProgress: combat.adsProgress,
+      inspectProgress: combat.inspectProgress,
     };
   }, []);
 
@@ -203,11 +222,18 @@ function ViewmodelContent() {
       group.quaternion.multiply(_recoilQuat);
     }
 
+    // ── Inspect Y-axis spin ──
+    if (anim.rotY !== 0) {
+      _tempEuler.set(0, anim.rotY, 0);
+      _recoilQuat.setFromEuler(_tempEuler);
+      group.quaternion.multiply(_recoilQuat);
+    }
+
     // ── Muzzle flash (reuses `combat` from ADS block above) ──
     const justFired = combat.fireCooldown > 0 && vmState.prevFireCooldown === 0;
     if (justFired && combat.activeWeapon !== 'knife') {
       const [r, g, b] = MUZZLE_COLORS[combat.activeWeapon];
-      _muzzleOffset.set(0, 0.02, RIFLE_MODEL.OFFSET_Z - 0.45);
+      _muzzleOffset.set(0, 0.02, WEAPON_MODELS[combat.activeWeapon].offsetZ - 0.45);
       _muzzleOffset.applyQuaternion(group.quaternion);
       triggerMuzzleFlash(
         group.position.x + _muzzleOffset.x,
@@ -220,7 +246,6 @@ function ViewmodelContent() {
     vmState.prevFireCooldown = combat.fireCooldown;
   });
 
-  const activeWeapon = useCombatStore((s) => s.activeWeapon);
   const color = WEAPON_COLORS[activeWeapon];
   const isKnife = activeWeapon === 'knife';
 
@@ -230,25 +255,25 @@ function ViewmodelContent() {
         <mesh geometry={knifeGeometry} position={[0, -0.1, -0.2]}>
           <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
         </mesh>
+      ) : weaponModel ? (
+        <primitive object={weaponModel} />
       ) : (
-        <group>
-          {rifleModel ? (
-            <primitive object={rifleModel} />
-          ) : (
-            <mesh position={[0, 0, RIFLE_MODEL.OFFSET_Z]}>
-              <boxGeometry args={[0.06, 0.05, 0.35]} />
-              <meshStandardMaterial color={color} metalness={0.5} roughness={0.4} />
-            </mesh>
-          )}
-        </group>
+        <mesh position={[0, 0, weaponConfig.offsetZ]}>
+          <boxGeometry args={[0.06, 0.05, 0.35]} />
+          <meshStandardMaterial color={color} metalness={0.5} roughness={0.4} />
+        </mesh>
       )}
     </group>
   );
 }
 
 export function Viewmodel() {
+  const inspectProgress = useCombatStore((s) => s.inspectProgress);
+  // Boost ambient light from 1.0 to 1.6 during inspect
+  const lightBoost = 1.0 + inspectProgress * 0.6;
+
   return (
-    <ViewmodelLayer>
+    <ViewmodelLayer lightBoost={lightBoost}>
       <ViewmodelContent />
       <MuzzleFlash />
     </ViewmodelLayer>
