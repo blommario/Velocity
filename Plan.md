@@ -1,7 +1,7 @@
 # VELOCITY — Gameplay & Content Plan
 
 > Engine-arbete (Fas A, G–N) + grafik (O) + movement (P) + engine-refaktorisering (E) klart.
-> Kvar: gameplay mechanics (V), banor (R), multiplayer (T).
+> Kvar: gameplay mechanics (V), banor (R), multiplayer (T), kodkvalitet/refaktorisering (Q).
 > ✅ = klart | 🔲 = kvar | 🔧 = pågår
 
 ---
@@ -154,6 +154,50 @@
 
 ---
 
+## Fas Q — Refaktorisering & Kodkvalitet
+*Bryt ner komponenter >150 rader, eliminera magic strings, förbättra underhållbarhet.*
+
+**Förutsättning:** Ingen (kan köras parallellt med V/R/T)
+
+### Q1 — PostProcessingEffects.tsx (689 rader)
+- 🔲 Extrahera effekt-byggare till separata moduler (bloom, SSAO, vignette, fog, etc.)
+- 🔲 Eliminera magic numbers → `as const` config-objekt
+- 🔲 Mål: huvudkomponent <150 rader, hooks/builders i egna filer
+
+### Q2 — SettingsScreen.tsx (507 rader)
+- 🔲 Extrahera varje settings-tab till egen komponent (VideoTab, AudioTab, InputTab, etc.)
+- 🔲 Eliminera magic strings (tab-namn, labels) → `as const` lookup
+- 🔲 Mål: huvudkomponent <150 rader, tabs i `components/menu/settings/`
+
+### Q3 — DevLogPanel.tsx (465 rader)
+- 🔲 Extrahera log-filtrering, perf-bar, och log-rendering till hooks/subkomponenter
+- 🔲 Eliminera magic strings/numbers → config-objekt
+- 🔲 Mål: huvudkomponent <150 rader
+
+### Q4 — ExplosionEffect.tsx (426 rader)
+- 🔲 Extrahera TSL shader-byggare och partikel-logik till egna moduler
+- 🔲 Eliminera magic numbers (partikel-counts, durations, colors) → `as const`
+- 🔲 Mål: huvudkomponent <150 rader
+
+### Q5 — MainMenu.tsx (419 rader)
+- 🔲 Extrahera varje meny-sektion till egen komponent (title, buttons, overlays)
+- 🔲 Eliminera magic strings → `as const` lookup
+- 🔲 Mål: huvudkomponent <150 rader
+
+### Q6 — TestMap.tsx (409 rader)
+- 🔲 Extrahera map-layout data till separat config-fil
+- 🔲 Extrahera zone-setup, block-generering till hooks
+- 🔲 Eliminera magic numbers (positioner, storlekar) → map config object
+- 🔲 Mål: huvudkomponent <150 rader
+
+### Q7 — Övriga komponenter >150 rader (~24 st)
+- 🔲 Identifiera och lista alla återstående komponenter >150 rader
+- 🔲 Bryt ner varje till <150 rader via hook-extraktion och subkomponenter
+- 🔲 Eliminera magic strings/numbers i dessa komponenter
+- 🔲 Lägg till doc comments (JSDoc) på alla refaktoriserade komponenter
+
+---
+
 ## Beroendeöversikt
 
 ```
@@ -169,6 +213,15 @@ Fas V (Gameplay Mechanics)          ← NY
 ├── V9 Killstreak & Combat Feedback  beroende: inga
 ├── V10 Advanced Movement Polish     beroende: V4 (stances), P (movement)
 
+Fas Q (Refaktorisering)              ← NY
+├── Q1 PostProcessingEffects (689→<150)  beroende: inga
+├── Q2 SettingsScreen (507→<150)         beroende: inga
+├── Q3 DevLogPanel (465→<150)            beroende: inga
+├── Q4 ExplosionEffect (426→<150)        beroende: inga
+├── Q5 MainMenu (419→<150)               beroende: inga
+├── Q6 TestMap (409→<150)                beroende: inga
+├── Q7 Övriga >150 rader (~24 st)        beroende: inga
+
 Fas R (Banor)
 ├── R3 Editor v2
 
@@ -180,6 +233,7 @@ Parallellism:
   V2 väntar på V1 (ADS krävs för scope)
   V4 och V10 kan starta parallellt med V1
   V5 bör komma efter V1 (ADS-recoil-multiplikator)
+  Q kan köras helt parallellt med V, R och T (inga beroenden)
   R, T och V kan köras parallellt (inga beroenden emellan)
 ```
 

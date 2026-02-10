@@ -94,6 +94,35 @@ The engine (`src/engine/`) is designed as a **general-purpose, reusable game eng
 - Constants: `ENGINE_PHYSICS` (engine) extended as `PHYSICS` (game).
 - **Exception:** `settingsStore` lives in `engine/stores/` and may be imported by both engine and game code.
 
+### Code Documentation
+Every class (C#) and component/module (TS/TSX) must have a doc comment at the top describing:
+1. **Purpose** — what it does, in one or two sentences
+2. **Dependencies** — key services, contexts, or APIs it relies on
+3. **Used by** — what calls or renders it
+
+C# uses XML doc comments (`/// <summary>`), TypeScript/TSX uses JSDoc (`/** */`).
+Keep it concise — describe intent, not implementation. Don't comment the obvious.
+
+Example C#:
+```csharp
+/// <summary>
+/// Processes uploaded PDFs through OCR and stores chunked markdown in the vector database.
+/// </summary>
+/// <remarks>
+/// Depends on: MistralOcrService, DocumentChunker, VectorDbContext
+/// Used by: DocumentUploadController
+/// </remarks>
+```
+
+Example TSX:
+```tsx
+/**
+ * Search results page — displays ranked document matches from the RAG pipeline.
+ * Depends on: SearchContext, /api/search endpoint
+ * Used by: AppRouter
+ */
+```
+
 ### Performance — Hot Path Rules (128Hz Physics + 60Hz Render)
 - Never `set()` with `.map()`/`.filter()`/spread at 128Hz — use mutable pools
 - Pre-allocated tuples/vectors on module level, mutate in-place
