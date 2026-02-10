@@ -1,4 +1,4 @@
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { SensorZone } from '../../../engine/components';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '../../../stores/combatStore';
 import { GpuParticles } from '../../../engine/effects/GpuParticles';
@@ -29,12 +29,7 @@ export function BoostPad({
   };
 
   return (
-    <RigidBody type="fixed" colliders={false} position={position} sensor>
-      <CuboidCollider
-        args={[size[0] / 2, size[1] / 2, size[2] / 2]}
-        sensor
-        onIntersectionEnter={handleEnter}
-      />
+    <SensorZone position={position} size={size} positionTarget="body" onEnter={handleEnter}>
       <mesh>
         <boxGeometry args={size} />
         <meshStandardMaterial
@@ -64,6 +59,6 @@ export function BoostPad({
         speed={BOOST_PARTICLES.SPEED}
         direction={[0, 1, 0]}
       />
-    </RigidBody>
+    </SensorZone>
   );
 }

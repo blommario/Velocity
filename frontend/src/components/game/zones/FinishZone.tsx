@@ -1,4 +1,4 @@
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { SensorZone } from '../../../engine/components';
 import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
 import { audioManager, SOUNDS } from '../../../engine/audio/AudioManager';
 
@@ -11,7 +11,7 @@ interface FinishZoneProps {
 }
 
 export function FinishZone({ position, size }: FinishZoneProps) {
-  const handleIntersection = () => {
+  const handleEnter = () => {
     const state = useGameStore.getState();
     if (state.runState === RUN_STATES.RUNNING) {
       state.finishRun();
@@ -20,13 +20,7 @@ export function FinishZone({ position, size }: FinishZoneProps) {
   };
 
   return (
-    <RigidBody type="fixed" colliders={false} sensor>
-      <CuboidCollider
-        args={[size[0] / 2, size[1] / 2, size[2] / 2]}
-        position={position}
-        sensor
-        onIntersectionEnter={handleIntersection}
-      />
+    <SensorZone position={position} size={size} onEnter={handleEnter}>
       <mesh position={position}>
         <boxGeometry args={size} />
         <meshStandardMaterial
@@ -37,6 +31,6 @@ export function FinishZone({ position, size }: FinishZoneProps) {
           emissiveIntensity={1.5}
         />
       </mesh>
-    </RigidBody>
+    </SensorZone>
   );
 }

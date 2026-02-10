@@ -39,17 +39,17 @@
 
 ### E3 — SensorZone-mönster → `engine/components/`
 *Alla 9 zoner följer identiskt mönster. Extrahera generisk bas.*
-- 🔲 Skapa `engine/components/SensorZone.tsx` — generisk `<SensorZone onEnter onExit position size>`
-- 🔲 Refaktorisera `Checkpoint.tsx` → tunn wrapper runt SensorZone
-- 🔲 Refaktorisera `StartZone.tsx` → tunn wrapper
-- 🔲 Refaktorisera `FinishZone.tsx` → tunn wrapper
-- 🔲 Refaktorisera `KillZone.tsx` → tunn wrapper
-- 🔲 Refaktorisera `BoostPad.tsx` → tunn wrapper
-- 🔲 Refaktorisera `LaunchPad.tsx` → tunn wrapper
-- 🔲 Refaktorisera `SpeedGate.tsx` → tunn wrapper
-- 🔲 Refaktorisera `AmmoPickup.tsx` → tunn wrapper
-- 🔲 Refaktorisera `GrapplePoint.tsx` → tunn wrapper
-- 🔲 Barrel export från `engine/components/index.ts`
+- ✅ Skapa `engine/components/SensorZone.tsx` — generisk `<SensorZone onEnter onExit position size>`
+- ✅ Refaktorisera `Checkpoint.tsx` → tunn wrapper runt SensorZone
+- ✅ Refaktorisera `StartZone.tsx` → tunn wrapper
+- ✅ Refaktorisera `FinishZone.tsx` → tunn wrapper
+- ✅ Refaktorisera `KillZone.tsx` → tunn wrapper
+- ✅ Refaktorisera `BoostPad.tsx` → tunn wrapper
+- ✅ Refaktorisera `LaunchPad.tsx` → tunn wrapper
+- ✅ Refaktorisera `SpeedGate.tsx` → tunn wrapper
+- ✅ Refaktorisera `AmmoPickup.tsx` → tunn wrapper
+- ✅ `GrapplePoint.tsx` — behållen som-är (inte sensor-zon, använder fysisk collider + useEffect)
+- ✅ Barrel export från `engine/components/index.ts`
 
 ### E4 — Konfigurerbar Effects
 *Gör engine-effects konfigurationsdrivna istället för hårdkodade Velocity-värden.*

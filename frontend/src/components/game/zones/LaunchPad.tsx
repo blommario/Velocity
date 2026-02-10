@@ -1,4 +1,4 @@
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { SensorZone } from '../../../engine/components';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '../../../stores/combatStore';
 
@@ -22,12 +22,7 @@ export function LaunchPad({
   };
 
   return (
-    <RigidBody type="fixed" colliders={false} position={position} sensor>
-      <CuboidCollider
-        args={[size[0] / 2, size[1] / 2, size[2] / 2]}
-        sensor
-        onIntersectionEnter={handleEnter}
-      />
+    <SensorZone position={position} size={size} positionTarget="body" onEnter={handleEnter}>
       <mesh>
         <boxGeometry args={size} />
         <meshStandardMaterial
@@ -38,6 +33,6 @@ export function LaunchPad({
           opacity={0.7}
         />
       </mesh>
-    </RigidBody>
+    </SensorZone>
   );
 }

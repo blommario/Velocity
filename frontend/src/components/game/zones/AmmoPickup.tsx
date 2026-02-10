@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { SensorZone } from '../../../engine/components';
 import type { WeaponType } from '../physics/types';
 import { useCombatStore } from '../../../stores/combatStore';
 
@@ -33,12 +33,7 @@ export function AmmoPickup({ position, type, amount, respawnTime = DEFAULT_RESPA
   if (collected) return null;
 
   return (
-    <RigidBody type="fixed" colliders={false} position={position} sensor>
-      <CuboidCollider
-        args={[0.4, 0.4, 0.4]}
-        sensor
-        onIntersectionEnter={handleEnter}
-      />
+    <SensorZone position={position} size={[0.8, 0.8, 0.8]} positionTarget="body" onEnter={handleEnter}>
       <mesh>
         <boxGeometry args={[0.6, 0.6, 0.6]} />
         <meshStandardMaterial
@@ -49,6 +44,6 @@ export function AmmoPickup({ position, type, amount, respawnTime = DEFAULT_RESPA
           opacity={0.8}
         />
       </mesh>
-    </RigidBody>
+    </SensorZone>
   );
 }

@@ -1,4 +1,4 @@
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { SensorZone } from '../../../engine/components';
 import { PHYSICS } from '../physics/constants';
 import { useCombatStore } from '../../../stores/combatStore';
 import { GpuParticles } from '../../../engine/effects/GpuParticles';
@@ -29,12 +29,7 @@ export function SpeedGate({
   };
 
   return (
-    <RigidBody type="fixed" colliders={false} position={position} sensor>
-      <CuboidCollider
-        args={[size[0] / 2, size[1] / 2, size[2] / 2]}
-        sensor
-        onIntersectionEnter={handleEnter}
-      />
+    <SensorZone position={position} size={size} positionTarget="body" onEnter={handleEnter}>
       {/* Ring frame */}
       <mesh>
         <torusGeometry args={[size[0] / 2, 0.15, 8, 24]} />
@@ -66,6 +61,6 @@ export function SpeedGate({
         speed={GATE_PARTICLES.SPEED}
         direction={[0, 0.5, 0]}
       />
-    </RigidBody>
+    </SensorZone>
   );
 }

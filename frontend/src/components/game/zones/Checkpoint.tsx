@@ -1,4 +1,4 @@
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { SensorZone } from '../../../engine/components';
 import { useGameStore, RUN_STATES } from '../../../stores/gameStore';
 import { audioManager, SOUNDS } from '../../../engine/audio/AudioManager';
 
@@ -12,7 +12,7 @@ interface CheckpointProps {
 }
 
 export function Checkpoint({ position, size, index }: CheckpointProps) {
-  const handleIntersection = () => {
+  const handleEnter = () => {
     const state = useGameStore.getState();
     if (state.runState === RUN_STATES.RUNNING) {
       state.hitCheckpoint(index);
@@ -21,13 +21,7 @@ export function Checkpoint({ position, size, index }: CheckpointProps) {
   };
 
   return (
-    <RigidBody type="fixed" colliders={false} sensor>
-      <CuboidCollider
-        args={[size[0] / 2, size[1] / 2, size[2] / 2]}
-        position={position}
-        sensor
-        onIntersectionEnter={handleIntersection}
-      />
+    <SensorZone position={position} size={size} onEnter={handleEnter}>
       <mesh position={position}>
         <boxGeometry args={size} />
         <meshStandardMaterial
@@ -38,6 +32,6 @@ export function Checkpoint({ position, size, index }: CheckpointProps) {
           emissiveIntensity={1.0}
         />
       </mesh>
-    </RigidBody>
+    </SensorZone>
   );
 }
