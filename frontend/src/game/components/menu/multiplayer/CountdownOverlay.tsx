@@ -1,8 +1,8 @@
 /**
- * Full-screen countdown overlay (3, 2, 1, GO!) for multiplayer race starts.
+ * Full-screen countdown overlay (3, 2, 1, GO!) for multiplayer match starts.
  *
  * Depends on: none
- * Used by: RaceLobby
+ * Used by: MultiplayerLobby
  */
 const COUNTDOWN_LABELS: Record<number, string> = {
   3: '3',

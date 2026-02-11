@@ -1,11 +1,11 @@
 /**
- * Race multiplayer store — manages lobby state + WebSocket transport for real-time racing.
+ * Multiplayer store — manages lobby state + WebSocket transport for real-time racing.
  * REST endpoints handle room CRUD; WebSocket handles position streaming + lifecycle events.
- * T1: adds race_start/race_finished/player_finished/host_changed/player_kicked,
- * raceStartTime for synced timer, clockOffset calibration, finish results tracking.
+ * T1: adds match_start/match_finished/player_finished/host_changed/player_kicked,
+ * multiplayerStartTime for synced timer, clockOffset calibration, finish results tracking.
  *
- * Depends on: raceService (REST), GameTransport (WebSocket), PositionCodec (binary)
- * Used by: RaceLobby, RoomBrowser, RoomLobby, CountdownOverlay, RaceResults, RemotePlayers (T2)
+ * Depends on: multiplayerService (REST), GameTransport (WebSocket), PositionCodec (binary)
+ * Used by: MultiplayerLobby, RoomBrowser, RoomLobby, CountdownOverlay, MultiplayerResults, RemotePlayers (T2)
  */
 import { create } from 'zustand';
 import type { RoomResponse } from '@game/services/types';
@@ -14,8 +14,8 @@ import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
   setReady as apiSetReady,
-  startRace as apiStartRace,
-} from '@game/services/raceService';
+  startMatch as apiStartMatch,
+} from '@game/services/multiplayerService';
 import { STORAGE_KEYS } from '@game/services/api';
 import { useGameStore } from '@game/stores/gameStore';
 import { OFFICIAL_MAP_BY_ID, OFFICIAL_MAPS } from '@game/components/game/map/official';
@@ -32,7 +32,7 @@ import { devLog } from '@engine/stores/devLogStore';
 
 type Vec3 = [number, number, number];
 
-export interface RacePosition {
+export interface MultiplayerPosition {
   position: Vec3;
   yaw: number;
   pitch: number;
@@ -41,7 +41,7 @@ export interface RacePosition {
   timestamp: number;
 }
 
-export interface RaceFinishResult {
+export interface MultiplayerFinishResult {
   playerId: string;
   playerName: string;
   finishTime: number | null;
@@ -49,23 +49,23 @@ export interface RaceFinishResult {
   slot: number;
 }
 
-interface RaceState {
+interface MultiplayerState {
   // State
   currentRoom: RoomResponse | null;
   rooms: RoomResponse[];
   isConnected: boolean;
   countdown: number | null;
-  racePositions: Map<string, RacePosition>;
+  multiplayerPositions: Map<string, MultiplayerPosition>;
   localSlot: number;
   latency: number;
   isLoading: boolean;
   error: string | null;
 
-  // T1: Race lifecycle state
-  raceStartTime: number | null;
+  // T1: Match lifecycle state
+  multiplayerStartTime: number | null;
   clockOffset: number;
-  raceStatus: 'lobby' | 'countdown' | 'racing' | 'finished';
-  finishResults: RaceFinishResult[];
+  multiplayerStatus: 'lobby' | 'countdown' | 'racing' | 'finished';
+  finishResults: MultiplayerFinishResult[];
   localFinished: boolean;
   disconnectedMessage: string | null;
 
@@ -78,15 +78,15 @@ interface RaceState {
   createRoom: (mapId: string) => Promise<void>;
   joinRoom: (roomId: string) => Promise<void>;
   setReady: () => Promise<void>;
-  startRace: () => Promise<void>;
-  connectToRace: (roomId: string) => void;
-  disconnectFromRace: () => void;
+  startMatch: () => Promise<void>;
+  connectToMatch: (roomId: string) => void;
+  disconnectFromMatch: () => void;
   sendFinish: (finishTimeMs: number) => void;
   sendLeave: () => void;
   sendKick: (targetPlayerId: string) => void;
   updatePosition: (playerId: string, position: Vec3, yaw: number, pitch: number) => void;
   setCountdown: (n: number | null) => void;
-  resetRace: () => void;
+  resetMultiplayer: () => void;
   retryReconnect: () => void;
   getTransport: () => IGameTransport | null;
 }
@@ -99,19 +99,19 @@ const slotToPlayer = new Map<number, { playerId: string; playerName: string }>()
 
 const LATENCY_POLL_MS = 5000;
 
-export const useRaceStore = create<RaceState>((set, get) => ({
+export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   currentRoom: null,
   rooms: [],
   isConnected: false,
   countdown: null,
-  racePositions: new Map(),
+  multiplayerPositions: new Map(),
   localSlot: -1,
   latency: 0,
   isLoading: false,
   error: null,
-  raceStartTime: null,
+  multiplayerStartTime: null,
   clockOffset: 0,
-  raceStatus: 'lobby',
+  multiplayerStatus: 'lobby',
   finishResults: [],
   localFinished: false,
   disconnectedMessage: null,
@@ -136,7 +136,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     try {
       const room = await apiCreateRoom(mapId);
       set({ currentRoom: room, isLoading: false });
-      get().connectToRace(room.id);
+      get().connectToMatch(room.id);
     } catch (e) {
       set({
         isLoading: false,
@@ -150,7 +150,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     try {
       const room = await apiJoinRoom(roomId);
       set({ currentRoom: room, isLoading: false });
-      get().connectToRace(room.id);
+      get().connectToMatch(room.id);
     } catch (e) {
       set({
         isLoading: false,
@@ -174,22 +174,22 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     }
   },
 
-  startRace: async () => {
+  startMatch: async () => {
     const room = get().currentRoom;
     if (!room) return;
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiStartRace(room.id);
+      const updated = await apiStartMatch(room.id);
       set({ currentRoom: updated, isLoading: false });
     } catch (e) {
       set({
         isLoading: false,
-        error: e instanceof Error ? e.message : 'Failed to start race',
+        error: e instanceof Error ? e.message : 'Failed to start match',
       });
     }
   },
 
-  connectToRace: (roomId: string) => {
+  connectToMatch: (roomId: string) => {
     if (transport) {
       transport.disconnect();
       transport = null;
@@ -208,7 +208,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     let _batchLogTimer = 0;
     transport.onBinary((buffer: ArrayBuffer) => {
       const { count, snapshots } = decodeBatch(buffer);
-      const positions = new Map(get().racePositions);
+      const positions = new Map(get().multiplayerPositions);
 
       for (let i = 0; i < count; i++) {
         const snap: PositionSnapshot = snapshots[i];
@@ -232,7 +232,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
         devLog.info('Net', `pos batch: ${count} players, map size=${positions.size}`);
       }
 
-      set({ racePositions: positions });
+      set({ multiplayerPositions: positions });
     });
 
     // ── JSON event handlers ──
@@ -243,9 +243,9 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       yourSlot: number;
       // T7: enriched rejoin fields (optional — not present on initial connect)
       status?: string;
-      raceStartTime?: number;
+      multiplayerStartTime?: number;
       positions?: Array<{ slot: number; posX: number; posY: number; posZ: number; yaw: number; pitch: number; speed: number; checkpoint: number }>;
-      finishResults?: RaceFinishResult[];
+      finishResults?: MultiplayerFinishResult[];
     }
 
     transport.onJson<RoomSnapshotData>(
@@ -259,14 +259,14 @@ export const useRaceStore = create<RaceState>((set, get) => ({
 
         // T7: restore state from enriched rejoin snapshot
         if (data.status) {
-          const statusMap: Record<string, RaceState['raceStatus']> = {
+          const statusMap: Record<string, MultiplayerState['multiplayerStatus']> = {
             waiting: 'lobby', countdown: 'countdown', racing: 'racing', finished: 'finished',
           };
-          const raceStatus = statusMap[data.status] ?? 'lobby';
-          set({ raceStatus });
+          const multiplayerStatus = statusMap[data.status] ?? 'lobby';
+          set({ multiplayerStatus });
 
-          if (data.raceStartTime) {
-            set({ raceStartTime: data.raceStartTime });
+          if (data.multiplayerStartTime) {
+            set({ multiplayerStartTime: data.multiplayerStartTime });
           }
 
           if (data.finishResults) {
@@ -275,7 +275,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
 
           // Restore positions from snapshot
           if (data.positions && data.positions.length > 0) {
-            const positions = new Map(get().racePositions);
+            const positions = new Map(get().multiplayerPositions);
             for (const pos of data.positions) {
               const playerInfo = slotToPlayer.get(pos.slot);
               if (!playerInfo) continue;
@@ -288,7 +288,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
                 timestamp: 0,
               });
             }
-            set({ racePositions: positions });
+            set({ multiplayerPositions: positions });
           }
         }
       },
@@ -323,12 +323,12 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       'player_left',
       (data) => {
         slotToPlayer.delete(data.slot);
-        const positions = new Map(get().racePositions);
+        const positions = new Map(get().multiplayerPositions);
         positions.delete(data.playerId);
         const room = get().currentRoom;
         if (room) {
           set({
-            racePositions: positions,
+            multiplayerPositions: positions,
             currentRoom: {
               ...room,
               participants: room.participants.filter((p) => p.playerId !== data.playerId),
@@ -336,20 +336,20 @@ export const useRaceStore = create<RaceState>((set, get) => ({
             },
           });
         } else {
-          set({ racePositions: positions });
+          set({ multiplayerPositions: positions });
         }
       },
     );
 
     transport.onJson<{ countdown: number }>('countdown', (data) => {
-      set({ countdown: data.countdown, raceStatus: 'countdown' });
+      set({ countdown: data.countdown, multiplayerStatus: 'countdown' });
     });
 
-    // T1: race_start — server sends raceStartTime (epoch ms)
-    transport.onJson<{ raceStartTime: number }>('race_start', (data) => {
+    // T1: match_start — server sends multiplayerStartTime (epoch ms)
+    transport.onJson<{ matchStartTime: number }>('match_start', (data) => {
       set({
-        raceStartTime: data.raceStartTime,
-        raceStatus: 'racing',
+        multiplayerStartTime: data.matchStartTime,
+        multiplayerStatus: 'racing',
         countdown: null,
         localFinished: false,
         finishResults: [],
@@ -358,7 +358,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       if (room) {
         set({ currentRoom: { ...room, status: 'racing' } });
 
-        // Transition to game screen — load the race map
+        // Transition to game screen — load the multiplayer map
         // mapId from server is a GUID; OFFICIAL_MAP_BY_ID keys by slug, so try both
         const official = OFFICIAL_MAP_BY_ID[room.mapId]
           ?? OFFICIAL_MAPS.find((m) => m.name === room.mapName);
@@ -405,10 +405,10 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       },
     );
 
-    // T1: race_finished — all done or timeout
-    transport.onJson<{ results: RaceFinishResult[] }>('race_finished', (data) => {
+    // T1: match_finished — all done or timeout
+    transport.onJson<{ results: MultiplayerFinishResult[] }>('match_finished', (data) => {
       set({
-        raceStatus: 'finished',
+        multiplayerStatus: 'finished',
         finishResults: data.results,
       });
       const room = get().currentRoom;
@@ -430,12 +430,12 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       slotToPlayer.forEach((val, key) => {
         if (val.playerId === data.playerId) slotToPlayer.delete(key);
       });
-      const positions = new Map(get().racePositions);
+      const positions = new Map(get().multiplayerPositions);
       positions.delete(data.playerId);
       const room = get().currentRoom;
       if (room) {
         set({
-          racePositions: positions,
+          multiplayerPositions: positions,
           currentRoom: {
             ...room,
             participants: room.participants.filter((p) => p.playerId !== data.playerId),
@@ -443,7 +443,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
           },
         });
       } else {
-        set({ racePositions: positions });
+        set({ multiplayerPositions: positions });
       }
     });
 
@@ -456,10 +456,10 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       set({ currentRoom: data.room });
     });
 
-    transport.onJson<{ roomId: string }>('race_starting', () => {
+    transport.onJson<{ roomId: string }>('match_starting', () => {
       const room = get().currentRoom;
       if (room) {
-        set({ currentRoom: { ...room, status: 'countdown' }, raceStatus: 'countdown' });
+        set({ currentRoom: { ...room, status: 'countdown' }, multiplayerStatus: 'countdown' });
       }
     });
 
@@ -492,7 +492,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     }, LATENCY_POLL_MS);
 
     // Connect
-    const wsUrl = buildWsUrl(`/ws/race/${roomId}`);
+    const wsUrl = buildWsUrl(`/ws/multiplayer/${roomId}`);
     transport.connect(wsUrl, token);
   },
 
@@ -515,7 +515,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     transport.sendJson('kick', { targetPlayerId } as Record<string, unknown>);
   },
 
-  disconnectFromRace: () => {
+  disconnectFromMatch: () => {
     if (latencyInterval) { clearInterval(latencyInterval); latencyInterval = null; }
     if (transport) {
       transport.disconnect();
@@ -526,12 +526,12 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       isConnected: false,
       currentRoom: null,
       countdown: null,
-      racePositions: new Map(),
+      multiplayerPositions: new Map(),
       localSlot: -1,
       latency: 0,
-      raceStartTime: null,
+      multiplayerStartTime: null,
       clockOffset: 0,
-      raceStatus: 'lobby',
+      multiplayerStatus: 'lobby',
       finishResults: [],
       localFinished: false,
       disconnectedMessage: null,
@@ -541,16 +541,16 @@ export const useRaceStore = create<RaceState>((set, get) => ({
   },
 
   updatePosition: (playerId: string, position: Vec3, yaw: number, pitch: number) => {
-    const positions = new Map(get().racePositions);
+    const positions = new Map(get().multiplayerPositions);
     positions.set(playerId, { position, yaw, pitch, speed: 0, checkpoint: 0, timestamp: 0 });
-    set({ racePositions: positions });
+    set({ multiplayerPositions: positions });
   },
 
   setCountdown: (n: number | null) => {
     set({ countdown: n });
   },
 
-  resetRace: () => {
+  resetMultiplayer: () => {
     if (latencyInterval) { clearInterval(latencyInterval); latencyInterval = null; }
     if (transport) {
       transport.disconnect();
@@ -562,14 +562,14 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       rooms: [],
       isConnected: false,
       countdown: null,
-      racePositions: new Map(),
+      multiplayerPositions: new Map(),
       localSlot: -1,
       latency: 0,
       isLoading: false,
       error: null,
-      raceStartTime: null,
+      multiplayerStartTime: null,
       clockOffset: 0,
-      raceStatus: 'lobby',
+      multiplayerStatus: 'lobby',
       finishResults: [],
       localFinished: false,
       disconnectedMessage: null,

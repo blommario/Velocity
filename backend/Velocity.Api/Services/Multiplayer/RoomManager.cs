@@ -11,11 +11,11 @@ namespace Velocity.Api.Services.Multiplayer;
 /// Rejects new joins during shutdown to prevent orphaned rooms.
 /// Uses Lazy&lt;Room&gt; to ensure the factory runs exactly once per room ID,
 /// preventing orphaned Room instances with running background tasks.
-/// T1: adds stale room detection, force-close, and race-finished event relay.
+/// T1: adds stale room detection, force-close, and match-finished event relay.
 /// </summary>
 /// <remarks>
 /// Depends on: Room
-/// Used by: WebSocketEndpoints, RaceHandlers, RoomCleanupService
+/// Used by: WebSocketEndpoints, MultiplayerHandlers, RoomCleanupService
 /// </remarks>
 public sealed class RoomManager : IAsyncDisposable
 {
@@ -24,8 +24,8 @@ public sealed class RoomManager : IAsyncDisposable
     private readonly ILogger<RoomManager> _logger;
     private volatile bool _isShuttingDown;
 
-    /// <summary>Relayed from Room.OnRaceFinished — includes roomId, results, and mapId.</summary>
-    public event Action<Guid, IReadOnlyList<FinishResult>, Guid>? OnRoomRaceFinished;
+    /// <summary>Relayed from Room.OnMatchFinished — includes roomId, results, and mapId.</summary>
+    public event Action<Guid, IReadOnlyList<FinishResult>, Guid>? OnRoomMatchFinished;
 
     public RoomManager(ILoggerFactory loggerFactory)
     {
@@ -47,7 +47,7 @@ public sealed class RoomManager : IAsyncDisposable
         {
             var r = new Room(id, _loggerFactory.CreateLogger<Room>());
             r.OnEmpty += HandleRoomEmpty;
-            r.OnRaceFinished += HandleRaceFinished;
+            r.OnMatchFinished += HandleMatchFinished;
             return r;
         }));
 
@@ -128,7 +128,7 @@ public sealed class RoomManager : IAsyncDisposable
                     stale.Add((kv.Key, $"Waiting room idle for {idleMs / 1000}s"));
                     break;
 
-                case RoomStatus.Racing when idleMs > WebSocketSettings.RaceTimeoutMs:
+                case RoomStatus.Racing when idleMs > WebSocketSettings.MatchTimeoutMs:
                     stale.Add((kv.Key, $"Racing room exceeded timeout ({idleMs / 1000}s)"));
                     break;
 
@@ -205,11 +205,11 @@ public sealed class RoomManager : IAsyncDisposable
         RemoveRoom(roomId);
     }
 
-    private void HandleRaceFinished(Guid roomId, IReadOnlyList<FinishResult> results)
+    private void HandleMatchFinished(Guid roomId, IReadOnlyList<FinishResult> results)
     {
         var room = GetRoom(roomId);
         var mapId = room?.MapId ?? Guid.Empty;
-        OnRoomRaceFinished?.Invoke(roomId, results, mapId);
+        OnRoomMatchFinished?.Invoke(roomId, results, mapId);
     }
 
     private void RemoveRoom(Guid roomId)

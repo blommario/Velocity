@@ -4,7 +4,7 @@
  * and ping/pong latency measurement.
  *
  * Depends on: PositionCodec (MSG_TYPE), STORAGE_KEYS from api.ts
- * Used by: raceStore
+ * Used by: multiplayerStore
  */
 
 import { MSG_TYPE } from './PositionCodec';

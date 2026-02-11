@@ -4,9 +4,9 @@ using Velocity.Core.Entities;
 
 namespace Velocity.Data.Configurations;
 
-public class RaceParticipantConfiguration : IEntityTypeConfiguration<RaceParticipant>
+public class MultiplayerParticipantConfiguration : IEntityTypeConfiguration<MultiplayerParticipant>
 {
-    public void Configure(EntityTypeBuilder<RaceParticipant> builder)
+    public void Configure(EntityTypeBuilder<MultiplayerParticipant> builder)
     {
         builder.HasKey(p => p.Id);
 
@@ -16,7 +16,7 @@ public class RaceParticipantConfiguration : IEntityTypeConfiguration<RacePartici
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(p => p.Player)
-            .WithMany(pl => pl.RaceParticipations)
+            .WithMany(pl => pl.MultiplayerParticipations)
             .HasForeignKey(p => p.PlayerId)
             .OnDelete(DeleteBehavior.Cascade);
 

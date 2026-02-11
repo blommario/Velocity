@@ -9,9 +9,9 @@ public class VelocityDbContext(DbContextOptions<VelocityDbContext> options) : Db
     public DbSet<GameMap> GameMaps => Set<GameMap>();
     public DbSet<Run> Runs => Set<Run>();
     public DbSet<LeaderboardEntry> LeaderboardEntries => Set<LeaderboardEntry>();
-    public DbSet<RaceRoom> RaceRooms => Set<RaceRoom>();
-    public DbSet<RaceParticipant> RaceParticipants => Set<RaceParticipant>();
-    public DbSet<RaceResult> RaceResults => Set<RaceResult>();
+    public DbSet<MultiplayerRoom> MultiplayerRooms => Set<MultiplayerRoom>();
+    public DbSet<MultiplayerParticipant> MultiplayerParticipants => Set<MultiplayerParticipant>();
+    public DbSet<MultiplayerResult> MultiplayerResults => Set<MultiplayerResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -3,12 +3,12 @@
  * long-lived resources (audio, network, asset caches) when the
  * browser tab or window is closed.
  *
- * Depends on: audioManager, raceStore, assetManager
+ * Depends on: audioManager, multiplayerStore, assetManager
  * Used by: App
  */
 import { useEffect } from 'react';
 import { audioManager } from '@engine/audio/AudioManager';
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 import { clearAssetCache } from '@game/services/assetManager';
 import { devLog } from '@engine/stores/devLogStore';
 
@@ -18,7 +18,7 @@ export function useAppCleanup(): void {
       devLog.info('Cleanup', 'Disposing resources on page unload');
 
       // Network — disconnect WebSocket + clear latency interval
-      useRaceStore.getState().disconnectFromRace();
+      useMultiplayerStore.getState().disconnectFromMatch();
 
       // Audio — close AudioContext + release buffers
       audioManager.dispose();

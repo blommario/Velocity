@@ -1,11 +1,11 @@
 /**
- * Race results screen — shows final placements, times, and deltas after race finishes.
- * Displayed when raceStatus === 'finished'.
+ * Multiplayer results screen — shows final placements, times, and deltas after match finishes.
+ * Displayed when multiplayerStatus === 'finished'.
  *
- * Depends on: raceStore (finishResults, currentRoom)
- * Used by: RaceLobby
+ * Depends on: multiplayerStore (finishResults, currentRoom)
+ * Used by: MultiplayerLobby
  */
-import { useRaceStore, type RaceFinishResult } from '@game/stores/raceStore';
+import { useMultiplayerStore, type MultiplayerFinishResult } from '@game/stores/multiplayerStore';
 import { useAuthStore } from '@game/stores/authStore';
 
 const PLACEMENT_COLORS = {
@@ -30,10 +30,10 @@ function placementColor(p: number): string {
   return 'text-gray-400';
 }
 
-export function RaceResults() {
-  const finishResults = useRaceStore((s) => s.finishResults);
-  const currentRoom = useRaceStore((s) => s.currentRoom);
-  const disconnectFromRace = useRaceStore((s) => s.disconnectFromRace);
+export function MultiplayerResults() {
+  const finishResults = useMultiplayerStore((s) => s.finishResults);
+  const currentRoom = useMultiplayerStore((s) => s.currentRoom);
+  const disconnectFromMatch = useMultiplayerStore((s) => s.disconnectFromMatch);
   const playerId = useAuthStore((s) => s.playerId);
 
   const sorted = [...finishResults].sort((a, b) => {
@@ -49,7 +49,7 @@ export function RaceResults() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h2 className="text-3xl font-black tracking-wider">RACE RESULTS</h2>
+        <h2 className="text-3xl font-black tracking-wider">RESULTS</h2>
         {currentRoom && (
           <p className="text-sm text-gray-400 mt-1">{currentRoom.mapName}</p>
         )}
@@ -83,7 +83,7 @@ export function RaceResults() {
       {/* Actions */}
       <div className="flex gap-3 justify-center">
         <button
-          onClick={disconnectFromRace}
+          onClick={disconnectFromMatch}
           className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg text-sm transition-colors"
         >
           Back to Lobby
@@ -98,7 +98,7 @@ function ResultRow({
   isLocal,
   winnerTime,
 }: {
-  result: RaceFinishResult;
+  result: MultiplayerFinishResult;
   isLocal: boolean;
   winnerTime: number | null;
 }) {

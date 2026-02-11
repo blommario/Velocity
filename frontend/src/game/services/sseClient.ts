@@ -3,7 +3,7 @@
  * Token passed as query parameter since EventSource lacks custom headers.
  *
  * Depends on: ./api (STORAGE_KEYS)
- * Used by: raceStore
+ * Used by: multiplayerStore
  */
 import { STORAGE_KEYS } from './api';
 

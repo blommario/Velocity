@@ -9,7 +9,7 @@
  * [1B msgType=0x02][1B count][per player: 1B slot + 4B posX + 4B posY + 4B posZ + 2B yaw + 2B pitch + 2B speed + 1B checkpoint + 4B timestamp]
  *
  * Depends on: nothing (pure functions + pre-allocated buffers)
- * Used by: GameTransport, raceStore
+ * Used by: GameTransport, multiplayerStore
  */
 
 /** Binary message type constants — must match backend WebSocketSettings. */

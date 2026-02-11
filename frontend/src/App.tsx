@@ -10,7 +10,7 @@ import { MainMenu } from '@game/components/menu/MainMenu';
 import { AuthScreen } from '@game/components/menu/AuthScreen';
 import { MapEditor } from '@game/components/editor/MapEditor';
 import { SettingsScreen } from '@game/components/menu/SettingsScreen';
-import { RaceLobby } from '@game/components/menu/RaceLobby';
+import { MultiplayerLobby } from '@game/components/menu/MultiplayerLobby';
 import { PlayerProfile } from '@game/components/menu/PlayerProfile';
 import { LoadingScreen } from '@game/components/menu/LoadingScreen';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
@@ -45,8 +45,8 @@ function App() {
       return <MapEditor />;
     case SCREENS.SETTINGS:
       return <SettingsScreen />;
-    case SCREENS.RACE_LOBBY:
-      return <RaceLobby />;
+    case SCREENS.MULTIPLAYER_LOBBY:
+      return <MultiplayerLobby />;
     case SCREENS.PROFILE:
       return <PlayerProfile />;
     case SCREENS.LOADING:

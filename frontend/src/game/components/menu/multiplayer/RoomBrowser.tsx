@@ -1,12 +1,12 @@
 /**
- * Room browser UI for creating and joining multiplayer race rooms.
+ * Room browser UI for creating and joining multiplayer rooms.
  * Fetches available maps from the API for the map selector.
  *
- * Depends on: @game/stores/raceStore, @game/services/mapService, @game/services/types
- * Used by: RaceLobby
+ * Depends on: @game/stores/multiplayerStore, @game/services/mapService, @game/services/types
+ * Used by: MultiplayerLobby
  */
 import { useEffect, useState } from 'react';
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 import { getMaps } from '@game/services/mapService';
 import type { MapResponse, RoomResponse } from '@game/services/types';
 
@@ -25,12 +25,12 @@ const ROOM_STATUS_COLORS: Record<string, string> = {
 } as const;
 
 export function RoomBrowser() {
-  const rooms = useRaceStore((s) => s.rooms);
-  const isLoading = useRaceStore((s) => s.isLoading);
-  const error = useRaceStore((s) => s.error);
-  const fetchRooms = useRaceStore((s) => s.fetchRooms);
-  const joinRoom = useRaceStore((s) => s.joinRoom);
-  const createRoom = useRaceStore((s) => s.createRoom);
+  const rooms = useMultiplayerStore((s) => s.rooms);
+  const isLoading = useMultiplayerStore((s) => s.isLoading);
+  const error = useMultiplayerStore((s) => s.error);
+  const fetchRooms = useMultiplayerStore((s) => s.fetchRooms);
+  const joinRoom = useMultiplayerStore((s) => s.joinRoom);
+  const createRoom = useMultiplayerStore((s) => s.createRoom);
 
   const [maps, setMaps] = useState<MapResponse[]>([]);
   const [selectedMapId, setSelectedMapId] = useState('');

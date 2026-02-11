@@ -4,10 +4,10 @@ using Velocity.Core.Interfaces;
 
 namespace Velocity.Data.Repositories;
 
-public sealed class RaceRoomRepository(VelocityDbContext db) : IRaceRoomRepository
+public sealed class MultiplayerRoomRepository(VelocityDbContext db) : IMultiplayerRoomRepository
 {
-    public async ValueTask<RaceRoom?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => await db.RaceRooms
+    public async ValueTask<MultiplayerRoom?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => await db.MultiplayerRooms
             .AsNoTracking()
             .Include(r => r.Map)
             .Include(r => r.Host)
@@ -15,50 +15,50 @@ public sealed class RaceRoomRepository(VelocityDbContext db) : IRaceRoomReposito
                 .ThenInclude(p => p.Player)
             .SingleOrDefaultAsync(r => r.Id == id, ct);
 
-    public async ValueTask<IReadOnlyList<RaceRoom>> GetActiveRoomsAsync(CancellationToken ct = default)
-        => await db.RaceRooms
+    public async ValueTask<IReadOnlyList<MultiplayerRoom>> GetActiveRoomsAsync(CancellationToken ct = default)
+        => await db.MultiplayerRooms
             .AsNoTracking()
             .Include(r => r.Map)
             .Include(r => r.Host)
             .Include(r => r.Participants)
                 .ThenInclude(p => p.Player)
-            .Where(r => r.Status == RaceRoomStatus.Waiting || r.Status == RaceRoomStatus.Countdown)
+            .Where(r => r.Status == MultiplayerRoomStatus.Waiting || r.Status == MultiplayerRoomStatus.Countdown)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync(ct);
 
-    public async ValueTask<RaceRoom> CreateAsync(RaceRoom room, CancellationToken ct = default)
+    public async ValueTask<MultiplayerRoom> CreateAsync(MultiplayerRoom room, CancellationToken ct = default)
     {
-        db.RaceRooms.Add(room);
+        db.MultiplayerRooms.Add(room);
         await db.SaveChangesAsync(ct);
         return room;
     }
 
-    public async ValueTask UpdateAsync(RaceRoom room, CancellationToken ct = default)
+    public async ValueTask UpdateAsync(MultiplayerRoom room, CancellationToken ct = default)
     {
         db.Entry(room).State = EntityState.Modified;
         await db.SaveChangesAsync(ct);
     }
 
-    public async ValueTask AddParticipantAsync(RaceParticipant participant, CancellationToken ct = default)
+    public async ValueTask AddParticipantAsync(MultiplayerParticipant participant, CancellationToken ct = default)
     {
-        db.RaceParticipants.Add(participant);
+        db.MultiplayerParticipants.Add(participant);
         await db.SaveChangesAsync(ct);
     }
 
-    public async ValueTask<RaceParticipant?> GetParticipantAsync(Guid roomId, Guid playerId, CancellationToken ct = default)
-        => await db.RaceParticipants
+    public async ValueTask<MultiplayerParticipant?> GetParticipantAsync(Guid roomId, Guid playerId, CancellationToken ct = default)
+        => await db.MultiplayerParticipants
             .AsNoTracking()
             .SingleOrDefaultAsync(p => p.RoomId == roomId && p.PlayerId == playerId, ct);
 
-    public async ValueTask UpdateParticipantAsync(RaceParticipant participant, CancellationToken ct = default)
+    public async ValueTask UpdateParticipantAsync(MultiplayerParticipant participant, CancellationToken ct = default)
     {
         db.Entry(participant).State = EntityState.Modified;
         await db.SaveChangesAsync(ct);
     }
 
-    public async ValueTask SaveResultAsync(RaceResult result, CancellationToken ct = default)
+    public async ValueTask SaveResultAsync(MultiplayerResult result, CancellationToken ct = default)
     {
-        db.RaceResults.Add(result);
+        db.MultiplayerResults.Add(result);
         await db.SaveChangesAsync(ct);
     }
 }

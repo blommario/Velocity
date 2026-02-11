@@ -3,7 +3,7 @@
  * Green <50ms, yellow 50-100ms, orange 100-200ms, red >200ms.
  *
  * Depends on: nothing (pure presentational)
- * Used by: Game HUD (race mode)
+ * Used by: Game HUD (multiplayer mode)
  */
 
 export interface LatencyIndicatorProps {

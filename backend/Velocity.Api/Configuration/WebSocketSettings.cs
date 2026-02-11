@@ -38,13 +38,13 @@ public static class WebSocketSettings
     /// <summary>JSON message type prefix.</summary>
     public const byte MsgTypeJson = 0x80;
 
-    // ── Race lifecycle ──
+    // ── Match lifecycle ──
 
     /// <summary>Countdown duration in seconds (3→2→1→GO).</summary>
     public const int CountdownSeconds = 3;
 
-    /// <summary>Max race duration before force-finish (5 minutes).</summary>
-    public const int RaceTimeoutMs = 300_000;
+    /// <summary>Max match duration before force-finish (5 minutes).</summary>
+    public const int MatchTimeoutMs = 300_000;
 
     /// <summary>Delay after all players finish before room auto-closes (seconds).</summary>
     public const int FinishedGracePeriodSeconds = 120;

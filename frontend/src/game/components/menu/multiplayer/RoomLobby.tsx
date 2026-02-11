@@ -2,10 +2,10 @@
  * Room lobby — shows participants, ready state, and host controls.
  * T1: adds kick button for host, leave via WebSocket, racing status display.
  *
- * Depends on: raceStore, authStore
- * Used by: RaceLobby
+ * Depends on: multiplayerStore, authStore
+ * Used by: MultiplayerLobby
  */
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 import { useAuthStore } from '@game/stores/authStore';
 import type { ParticipantResponse } from '@game/services/types';
 
@@ -34,16 +34,16 @@ const STATUS_COLORS: Record<string, string> = {
 } as const;
 
 export function RoomLobby() {
-  const currentRoom = useRaceStore((s) => s.currentRoom);
-  const isConnected = useRaceStore((s) => s.isConnected);
-  const isLoading = useRaceStore((s) => s.isLoading);
-  const error = useRaceStore((s) => s.error);
-  const raceStatus = useRaceStore((s) => s.raceStatus);
-  const setReady = useRaceStore((s) => s.setReady);
-  const startRace = useRaceStore((s) => s.startRace);
-  const sendLeave = useRaceStore((s) => s.sendLeave);
-  const sendKick = useRaceStore((s) => s.sendKick);
-  const disconnectFromRace = useRaceStore((s) => s.disconnectFromRace);
+  const currentRoom = useMultiplayerStore((s) => s.currentRoom);
+  const isConnected = useMultiplayerStore((s) => s.isConnected);
+  const isLoading = useMultiplayerStore((s) => s.isLoading);
+  const error = useMultiplayerStore((s) => s.error);
+  const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
+  const setReady = useMultiplayerStore((s) => s.setReady);
+  const startMatch = useMultiplayerStore((s) => s.startMatch);
+  const sendLeave = useMultiplayerStore((s) => s.sendLeave);
+  const sendKick = useMultiplayerStore((s) => s.sendKick);
+  const disconnectFromMatch = useMultiplayerStore((s) => s.disconnectFromMatch);
   const playerId = useAuthStore((s) => s.playerId);
 
   if (!currentRoom) return null;
@@ -58,10 +58,10 @@ export function RoomLobby() {
   const statusColor = STATUS_COLORS[currentRoom.status] ?? 'text-gray-400';
 
   const handleLeave = () => {
-    if (raceStatus === 'racing' || raceStatus === 'countdown') {
+    if (multiplayerStatus === 'racing' || multiplayerStatus === 'countdown') {
       sendLeave();
     }
-    disconnectFromRace();
+    disconnectFromMatch();
   };
 
   return (
@@ -130,11 +130,11 @@ export function RoomLobby() {
         )}
         {isHost && allReady && isWaiting && currentRoom.participants.length >= 2 && (
           <button
-            onClick={startRace}
+            onClick={startMatch}
             disabled={isLoading}
             className="flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white font-bold py-3 rounded-lg text-sm transition-colors"
           >
-            {isLoading ? 'Starting...' : 'Start Race'}
+            {isLoading ? 'Starting...' : 'Start Match'}
           </button>
         )}
         <button

@@ -45,7 +45,7 @@ export const DIFFICULTY_OPTIONS: (MapDifficulty | 'All')[] = ['All', 'Easy', 'Me
 export const NAV_ITEMS = [
   { label: 'QUICK PLAY', icon: 'M5 3l14 9-14 9V3z', screen: null, accent: 'cyan' },
   { label: 'MAP EDITOR', icon: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7', screen: SCREENS.MAP_EDITOR, accent: 'violet' },
-  { label: 'LIVE RACE', icon: 'M13 10V3L4 14h7v7l9-11h-7z', screen: SCREENS.RACE_LOBBY, accent: 'blue' },
+  { label: 'MULTIPLAYER', icon: 'M13 10V3L4 14h7v7l9-11h-7z', screen: SCREENS.MULTIPLAYER_LOBBY, accent: 'blue' },
   { label: 'PROFILE', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', screen: SCREENS.PROFILE, accent: 'gray' },
   { label: 'SETTINGS', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z', screen: SCREENS.SETTINGS, accent: 'gray' },
 ] as const;

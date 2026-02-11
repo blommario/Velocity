@@ -1,6 +1,6 @@
 namespace Velocity.Core.Entities;
 
-public class RaceParticipant
+public class MultiplayerParticipant
 {
     public Guid Id { get; set; }
     public Guid RoomId { get; set; }
@@ -9,6 +9,6 @@ public class RaceParticipant
     public float? FinishTime { get; set; }
     public DateTime JoinedAt { get; set; }
 
-    public RaceRoom Room { get; set; } = null!;
+    public MultiplayerRoom Room { get; set; } = null!;
     public Player Player { get; set; } = null!;
 }

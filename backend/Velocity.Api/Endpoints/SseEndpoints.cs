@@ -45,7 +45,7 @@ public static class SseEndpoints
             }
         });
 
-        group.MapGet("/race/{roomId:guid}", async (
+        group.MapGet("/multiplayer/{roomId:guid}", async (
             Guid roomId,
             SseConnectionManager sse,
             HttpContext context,
@@ -55,7 +55,7 @@ public static class SseEndpoints
             context.Response.Headers.CacheControl = "no-cache";
             context.Response.Headers.Connection = "keep-alive";
 
-            var channelName = SseChannels.Race(roomId);
+            var channelName = SseChannels.Multiplayer(roomId);
             sse.AddClient(channelName, context.Response);
 
             await SseConnectionManager.SendToClientAsync(

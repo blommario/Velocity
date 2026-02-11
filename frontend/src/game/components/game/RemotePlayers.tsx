@@ -1,9 +1,9 @@
 /**
- * Renders networked player models for remote players during a multiplayer race.
+ * Renders networked player models for remote players during a multiplayer match.
  * Loads Player.obj once, then delegates interpolation to engine NetworkedPlayer.
  * Falls back to capsule while model is loading.
  *
- * Depends on: raceStore, authStore, engine NetworkedPlayer, OBJLoader
+ * Depends on: multiplayerStore, authStore, engine NetworkedPlayer, OBJLoader
  * Used by: GameCanvas
  */
 import { useState, useEffect } from 'react';
@@ -11,7 +11,7 @@ import { Group } from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { NetworkedPlayer } from '@engine/rendering/NetworkedPlayer';
 import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 import { useAuthStore } from '@game/stores/authStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
@@ -57,8 +57,8 @@ function loadPlayerOBJ(): Promise<Group> {
 }
 
 export function RemotePlayers() {
-  const racePositions = useRaceStore((s) => s.racePositions);
-  const raceStatus = useRaceStore((s) => s.raceStatus);
+  const multiplayerPositions = useMultiplayerStore((s) => s.multiplayerPositions);
+  const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
   const localPlayerId = useAuthStore((s) => s.playerId);
   const [playerModel, setPlayerModel] = useState<Group | null>(null);
 
@@ -66,11 +66,11 @@ export function RemotePlayers() {
     loadPlayerOBJ().then(setPlayerModel).catch(() => {});
   }, []);
 
-  if (raceStatus !== 'racing' && raceStatus !== 'countdown') return null;
+  if (multiplayerStatus !== 'racing' && multiplayerStatus !== 'countdown') return null;
 
   const players: { id: string; snapshot: NetSnapshot; index: number }[] = [];
   let i = 0;
-  racePositions.forEach((pos, id) => {
+  multiplayerPositions.forEach((pos, id) => {
     if (id !== localPlayerId) {
       players.push({ id, snapshot: pos, index: i });
     }

@@ -17,7 +17,7 @@ export const SCREENS = {
   PAUSED: 'paused',
   MAP_EDITOR: 'mapEditor',
   SETTINGS: 'settings',
-  RACE_LOBBY: 'raceLobby',
+  MULTIPLAYER_LOBBY: 'multiplayerLobby',
   PROFILE: 'profile',
 } as const;
 

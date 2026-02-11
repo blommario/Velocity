@@ -92,7 +92,7 @@ builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
 builder.Services.AddScoped<IMapRepository, MapRepository>();
 builder.Services.AddScoped<IRunRepository, RunRepository>();
 builder.Services.AddScoped<ILeaderboardRepository, LeaderboardRepository>();
-builder.Services.AddScoped<IRaceRoomRepository, RaceRoomRepository>();
+builder.Services.AddScoped<IMultiplayerRoomRepository, MultiplayerRoomRepository>();
 
 // ── Handlers (CQRS) ──
 builder.Services.AddScoped<AuthHandlers>();
@@ -101,7 +101,7 @@ builder.Services.AddScoped<RunHandlers>();
 builder.Services.AddScoped<LeaderboardHandlers>();
 builder.Services.AddScoped<PlayerHandlers>();
 builder.Services.AddScoped<ReplayHandlers>();
-builder.Services.AddScoped<RaceHandlers>();
+builder.Services.AddScoped<MultiplayerHandlers>();
 
 // ── Problem details for consistent error responses ──
 builder.Services.AddProblemDetails();
@@ -115,10 +115,10 @@ if (app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<VelocityDbContext>();
     db.Database.EnsureCreated();
 
-    // DEV: clear stale race data on startup so rooms don't linger across restarts
-    db.RaceResults.RemoveRange(db.RaceResults);
-    db.RaceParticipants.RemoveRange(db.RaceParticipants);
-    db.RaceRooms.RemoveRange(db.RaceRooms);
+    // DEV: clear stale multiplayer data on startup so rooms don't linger across restarts
+    db.MultiplayerResults.RemoveRange(db.MultiplayerResults);
+    db.MultiplayerParticipants.RemoveRange(db.MultiplayerParticipants);
+    db.MultiplayerRooms.RemoveRange(db.MultiplayerRooms);
     await db.SaveChangesAsync();
 
     await DatabaseSeeder.SeedAsync(db);
@@ -158,7 +158,7 @@ app.MapRunEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapPlayerEndpoints();
 app.MapReplayEndpoints();
-app.MapRaceEndpoints();
+app.MapMultiplayerEndpoints();
 app.MapSseEndpoints();
 app.MapWebSocketEndpoints();
 app.MapMetricsEndpoints();

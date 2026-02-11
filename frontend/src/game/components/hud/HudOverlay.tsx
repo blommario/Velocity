@@ -26,7 +26,7 @@ import { HeadshotStreak } from './HeadshotStreak';
 import { CriticalHitFlash } from './CriticalHitFlash';
 import { WeaponWheelOverlay } from './WeaponWheelOverlay';
 import { KillstreakPopup } from './KillstreakPopup';
-import { RaceLatency } from './RaceLatency';
+import { MultiplayerLatency } from './MultiplayerLatency';
 import { useGameStore, RUN_STATES } from '@game/stores/gameStore';
 
 export function HudOverlay() {
@@ -54,7 +54,7 @@ export function HudOverlay() {
       <StanceIndicator />
       <WeaponWheelOverlay />
       <KillstreakPopup />
-      <RaceLatency />
+      <MultiplayerLatency />
 
       {runState === RUN_STATES.READY && <ReadyPrompt />}
 

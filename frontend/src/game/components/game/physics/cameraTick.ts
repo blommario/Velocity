@@ -14,7 +14,7 @@ import { useReplayStore } from '@game/stores/replayStore';
 import { activeCount } from './projectileTick';
 import { devLog } from '@engine/stores/devLogStore';
 import { encodePosition } from '@engine/networking';
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 
 const WALL_RUN_TILT = 0.15;
 const TILT_LERP_SPEED = 10;
@@ -120,9 +120,9 @@ export function handleHudAndReplay(ctx: TickContext, numCollisions: number): voi
 
   // Multiplayer: send position at 20Hz when racing
   if (now - s.lastPositionSend > POSITION_SEND_INTERVAL) {
-    const race = useRaceStore.getState();
-    if (race.raceStatus === 'racing') {
-      const t = race.getTransport();
+    const mp = useMultiplayerStore.getState();
+    if (mp.multiplayerStatus === 'racing') {
+      const t = mp.getTransport();
       if (t) {
         const hSpd = getHorizontalSpeed(velocity);
         const buf = encodePosition(

@@ -2,7 +2,7 @@
  * HTTP client wrapper with JWT auth header injection and typed request helpers.
  *
  * Depends on: none (fetch API)
- * Used by: leaderboardService, mapService, raceService, replayService, runService, authStore
+ * Used by: leaderboardService, mapService, multiplayerService, replayService, runService, authStore
  */
 const API_BASE = '/api' as const;
 

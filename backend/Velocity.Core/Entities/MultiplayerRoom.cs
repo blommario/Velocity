@@ -1,21 +1,21 @@
 namespace Velocity.Core.Entities;
 
-public class RaceRoom
+public class MultiplayerRoom
 {
     public Guid Id { get; set; }
     public Guid MapId { get; set; }
     public Guid HostPlayerId { get; set; }
-    public string Status { get; set; } = RaceRoomStatus.Waiting;
+    public string Status { get; set; } = MultiplayerRoomStatus.Waiting;
     public int MaxPlayers { get; set; } = 8;
     public DateTime CreatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
 
     public GameMap Map { get; set; } = null!;
     public Player Host { get; set; } = null!;
-    public ICollection<RaceParticipant> Participants { get; set; } = [];
+    public ICollection<MultiplayerParticipant> Participants { get; set; } = [];
 }
 
-public static class RaceRoomStatus
+public static class MultiplayerRoomStatus
 {
     public const string Waiting = "waiting";
     public const string Countdown = "countdown";

@@ -4,9 +4,9 @@ using Velocity.Core.Entities;
 
 namespace Velocity.Data.Configurations;
 
-public class RaceRoomConfiguration : IEntityTypeConfiguration<RaceRoom>
+public class MultiplayerRoomConfiguration : IEntityTypeConfiguration<MultiplayerRoom>
 {
-    public void Configure(EntityTypeBuilder<RaceRoom> builder)
+    public void Configure(EntityTypeBuilder<MultiplayerRoom> builder)
     {
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Status).HasMaxLength(20);

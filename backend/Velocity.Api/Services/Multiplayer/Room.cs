@@ -15,8 +15,8 @@ namespace Velocity.Api.Services.Multiplayer;
 /// Each room runs its own BroadcastLoop (20Hz), ProcessControl (continuous), and HeartbeatMonitor (5s).
 /// Binary positions are written directly in each player's ReceiveLoop (zero-copy, no channel).
 /// JSON control messages use a separate unbounded channel (never dropped).
-/// T1: adds race state machine (Waiting→Countdown→Racing→Finished), finish tracking,
-/// leave/kick, host succession, and race timeout.
+/// T1: adds match state machine (Waiting→Countdown→Racing→Finished), finish tracking,
+/// leave/kick, host succession, and match timeout.
 /// </summary>
 /// <remarks>
 /// Depends on: PlayerSocket, PositionSnapshot, WebSocketSettings
@@ -76,9 +76,9 @@ public sealed class Room : IAsyncDisposable
     private bool _disposed;
     private long _inboundMessageCount;
 
-    // ── Race state (T1) ──
+    // ── Match state (T1) ──
     private RoomStatus _status = RoomStatus.Waiting;
-    private long _raceStartTime;      // epoch ms (server clock) when race_start fires
+    private long _matchStartTime;     // epoch ms (server clock) when match_start fires
     private int _finishedCount;
     private Guid _hostPlayerId;
     private Guid _mapId;
@@ -90,7 +90,7 @@ public sealed class Room : IAsyncDisposable
     public Guid HostPlayerId => _hostPlayerId;
     public Guid MapId => _mapId;
     public long LastActivityAt => _lastActivityAt;
-    public long RaceStartTime => _raceStartTime;
+    public long MatchStartTime => _matchStartTime;
 
     /// <summary>True once DisposeAsync has been called — used by RoomManager to guard against joining a disposing room.</summary>
     public bool IsDisposed => _disposed;
@@ -129,7 +129,7 @@ public sealed class Room : IAsyncDisposable
         _logger.LogInformation("Room {RoomId} created", roomId);
     }
 
-    /// <summary>Sets room metadata for race lifecycle (host, map). Called after JoinRoom creates the room.</summary>
+    /// <summary>Sets room metadata for match lifecycle (host, map). Called after JoinRoom creates the room.</summary>
     public void SetMetadata(Guid hostPlayerId, Guid mapId)
     {
         _hostPlayerId = hostPlayerId;
@@ -229,10 +229,10 @@ public sealed class Room : IAsyncDisposable
         return (-1, _playerCount == 0);
     }
 
-    // ── Race lifecycle (T1) ──
+    // ── Match lifecycle (T1) ──
 
     /// <summary>
-    /// Starts the countdown sequence as a background task. Called from RaceHandlers.StartRace.
+    /// Starts the countdown sequence as a background task. Called from MultiplayerHandlers.StartMatch.
     /// Broadcasts countdown 3→2→1→0 (GO) then transitions to Racing.
     /// </summary>
     public void StartCountdown()
@@ -256,7 +256,7 @@ public sealed class Room : IAsyncDisposable
             }
 
             // GO!
-            _raceStartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _matchStartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             _status = RoomStatus.Racing;
             _finishedCount = 0;
 
@@ -275,12 +275,12 @@ public sealed class Room : IAsyncDisposable
             }
 
             await BroadcastJsonAsync("countdown", new { countdown = 0 }, ct);
-            await BroadcastJsonAsync("race_start", new { raceStartTime = _raceStartTime }, ct);
+            await BroadcastJsonAsync("match_start", new { matchStartTime = _matchStartTime }, ct);
 
-            _logger.LogInformation("Room {RoomId} race started at {StartTime}", _roomId, _raceStartTime);
+            _logger.LogInformation("Room {RoomId} match started at {StartTime}", _roomId, _matchStartTime);
 
-            // Schedule race timeout
-            _ = Task.Run(() => RaceTimeoutMonitor(ct), ct);
+            // Schedule match timeout
+            _ = Task.Run(() => MatchTimeoutMonitor(ct), ct);
         }
         catch (OperationCanceledException)
         {
@@ -288,36 +288,36 @@ public sealed class Room : IAsyncDisposable
         }
     }
 
-    /// <summary>Force-finishes the race after timeout.</summary>
-    private async Task RaceTimeoutMonitor(CancellationToken ct)
+    /// <summary>Force-finishes the match after timeout.</summary>
+    private async Task MatchTimeoutMonitor(CancellationToken ct)
     {
         try
         {
-            await Task.Delay(WebSocketSettings.RaceTimeoutMs, ct);
+            await Task.Delay(WebSocketSettings.MatchTimeoutMs, ct);
 
             if (_status != RoomStatus.Racing) return;
 
-            _logger.LogInformation("Room {RoomId} race timeout — force finishing", _roomId);
-            await FinishRace(ct);
+            _logger.LogInformation("Room {RoomId} match timeout — force finishing", _roomId);
+            await FinishMatch(ct);
         }
         catch (OperationCanceledException)
         {
-            // Normal — room disposed or race ended before timeout
+            // Normal — room disposed or match ended before timeout
         }
     }
 
-    /// <summary>Transitions room to Finished state, broadcasts race_finished with results.</summary>
-    private async Task FinishRace(CancellationToken ct)
+    /// <summary>Transitions room to Finished state, broadcasts match_finished with results.</summary>
+    private async Task FinishMatch(CancellationToken ct)
     {
         if (_status == RoomStatus.Finished) return;
         _status = RoomStatus.Finished;
 
         var results = GetFinishResults();
-        await BroadcastJsonAsync("race_finished", new { results }, ct);
+        await BroadcastJsonAsync("match_finished", new { results }, ct);
 
-        _logger.LogInformation("Room {RoomId} race finished ({Count} finishers)", _roomId, results.Count);
+        _logger.LogInformation("Room {RoomId} match finished ({Count} finishers)", _roomId, results.Count);
 
-        OnRaceFinished?.Invoke(_roomId, results);
+        OnMatchFinished?.Invoke(_roomId, results);
     }
 
     /// <summary>Collects finish results from all players for broadcasting and DB persistence.</summary>
@@ -591,7 +591,7 @@ public sealed class Room : IAsyncDisposable
         }
     }
 
-    /// <summary>Checks if all remaining active players have finished; if so, end the race.</summary>
+    /// <summary>Checks if all remaining active players have finished; if so, end the match.</summary>
     private async Task CheckAllFinished(CancellationToken ct)
     {
         bool allFinished;
@@ -611,7 +611,7 @@ public sealed class Room : IAsyncDisposable
 
         if (allFinished)
         {
-            await FinishRace(ct);
+            await FinishMatch(ct);
         }
     }
 
@@ -890,7 +890,7 @@ public sealed class Room : IAsyncDisposable
             players,
             yourSlot,
             status = _status.ToString().ToLowerInvariant(),
-            raceStartTime = _raceStartTime,
+            matchStartTime = _matchStartTime,
             hostPlayerId = _hostPlayerId,
             positions,
             finishResults = results,
@@ -1098,8 +1098,8 @@ public sealed class Room : IAsyncDisposable
     /// <summary>Fires when the room becomes empty (all players disconnected).</summary>
     public event Action<Guid>? OnEmpty;
 
-    /// <summary>Fires when race finishes (all finished or timeout). Provides results for DB persistence.</summary>
-    public event Action<Guid, IReadOnlyList<FinishResult>>? OnRaceFinished;
+    /// <summary>Fires when match finishes (all finished or timeout). Provides results for DB persistence.</summary>
+    public event Action<Guid, IReadOnlyList<FinishResult>>? OnMatchFinished;
 
     public async ValueTask DisposeAsync()
     {
@@ -1164,7 +1164,7 @@ public sealed class Room : IAsyncDisposable
 /// </summary>
 public readonly record struct ControlMessage(int Slot, byte[] Data);
 
-/// <summary>Race status enum for in-memory room state.</summary>
+/// <summary>Room status enum for in-memory room state.</summary>
 public enum RoomStatus
 {
     Waiting,

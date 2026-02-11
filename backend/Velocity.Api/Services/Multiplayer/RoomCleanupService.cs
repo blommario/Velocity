@@ -7,7 +7,7 @@ namespace Velocity.Api.Services.Multiplayer;
 /// <summary>
 /// Background service that (1) periodically cleans up stale rooms and
 /// (2) gracefully shuts down all WebSocket rooms when the application stops.
-/// Also persists race results to DB when rooms finish via RoomManager event.
+/// Also persists multiplayer results to DB when rooms finish via RoomManager event.
 /// </summary>
 /// <remarks>
 /// Depends on: RoomManager, IServiceScopeFactory
@@ -20,7 +20,7 @@ public sealed class RoomCleanupService(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        roomManager.OnRoomRaceFinished += HandleRaceFinished;
+        roomManager.OnRoomMatchFinished += HandleMatchFinished;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -42,7 +42,7 @@ public sealed class RoomCleanupService(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        roomManager.OnRoomRaceFinished -= HandleRaceFinished;
+        roomManager.OnRoomMatchFinished -= HandleMatchFinished;
         await roomManager.DisposeAsync();
         await base.StopAsync(cancellationToken);
     }
@@ -57,18 +57,18 @@ public sealed class RoomCleanupService(
         }
     }
 
-    private void HandleRaceFinished(Guid roomId, IReadOnlyList<FinishResult> results, Guid mapId)
+    private void HandleMatchFinished(Guid roomId, IReadOnlyList<FinishResult> results, Guid mapId)
     {
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<IRaceRoomRepository>();
+                var repo = scope.ServiceProvider.GetRequiredService<IMultiplayerRoomRepository>();
 
                 foreach (var result in results)
                 {
-                    var raceResult = new RaceResult
+                    var multiplayerResult = new MultiplayerResult
                     {
                         Id = Guid.NewGuid(),
                         RoomId = roomId,
@@ -76,18 +76,18 @@ public sealed class RoomCleanupService(
                         PlayerId = result.PlayerId,
                         FinishTime = result.FinishTime,
                         Placement = result.Placement,
-                        GameMode = "Race",
+                        GameMode = "Multiplayer",
                         CreatedAt = DateTime.UtcNow,
                     };
 
-                    await repo.SaveResultAsync(raceResult);
+                    await repo.SaveResultAsync(multiplayerResult);
                 }
 
-                logger.LogInformation("Persisted {Count} race results for room {RoomId}", results.Count, roomId);
+                logger.LogInformation("Persisted {Count} multiplayer results for room {RoomId}", results.Count, roomId);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to persist race results for room {RoomId}", roomId);
+                logger.LogError(ex, "Failed to persist multiplayer results for room {RoomId}", roomId);
             }
         });
     }

@@ -9,7 +9,7 @@ using Velocity.Api.Services.Multiplayer;
 namespace Velocity.Api.Endpoints;
 
 /// <summary>
-/// WebSocket upgrade endpoint for real-time multiplayer race rooms.
+/// WebSocket upgrade endpoint for real-time multiplayer rooms.
 /// Replaces SSE for position streaming — uses binary protocol at 20Hz.
 /// </summary>
 /// <remarks>
@@ -20,7 +20,7 @@ public static class WebSocketEndpoints
 {
     public static WebApplication MapWebSocketEndpoints(this WebApplication app)
     {
-        app.Map("/ws/race/{roomId:guid}", async (
+        app.Map("/ws/multiplayer/{roomId:guid}", async (
             HttpContext context,
             Guid roomId,
             RoomManager roomManager,

@@ -1,46 +1,46 @@
 /**
- * Race lobby container — routes between RoomBrowser, RoomLobby, RaceResults,
+ * Multiplayer lobby container — routes between RoomBrowser, RoomLobby, MultiplayerResults,
  * and overlays (countdown, disconnect).
  *
- * Depends on: raceStore, gameStore
+ * Depends on: multiplayerStore, gameStore
  * Used by: App.tsx (screen router)
  */
 import { useEffect } from 'react';
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
-import { RoomBrowser } from './race/RoomBrowser';
-import { RoomLobby } from './race/RoomLobby';
-import { RaceResults } from './race/RaceResults';
-import { CountdownOverlay } from './race/CountdownOverlay';
+import { RoomBrowser } from './multiplayer/RoomBrowser';
+import { RoomLobby } from './multiplayer/RoomLobby';
+import { MultiplayerResults } from './multiplayer/MultiplayerResults';
+import { CountdownOverlay } from './multiplayer/CountdownOverlay';
 
-export function RaceLobby() {
-  const currentRoom = useRaceStore((s) => s.currentRoom);
-  const countdown = useRaceStore((s) => s.countdown);
-  const raceStatus = useRaceStore((s) => s.raceStatus);
-  const disconnectedMessage = useRaceStore((s) => s.disconnectedMessage);
-  const isReconnecting = useRaceStore((s) => s.isReconnecting);
-  const reconnectAttempt = useRaceStore((s) => s.reconnectAttempt);
-  const disconnectFromRace = useRaceStore((s) => s.disconnectFromRace);
-  const retryReconnect = useRaceStore((s) => s.retryReconnect);
+export function MultiplayerLobby() {
+  const currentRoom = useMultiplayerStore((s) => s.currentRoom);
+  const countdown = useMultiplayerStore((s) => s.countdown);
+  const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
+  const disconnectedMessage = useMultiplayerStore((s) => s.disconnectedMessage);
+  const isReconnecting = useMultiplayerStore((s) => s.isReconnecting);
+  const reconnectAttempt = useMultiplayerStore((s) => s.reconnectAttempt);
+  const disconnectFromMatch = useMultiplayerStore((s) => s.disconnectFromMatch);
+  const retryReconnect = useMultiplayerStore((s) => s.retryReconnect);
 
-  // Cleanup on unmount — but NOT if race is starting (screen transition to PLAYING)
+  // Cleanup on unmount — but NOT if match is starting (screen transition to PLAYING)
   useEffect(() => {
     return () => {
-      const { raceStatus } = useRaceStore.getState();
-      if (raceStatus !== 'racing' && raceStatus !== 'countdown') {
-        disconnectFromRace();
+      const { multiplayerStatus } = useMultiplayerStore.getState();
+      if (multiplayerStatus !== 'racing' && multiplayerStatus !== 'countdown') {
+        disconnectFromMatch();
       }
     };
-  }, [disconnectFromRace]);
+  }, [disconnectFromMatch]);
 
   const handleBack = () => {
-    disconnectFromRace();
+    disconnectFromMatch();
     useGameStore.getState().setScreen(SCREENS.MAIN_MENU);
   };
 
   const renderContent = () => {
-    if (raceStatus === 'finished' && currentRoom) {
-      return <RaceResults />;
+    if (multiplayerStatus === 'finished' && currentRoom) {
+      return <MultiplayerResults />;
     }
     if (currentRoom) {
       return <RoomLobby />;
@@ -59,7 +59,7 @@ export function RaceLobby() {
           >
             &larr; Back
           </button>
-          <h1 className="text-2xl font-bold tracking-wider">LIVE RACE</h1>
+          <h1 className="text-2xl font-bold tracking-wider">MULTIPLAYER</h1>
         </div>
       </header>
 
@@ -79,7 +79,7 @@ export function RaceLobby() {
             <h3 className="text-xl font-bold text-yellow-400">Reconnecting...</h3>
             <p className="text-sm text-gray-300">Attempt {reconnectAttempt} of 10</p>
             <button
-              onClick={() => { disconnectFromRace(); }}
+              onClick={() => { disconnectFromMatch(); }}
               className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors"
             >
               Back to Lobby
@@ -102,7 +102,7 @@ export function RaceLobby() {
                 Retry
               </button>
               <button
-                onClick={() => { disconnectFromRace(); }}
+                onClick={() => { disconnectFromMatch(); }}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors"
               >
                 Back to Lobby

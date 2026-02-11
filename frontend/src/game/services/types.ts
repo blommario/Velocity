@@ -3,7 +3,7 @@
  * Mirrors backend Contracts/ DTOs with camelCase naming.
  *
  * Depends on: none
- * Used by: api, leaderboardService, mapService, raceService, replayService, runService, authStore, raceStore
+ * Used by: api, leaderboardService, mapService, multiplayerService, replayService, runService, authStore, multiplayerStore
  */
 // ── Auth ──
 export interface AuthResponse {
@@ -118,7 +118,7 @@ export interface PlayerProfileDetailResponse {
   recentRuns: PlayerRecentRunResponse[];
 }
 
-// ── Race Rooms ──
+// ── Multiplayer Rooms ──
 export interface ParticipantResponse {
   playerId: string;
   playerName: string;
@@ -145,12 +145,12 @@ export interface CreateRoomRequest {
 
 export type RoomStatus = 'waiting' | 'countdown' | 'racing' | 'finished';
 
-// ── Race SSE Events ──
-export interface RaceCountdownEvent {
+// ── Multiplayer SSE Events ──
+export interface MultiplayerCountdownEvent {
   countdown: number;
 }
 
-export interface RacePositionEvent {
+export interface MultiplayerPositionEvent {
   playerId: string;
   playerName: string;
   position: [number, number, number];
@@ -158,20 +158,20 @@ export interface RacePositionEvent {
   pitch: number;
 }
 
-export interface RacePlayerFinishedEvent {
+export interface MultiplayerPlayerFinishedEvent {
   playerId: string;
   playerName: string;
   finishTime: number;
 }
 
-export interface RaceRoomUpdateEvent {
+export interface MultiplayerRoomUpdateEvent {
   room: RoomResponse;
 }
 
-export interface RaceEventMap {
-  countdown: RaceCountdownEvent;
-  position: RacePositionEvent;
-  playerFinished: RacePlayerFinishedEvent;
-  roomUpdate: RaceRoomUpdateEvent;
-  message: RaceRoomUpdateEvent;
+export interface MultiplayerEventMap {
+  countdown: MultiplayerCountdownEvent;
+  position: MultiplayerPositionEvent;
+  playerFinished: MultiplayerPlayerFinishedEvent;
+  roomUpdate: MultiplayerRoomUpdateEvent;
+  message: MultiplayerRoomUpdateEvent;
 }

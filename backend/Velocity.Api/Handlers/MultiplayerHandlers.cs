@@ -9,15 +9,15 @@ using Velocity.Core.Interfaces;
 namespace Velocity.Api.Handlers;
 
 /// <summary>
-/// CQRS handlers for race room lobby operations (REST).
+/// CQRS handlers for multiplayer room lobby operations (REST).
 /// Broadcasts lifecycle events to both SSE (legacy) and WebSocket rooms.
 /// </summary>
 /// <remarks>
-/// Depends on: IRaceRoomRepository, IMapRepository, SseConnectionManager, RoomManager
-/// Used by: RaceEndpoints
+/// Depends on: IMultiplayerRoomRepository, IMapRepository, SseConnectionManager, RoomManager
+/// Used by: MultiplayerEndpoints
 /// </remarks>
-public sealed class RaceHandlers(
-    IRaceRoomRepository rooms,
+public sealed class MultiplayerHandlers(
+    IMultiplayerRoomRepository rooms,
     IMapRepository maps,
     SseConnectionManager sse,
     RoomManager roomManager)
@@ -34,20 +34,20 @@ public sealed class RaceHandlers(
         if (map is null)
             return Results.BadRequest(ValidationMessages.RunInvalidMapId);
 
-        var room = new RaceRoom
+        var room = new MultiplayerRoom
         {
             Id = Guid.NewGuid(),
             MapId = map.Id,
             HostPlayerId = playerId,
-            Status = RaceRoomStatus.Waiting,
-            MaxPlayers = ValidationRules.RaceMaxPlayers,
+            Status = MultiplayerRoomStatus.Waiting,
+            MaxPlayers = ValidationRules.MultiplayerMaxPlayers,
             CreatedAt = DateTime.UtcNow,
         };
 
         await rooms.CreateAsync(room, ct);
 
         // Add host as first participant
-        var participant = new RaceParticipant
+        var participant = new MultiplayerParticipant
         {
             Id = Guid.NewGuid(),
             RoomId = room.Id,
@@ -82,7 +82,7 @@ public sealed class RaceHandlers(
         if (room is null)
             return Results.NotFound(ValidationMessages.RoomNotFound);
 
-        if (room.Status != RaceRoomStatus.Waiting)
+        if (room.Status != MultiplayerRoomStatus.Waiting)
             return Results.Conflict(ValidationMessages.RoomNotWaiting);
 
         if (room.Participants.Count >= room.MaxPlayers)
@@ -92,7 +92,7 @@ public sealed class RaceHandlers(
         if (existing is not null)
             return Results.Conflict(ValidationMessages.RoomAlreadyJoined);
 
-        var participant = new RaceParticipant
+        var participant = new MultiplayerParticipant
         {
             Id = Guid.NewGuid(),
             RoomId = roomId,
@@ -106,7 +106,7 @@ public sealed class RaceHandlers(
         var playerName = user.FindFirstValue(ClaimTypes.Name) ?? ValidationRules.UnknownAuthorName;
 
         await sse.BroadcastAsync(
-            SseChannels.Race(roomId),
+            SseChannels.Multiplayer(roomId),
             SseEvents.PlayerJoined,
             new { PlayerId = playerId, PlayerName = playerName },
             ct);
@@ -125,7 +125,7 @@ public sealed class RaceHandlers(
         if (room is null)
             return Results.NotFound(ValidationMessages.RoomNotFound);
 
-        if (room.Status != RaceRoomStatus.Waiting)
+        if (room.Status != MultiplayerRoomStatus.Waiting)
             return Results.Conflict(ValidationMessages.RoomNotWaiting);
 
         var participant = await rooms.GetParticipantAsync(roomId, playerId, ct);
@@ -138,7 +138,7 @@ public sealed class RaceHandlers(
         var playerName = user.FindFirstValue(ClaimTypes.Name) ?? ValidationRules.UnknownAuthorName;
 
         await sse.BroadcastAsync(
-            SseChannels.Race(roomId),
+            SseChannels.Multiplayer(roomId),
             SseEvents.PlayerReady,
             new { PlayerId = playerId, PlayerName = playerName, participant.IsReady },
             ct);
@@ -147,7 +147,7 @@ public sealed class RaceHandlers(
         return Results.Ok(ToResponse(updated!));
     }
 
-    public async ValueTask<IResult> StartRace(Guid roomId, ClaimsPrincipal user, CancellationToken ct)
+    public async ValueTask<IResult> StartMatch(Guid roomId, ClaimsPrincipal user, CancellationToken ct)
     {
         var claimValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (claimValue is null || !Guid.TryParse(claimValue, out var playerId))
@@ -160,27 +160,27 @@ public sealed class RaceHandlers(
         if (room.HostPlayerId != playerId)
             return Results.Problem(statusCode: 403, detail: ValidationMessages.RoomNotHost);
 
-        if (room.Status != RaceRoomStatus.Waiting)
+        if (room.Status != MultiplayerRoomStatus.Waiting)
             return Results.Conflict(ValidationMessages.RoomAlreadyStarted);
 
-        if (room.Participants.Count < ValidationRules.RaceMinPlayers)
+        if (room.Participants.Count < ValidationRules.MultiplayerMinPlayers)
             return Results.BadRequest(ValidationMessages.RoomNotEnoughPlayers);
 
         var allReady = room.Participants.All(p => p.IsReady || p.PlayerId == room.HostPlayerId);
         if (!allReady)
             return Results.BadRequest(ValidationMessages.RoomNotAllReady);
 
-        room.Status = RaceRoomStatus.Countdown;
+        room.Status = MultiplayerRoomStatus.Countdown;
         room.StartedAt = DateTime.UtcNow;
         await rooms.UpdateAsync(room, ct);
 
         await sse.BroadcastAsync(
-            SseChannels.Race(roomId),
-            SseEvents.RaceStarting,
+            SseChannels.Multiplayer(roomId),
+            SseEvents.MatchStarting,
             new { RoomId = roomId, StartedAt = room.StartedAt },
             ct);
 
-        // Start countdown via WebSocket room (3→2→1→GO→race_start)
+        // Start countdown via WebSocket room (3→2→1→GO→match_start)
         var wsRoom = roomManager.GetRoom(roomId);
         if (wsRoom is not null)
         {
@@ -198,7 +198,7 @@ public sealed class RaceHandlers(
         return Results.Ok(activeRooms.Select(ToResponse));
     }
 
-    private static RoomResponse ToResponse(RaceRoom room) => new(
+    private static RoomResponse ToResponse(MultiplayerRoom room) => new(
         room.Id,
         room.MapId,
         room.Map?.Name ?? ValidationRules.UnknownAuthorName,
@@ -217,7 +217,7 @@ public sealed class RaceHandlers(
 
 internal static class SseChannels
 {
-    public static string Race(Guid roomId) => $"race:{roomId}";
+    public static string Multiplayer(Guid roomId) => $"multiplayer:{roomId}";
     public static string Leaderboard(Guid mapId) => $"leaderboard:{mapId}";
     public const string Activity = "activity";
 }
@@ -226,8 +226,8 @@ internal static class SseEvents
 {
     public const string PlayerJoined = "player_joined";
     public const string PlayerReady = "player_ready";
-    public const string RaceStarting = "race_starting";
-    public const string RaceFinished = "race_finished";
+    public const string MatchStarting = "match_starting";
+    public const string MatchFinished = "match_finished";
     public const string PositionUpdate = "position_update";
     public const string LeaderboardUpdate = "leaderboard_update";
     public const string ActivityUpdate = "activity_update";

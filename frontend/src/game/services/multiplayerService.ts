@@ -1,9 +1,9 @@
 /**
- * Race room API service — creating, joining, readying, and starting multiplayer races.
+ * Multiplayer room API service — creating, joining, readying, and starting multiplayer races.
  * Also fetches player profile details.
  *
  * Depends on: ./api, ./types
- * Used by: raceStore, PlayerProfile
+ * Used by: multiplayerStore, PlayerProfile
  */
 import { api } from './api';
 import type {
@@ -33,7 +33,7 @@ export async function setReady(roomId: string): Promise<RoomResponse> {
   return api.post<RoomResponse>(`/rooms/${roomId}/ready`);
 }
 
-export async function startRace(roomId: string): Promise<RoomResponse> {
+export async function startMatch(roomId: string): Promise<RoomResponse> {
   return api.post<RoomResponse>(`/rooms/${roomId}/start`);
 }
 

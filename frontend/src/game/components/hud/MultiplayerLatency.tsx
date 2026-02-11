@@ -1,16 +1,16 @@
 /**
- * Game-specific latency indicator — reads connection state from raceStore
- * and renders the engine LatencyIndicator only during an active multiplayer race.
+ * Game-specific latency indicator — reads connection state from multiplayerStore
+ * and renders the engine LatencyIndicator only during an active multiplayer match.
  *
- * Depends on: EngineLatencyIndicator, raceStore
+ * Depends on: EngineLatencyIndicator, multiplayerStore
  * Used by: HudOverlay
  */
 import { LatencyIndicator as EngineLatencyIndicator } from '@engine/hud';
-import { useRaceStore } from '@game/stores/raceStore';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 
-export function RaceLatency() {
-  const isConnected = useRaceStore((s) => s.isConnected);
-  const latency = useRaceStore((s) => s.latency);
+export function MultiplayerLatency() {
+  const isConnected = useMultiplayerStore((s) => s.isConnected);
+  const latency = useMultiplayerStore((s) => s.latency);
 
   if (!isConnected) return null;
 
