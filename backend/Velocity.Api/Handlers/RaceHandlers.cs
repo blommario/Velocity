@@ -2,15 +2,25 @@ using System.Security.Claims;
 using Velocity.Api.Configuration;
 using Velocity.Api.Contracts;
 using Velocity.Api.Services;
+using Velocity.Api.Services.Multiplayer;
 using Velocity.Core.Entities;
 using Velocity.Core.Interfaces;
 
 namespace Velocity.Api.Handlers;
 
+/// <summary>
+/// CQRS handlers for race room lobby operations (REST).
+/// Broadcasts lifecycle events to both SSE (legacy) and WebSocket rooms.
+/// </summary>
+/// <remarks>
+/// Depends on: IRaceRoomRepository, IMapRepository, SseConnectionManager, RoomManager
+/// Used by: RaceEndpoints
+/// </remarks>
 public sealed class RaceHandlers(
     IRaceRoomRepository rooms,
     IMapRepository maps,
-    SseConnectionManager sse)
+    SseConnectionManager sse,
+    RoomManager roomManager)
 {
     public async ValueTask<IResult> CreateRoom(CreateRoomRequest request, ClaimsPrincipal user, CancellationToken ct)
     {
@@ -167,6 +177,13 @@ public sealed class RaceHandlers(
             SseEvents.RaceStarting,
             new { RoomId = roomId, StartedAt = room.StartedAt },
             ct);
+
+        // Notify WebSocket room (if players are already connected)
+        var wsRoom = roomManager.GetRoom(roomId);
+        if (wsRoom is not null)
+        {
+            await wsRoom.BroadcastJsonAsync("race_starting", new { RoomId = roomId, StartedAt = room.StartedAt }, ct);
+        }
 
         var updated = await rooms.GetByIdAsync(roomId, ct);
         return Results.Ok(ToResponse(updated!));

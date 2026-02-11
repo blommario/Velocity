@@ -62,20 +62,20 @@ GameTransport                    WebSocket middleware
 ```
 
 **Backend — WebSocket Endpoint:**
-- 🔲 **`/ws/race/{roomId}`** — WebSocket upgrade endpoint
+- ✅ **`/ws/race/{roomId}`** — WebSocket upgrade endpoint
   - JWT-validering: token som query-param vid upgrade (samma som SSE idag), validera claims
   - Vid accept: `RoomManager.JoinRoom(roomId, playerId, webSocket)`
   - Vid close/error: `RoomManager.LeaveRoom(roomId, playerId)` + broadcast `player_left`
   - Kestrel inbyggt: `app.UseWebSockets()` + `context.WebSockets.AcceptWebSocketAsync()`
   - **Inga nya NuGet-paket** — allt inbyggt i `Microsoft.AspNetCore.WebSockets`
 
-- 🔲 **`RoomManager`** — singleton, äger alla aktiva rum
+- ✅ **`RoomManager`** — singleton, äger alla aktiva rum
   - `ConcurrentDictionary<Guid, Room>` — skapas vid första join, tas bort när tomt
   - `JoinRoom(roomId, playerId, ws)` → skapa Room om ej finns, lägg till spelare
   - `LeaveRoom(roomId, playerId)` → ta bort spelare, stäng rum om tomt
   - Exponerar `GetRoomSnapshot(roomId)` för reconnect-scenario
 
-- 🔲 **`Room`** — isolerad per race-rum, egen bakgrundsuppgift
+- ✅ **`Room`** — isolerad per race-rum, egen bakgrundsuppgift
   - `PlayerSocket[]` — pre-allokerat array (maxPlayers), håller WebSocket + playerId + metadata
   - `PositionBuffer[]` — pre-allokerat, en `PositionSnapshot` struct per spelare-slot
   - Inbound: receive-loop per spelare → skriver till `Channel<InboundMessage>` (bounded: 256)
@@ -89,7 +89,7 @@ GameTransport                    WebSocket middleware
     2. JSON message → parsa → dispatcha (chat, ready, finish, etc.)
   - `HeartbeatMonitor` — var 5:e sekund: check `LastSeenAt` per spelare, kick vid 15s timeout
 
-- 🔲 **Graceful shutdown** — `IHostedService` som stänger alla rum vid app-stopp
+- ✅ **Graceful shutdown** — `IHostedService` som stänger alla rum vid app-stopp
   - Skicka `server_shutdown` meddelande → close alla WebSockets med 1001 (Going Away)
 
 **Backend — Behåll REST för lobby (icke-realtid):**
@@ -98,7 +98,7 @@ GameTransport                    WebSocket middleware
 - SSE endpoints (`/api/sse/leaderboard`, `/api/sse/activity`) behålls för icke-rum-data (låg frekvens)
 
 **Frontend — Transport Abstraction:**
-- 🔲 **`engine/networking/GameTransport.ts`** — interface + WebSocket-implementation
+- ✅ **`engine/networking/GameTransport.ts`** — interface + WebSocket-implementation
   ```typescript
   interface IGameTransport {
     connect(url: string, token: string): Promise<void>;
@@ -117,7 +117,7 @@ GameTransport                    WebSocket middleware
   - Ping/pong: skicka ping var 5s, mät RTT, exponera `latencyMs`
   - Message framing: första byte = 0x00 → binär position, 0x01 → JSON UTF-8
 
-- 🔲 **Migrera `sseClient.ts` → `GameTransport`**
+- ✅ **Migrera `sseClient.ts` → `GameTransport`**
   - `raceStore.connectToRace(roomId)` → `transport.connect('/ws/race/' + roomId, token)`
   - SSE event handlers → `transport.onJson('countdown', ...)`, `transport.onBinary(...)`
   - `sseClient.ts` behålls BARA för leaderboard/activity (låg-frekvens SSE)
@@ -145,7 +145,7 @@ Batch-format (server → klient):
 ```
 
 **Frontend — Binär Serializer:**
-- 🔲 **`engine/networking/PositionCodec.ts`** — encode/decode med DataView
+- ✅ **`engine/networking/PositionCodec.ts`** — encode/decode med DataView
   - `encodePosition(pos, yaw, pitch, speed, checkpoint): ArrayBuffer` (klient → server)
   - `decodeBatch(buffer: ArrayBuffer): PositionSnapshot[]` (server → klient)
   - Använder pre-allokerad `ArrayBuffer` + `DataView` — noll GC per frame

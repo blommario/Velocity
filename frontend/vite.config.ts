@@ -45,6 +45,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false, // Accept self-signed dev cert
       },
+      '/ws': {
+        target: 'https://localhost:5001',
+        changeOrigin: true,
+        secure: false,
+        ws: true, // Enable WebSocket proxying
+      },
     },
   },
 })
