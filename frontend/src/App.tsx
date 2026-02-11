@@ -16,6 +16,7 @@ import { LoadingScreen } from '@game/components/menu/LoadingScreen';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
 import { useAuthStore } from '@game/stores/authStore';
 import { audioManager } from '@engine/audio/AudioManager';
+import { useAppCleanup } from '@game/hooks/useAppCleanup';
 
 function App() {
   const screen = useGameStore((s) => s.screen);
@@ -27,6 +28,9 @@ function App() {
     restoreSession();
     audioManager.preload();
   }, [restoreSession]);
+
+  // Tear down resources on tab/window close
+  useAppCleanup();
 
   // Not authenticated — show auth screen
   if (!token) {

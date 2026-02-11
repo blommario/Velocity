@@ -158,7 +158,7 @@ const SYNTH_CONFIGS: Partial<Record<SoundId, SynthConfig>> = {
 
 const AUDIO_FILES: Partial<Record<SoundId, string>> = {
   [SOUNDS.ROCKET_FIRE]: '/assets/sounds/weapons/rocket-launcher.mp3',
-  [SOUNDS.RIFLE_FIRE]: '/assets/sounds/weapons/rifle.mp3',
+  [SOUNDS.RIFLE_FIRE]: '/assets/sounds/weapons/machine-gun.mp3',
   [SOUNDS.SNIPER_FIRE]: '/assets/sounds/weapons/sniper.mp3',
 };
 
@@ -340,6 +340,19 @@ class AudioManager {
       case 'metal': this.play(SOUNDS.FOOTSTEP_METAL, 0.1); break;
       case 'glass': this.play(SOUNDS.FOOTSTEP_GLASS, 0.1); break;
       default: this.play(SOUNDS.FOOTSTEP_STONE, 0.15); break;
+    }
+  }
+
+  /** Release AudioContext and all cached buffers. */
+  dispose(): void {
+    this.audioBuffers.clear();
+    if (this.masterGain) {
+      this.masterGain.disconnect();
+      this.masterGain = null;
+    }
+    if (this.ctx) {
+      this.ctx.close().catch(() => {});
+      this.ctx = null;
     }
   }
 }

@@ -7,7 +7,7 @@
  */
 import type { MapData } from '../types';
 
-const ARENA_SIZE = 200;
+const ARENA_SIZE = 50;
 const WALL_HEIGHT = 8;
 const BARRIER_HEIGHT = 80;
 const HALF = ARENA_SIZE / 2;
@@ -19,11 +19,19 @@ const HALF = ARENA_SIZE / 2;
 export const FIRST_STEPS: MapData = {
   spawnPoint: [0, 1.5, 0],
   spawnDirection: [0, 0, -1],
+  models: [
+    // ═══════════════════════════════════════
+    // GROUND — GLB floor tiled 5×5 across 50×50 arena (~10 unit tiles)
+    // ═══════════════════════════════════════
+    ...([-20, -10, 0, 10, 20] as const).flatMap((x) =>
+      ([-20, -10, 0, 10, 20] as const).map((z) => ({
+        modelUrl: 'maps/floor.glb' as const,
+        position: [x, 0, z] as [number, number, number],
+        collider: 'trimesh' as const,
+      })),
+    ),
+  ],
   blocks: [
-    // ═══════════════════════════════════════
-    // GROUND — large concrete slab
-    // ═══════════════════════════════════════
-    { shape: 'box', position: [0, -0.5, 0], size: [ARENA_SIZE, 1, ARENA_SIZE], color: '#5a5a5a' },
 
     // ═══════════════════════════════════════
     // BOUNDARY WALLS — thick concrete perimeter
@@ -33,12 +41,6 @@ export const FIRST_STEPS: MapData = {
     { shape: 'box', position: [-HALF, WALL_HEIGHT / 2, 0], size: [2, WALL_HEIGHT, ARENA_SIZE], color: '#606060' },
     { shape: 'box', position: [HALF, WALL_HEIGHT / 2, 0], size: [2, WALL_HEIGHT, ARENA_SIZE], color: '#606060' },
 
-    // Metal trim along wall tops
-    { shape: 'box', position: [0, WALL_HEIGHT + 0.15, -HALF], size: [ARENA_SIZE, 0.3, 2.4], color: '#4a5560' },
-    { shape: 'box', position: [0, WALL_HEIGHT + 0.15, HALF], size: [ARENA_SIZE, 0.3, 2.4], color: '#4a5560' },
-    { shape: 'box', position: [-HALF, WALL_HEIGHT + 0.15, 0], size: [2.4, 0.3, ARENA_SIZE], color: '#4a5560' },
-    { shape: 'box', position: [HALF, WALL_HEIGHT + 0.15, 0], size: [2.4, 0.3, ARENA_SIZE], color: '#4a5560' },
-
     // Invisible barriers above walls
     { shape: 'box', position: [0, WALL_HEIGHT + BARRIER_HEIGHT / 2, -HALF], size: [ARENA_SIZE, BARRIER_HEIGHT, 1], color: '#000000', transparent: true, opacity: 0 },
     { shape: 'box', position: [0, WALL_HEIGHT + BARRIER_HEIGHT / 2, HALF], size: [ARENA_SIZE, BARRIER_HEIGHT, 1], color: '#000000', transparent: true, opacity: 0 },
@@ -46,86 +48,51 @@ export const FIRST_STEPS: MapData = {
     { shape: 'box', position: [HALF, WALL_HEIGHT + BARRIER_HEIGHT / 2, 0], size: [1, BARRIER_HEIGHT, ARENA_SIZE], color: '#000000', transparent: true, opacity: 0 },
 
     // ═══════════════════════════════════════
-    // SPAWN AREA — raised metal pad
+    // SCATTERED COVER — concrete blocks
     // ═══════════════════════════════════════
-    { shape: 'box', position: [0, 0.05, 0], size: [6, 0.1, 6], color: '#556677' },
-
-    // ═══════════════════════════════════════
-    // SCATTERED COVER — concrete blocks, no glow
-    // ═══════════════════════════════════════
-    // Near spawn
-    { shape: 'box', position: [8, 1.5, -10], size: [3, 3, 3], color: '#6b6b6b' },
-    { shape: 'box', position: [-12, 1, -6], size: [2, 2, 2], color: '#707070' },
-    { shape: 'box', position: [-8, 1.5, -18], size: [3, 3, 3], color: '#686868' },
-    { shape: 'box', position: [18, 1, -5], size: [2, 2, 2], color: '#757575' },
-
-    // Medium distance — larger concrete obstacles
-    { shape: 'box', position: [5, 2, -35], size: [4, 4, 4], color: '#626262' },
-    { shape: 'box', position: [-20, 2, -40], size: [4, 4, 4], color: '#585858' },
-    { shape: 'box', position: [25, 1.5, -30], size: [3, 3, 3], color: '#6e6e6e' },
-    { shape: 'box', position: [-30, 1, -20], size: [2, 2, 8], color: '#646464' },
-    { shape: 'box', position: [35, 2, -45], size: [4, 4, 4], color: '#5e5e5e' },
-
-    // Far obstacles
-    { shape: 'box', position: [0, 2.5, -70], size: [5, 5, 5], color: '#555555' },
-    { shape: 'box', position: [-40, 1.5, -60], size: [3, 3, 3], color: '#6a6a6a' },
-    { shape: 'box', position: [50, 2, -55], size: [4, 4, 4], color: '#606060' },
-    { shape: 'box', position: [-55, 1, -75], size: [2, 2, 2], color: '#727272' },
-    { shape: 'box', position: [30, 3, -80], size: [6, 6, 6], color: '#4e4e4e' },
+    { shape: 'box', position: [6, 1.5, -8], size: [3, 3, 3], color: '#6b6b6b' },
+    { shape: 'box', position: [-8, 1, -5], size: [2, 2, 2], color: '#707070' },
+    { shape: 'box', position: [-6, 1.5, -14], size: [3, 3, 3], color: '#686868' },
+    { shape: 'box', position: [12, 1, -4], size: [2, 2, 2], color: '#757575' },
+    { shape: 'box', position: [4, 2, -18], size: [4, 4, 4], color: '#626262' },
+    { shape: 'box', position: [-14, 2, -20], size: [4, 4, 4], color: '#585858' },
+    { shape: 'box', position: [16, 1.5, -15], size: [3, 3, 3], color: '#6e6e6e' },
+    { shape: 'box', position: [-18, 1, -10], size: [2, 2, 6], color: '#646464' },
 
     // ═══════════════════════════════════════
     // WALLS — metal panel strafe walls
     // ═══════════════════════════════════════
-    { shape: 'box', position: [-5, 1.5, -15], size: [12, 3, 0.6], color: '#4a5560' },
-    { shape: 'box', position: [40, 1.5, -35], size: [0.6, 3, 15], color: '#4a5560' },
-    { shape: 'box', position: [-35, 1.5, -50], size: [20, 3, 0.6], color: '#4a5560' },
+    { shape: 'box', position: [-4, 1.5, -12], size: [8, 3, 0.6], color: '#4a5560' },
+    { shape: 'box', position: [18, 1.5, -18], size: [0.6, 3, 10], color: '#4a5560' },
 
     // ═══════════════════════════════════════
     // STEP PLATFORMS — solid metal panels
     // ═══════════════════════════════════════
-    { shape: 'box', position: [12, 0.5, -15], size: [6, 1, 6], color: '#556677' },
-    { shape: 'box', position: [15, 1.5, -18], size: [4, 1, 4], color: '#556677' },
-    { shape: 'box', position: [-45, 0.5, -30], size: [8, 1, 8], color: '#556677' },
-    { shape: 'box', position: [-45, 1.5, -33], size: [4, 1, 4], color: '#556677' },
+    { shape: 'box', position: [10, 0.5, -10], size: [6, 1, 6], color: '#556677' },
+    { shape: 'box', position: [12, 1.5, -12], size: [4, 1, 4], color: '#556677' },
+    { shape: 'box', position: [-20, 0.5, -16], size: [6, 1, 6], color: '#556677' },
+    { shape: 'box', position: [-20, 1.5, -18], size: [4, 1, 4], color: '#556677' },
 
-    // ═══════════════════════════════════════
-    // FLOOR DETAILS — concrete seam lines
-    // ═══════════════════════════════════════
-    { shape: 'box', position: [0, 0.005, -25], size: [80, 0.01, 0.08], color: '#3a3a3a' },
-    { shape: 'box', position: [0, 0.005, -50], size: [100, 0.01, 0.08], color: '#3a3a3a' },
-    { shape: 'box', position: [0, 0.005, -75], size: [100, 0.01, 0.08], color: '#3a3a3a' },
-    { shape: 'box', position: [-25, 0.005, -40], size: [0.08, 0.01, 80], color: '#3a3a3a' },
-    { shape: 'box', position: [25, 0.005, -40], size: [0.08, 0.01, 80], color: '#3a3a3a' },
-
-    // ═══════════════════════════════════════
-    // PERIMETER DETAIL — wall-mounted metal panels
-    // ═══════════════════════════════════════
-    { shape: 'box', position: [-HALF + 1.2, 3, -30], size: [0.3, 2, 4], color: '#556677' },
-    { shape: 'box', position: [-HALF + 1.2, 3, -60], size: [0.3, 2, 4], color: '#556677' },
-    { shape: 'box', position: [HALF - 1.2, 3, -30], size: [0.3, 2, 4], color: '#556677' },
-    { shape: 'box', position: [HALF - 1.2, 3, -60], size: [0.3, 2, 4], color: '#556677' },
   ],
 
   checkpoints: [
-    { position: [5, 3, -35], size: [6, 6, 3], index: 0 },
-    { position: [0, 4, -70], size: [8, 6, 3], index: 1 },
+    { position: [4, 3, -18], size: [6, 6, 3], index: 0 },
   ],
 
   finish: {
-    position: [30, 4, -82],
+    position: [0, 4, -22],
     size: [8, 6, 3],
   },
 
   killZones: [
-    { position: [0, -20, 0], size: [400, 5, 400] },
+    { position: [0, -20, 0], size: [200, 5, 200] },
   ],
 
   ammoPickups: [
     { position: [4, 1, -4], weaponType: 'rocket', amount: 3 },
     { position: [-4, 1, -4], weaponType: 'grenade', amount: 2 },
-    { position: [25, 1, -30], weaponType: 'rocket', amount: 2, respawnTime: 10 },
-    { position: [-20, 1, -40], weaponType: 'grenade', amount: 2, respawnTime: 10 },
-    { position: [0, 1, -65], weaponType: 'rocket', amount: 3, respawnTime: 15 },
+    { position: [16, 1, -15], weaponType: 'rocket', amount: 2, respawnTime: 10 },
+    { position: [-14, 1, -20], weaponType: 'grenade', amount: 2, respawnTime: 10 },
   ],
 
   settings: {
@@ -135,19 +102,19 @@ export const FIRST_STEPS: MapData = {
   },
 
   lighting: {
-    ambientIntensity: 0.5,
-    ambientColor: '#ddeeff',
-    directionalIntensity: 1.6,
-    directionalColor: '#fff5e0',
-    directionalPosition: [60, 100, 40],
-    hemisphereGround: '#5a5040',
-    hemisphereSky: '#c8ddf0',
-    hemisphereIntensity: 0.4,
-    fogColor: '#b0c4d8',
-    fogNear: 100,
-    fogFar: 300,
+    ambientIntensity: 0.8,
+    ambientColor: '#ffffff',
+    directionalIntensity: 1.2,
+    directionalColor: '#ffffff',
+    directionalPosition: [50, 80, 30],
+    hemisphereGround: '#888888',
+    hemisphereSky: '#ffffff',
+    hemisphereIntensity: 0.3,
+    fogColor: '#cccccc',
+    fogNear: 80,
+    fogFar: 200,
   },
 
   skybox: 'day',
-  backgroundColor: '#b0c4d8',
+  backgroundColor: '#cccccc',
 };
