@@ -28,6 +28,7 @@ import {
   type IGameTransport,
   type PositionSnapshot,
 } from '@engine/networking';
+import { devLog } from '@engine/stores/devLogStore';
 
 type Vec3 = [number, number, number];
 
@@ -204,6 +205,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     transport = new WebSocketTransport();
 
     // Binary position batch handler
+    let _batchLogTimer = 0;
     transport.onBinary((buffer: ArrayBuffer) => {
       const { count, snapshots } = decodeBatch(buffer);
       const positions = new Map(get().racePositions);
@@ -221,6 +223,13 @@ export const useRaceStore = create<RaceState>((set, get) => ({
           checkpoint: snap.checkpoint,
           timestamp: snap.timestamp,
         });
+      }
+
+      // Throttled devLog: log at most once per second
+      const now = performance.now();
+      if (now - _batchLogTimer > 1000) {
+        _batchLogTimer = now;
+        devLog.info('Net', `pos batch: ${count} players, map size=${positions.size}`);
       }
 
       set({ racePositions: positions });

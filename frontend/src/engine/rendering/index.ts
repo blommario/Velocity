@@ -81,3 +81,4 @@ export { InstancedSurfRamps, type InstancedSurfRampsProps } from './InstancedSur
 export { HeightmapTerrain, type HeightmapTerrainProps } from './HeightmapTerrain';
 export { ModelBlock, type ModelBlockProps, type LoadModelFn } from './ModelBlock';
 export { NetworkedCapsule, type NetworkedCapsuleProps } from './NetworkedCapsule';
+export { NetworkedPlayer, type NetworkedPlayerProps } from './NetworkedPlayer';

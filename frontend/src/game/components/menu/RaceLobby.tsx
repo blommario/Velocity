@@ -23,10 +23,13 @@ export function RaceLobby() {
   const disconnectFromRace = useRaceStore((s) => s.disconnectFromRace);
   const retryReconnect = useRaceStore((s) => s.retryReconnect);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — but NOT if race is starting (screen transition to PLAYING)
   useEffect(() => {
     return () => {
-      disconnectFromRace();
+      const { raceStatus } = useRaceStore.getState();
+      if (raceStatus !== 'racing' && raceStatus !== 'countdown') {
+        disconnectFromRace();
+      }
     };
   }, [disconnectFromRace]);
 
