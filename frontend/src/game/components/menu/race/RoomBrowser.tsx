@@ -1,13 +1,14 @@
 /**
  * Room browser UI for creating and joining multiplayer race rooms.
+ * Fetches available maps from the API for the map selector.
  *
- * Depends on: @game/stores/raceStore, game/components/game/map/official, @game/services/types
+ * Depends on: @game/stores/raceStore, @game/services/mapService, @game/services/types
  * Used by: RaceLobby
  */
 import { useEffect, useState } from 'react';
 import { useRaceStore } from '@game/stores/raceStore';
-import { OFFICIAL_MAPS } from '../../game/map/official';
-import type { RoomResponse } from '@game/services/types';
+import { getMaps } from '@game/services/mapService';
+import type { MapResponse, RoomResponse } from '@game/services/types';
 
 const ROOM_STATUS_LABELS: Record<string, string> = {
   waiting: 'Waiting',
@@ -31,10 +32,17 @@ export function RoomBrowser() {
   const joinRoom = useRaceStore((s) => s.joinRoom);
   const createRoom = useRaceStore((s) => s.createRoom);
 
-  const [selectedMapId, setSelectedMapId] = useState(OFFICIAL_MAPS[0]?.id ?? '');
+  const [maps, setMaps] = useState<MapResponse[]>([]);
+  const [selectedMapId, setSelectedMapId] = useState('');
 
   useEffect(() => {
     fetchRooms();
+    getMaps({ isOfficial: true }).then((result) => {
+      setMaps(result);
+      if (result.length > 0 && !selectedMapId) {
+        setSelectedMapId(result[0].id);
+      }
+    });
   }, [fetchRooms]);
 
   const handleCreate = () => {
@@ -60,7 +68,7 @@ export function RoomBrowser() {
               onChange={(e) => setSelectedMapId(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white"
             >
-              {OFFICIAL_MAPS.map((m) => (
+              {maps.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name} ({m.difficulty})
                 </option>
@@ -69,7 +77,7 @@ export function RoomBrowser() {
           </div>
           <button
             onClick={handleCreate}
-            disabled={isLoading}
+            disabled={isLoading || !selectedMapId}
             className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-2 px-6 rounded text-sm transition-colors"
           >
             Create

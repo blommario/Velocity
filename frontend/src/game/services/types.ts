@@ -27,6 +27,7 @@ export type MapDifficulty = 'Easy' | 'Medium' | 'Hard' | 'Expert';
 
 export interface MapResponse {
   id: string;
+  slug: string;
   name: string;
   description: string;
   authorName: string;

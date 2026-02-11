@@ -1,6 +1,6 @@
 namespace Velocity.Api.Contracts;
 
-public record CreateRoomRequest(Guid MapId);
+public record CreateRoomRequest(string MapId);
 
 public record RoomResponse(
     Guid Id,

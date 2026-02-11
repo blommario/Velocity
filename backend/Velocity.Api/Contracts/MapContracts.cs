@@ -4,6 +4,7 @@ namespace Velocity.Api.Contracts;
 
 public record MapResponse(
     Guid Id,
+    string Slug,
     string Name,
     string Description,
     string AuthorName,

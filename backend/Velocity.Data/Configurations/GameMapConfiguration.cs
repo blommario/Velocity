@@ -9,6 +9,8 @@ public class GameMapConfiguration : IEntityTypeConfiguration<GameMap>
     public void Configure(EntityTypeBuilder<GameMap> builder)
     {
         builder.HasKey(m => m.Id);
+        builder.Property(m => m.Slug).HasMaxLength(100);
+        builder.HasIndex(m => m.Slug).IsUnique();
         builder.Property(m => m.Name).HasMaxLength(100);
         builder.Property(m => m.Description).HasMaxLength(1000);
 

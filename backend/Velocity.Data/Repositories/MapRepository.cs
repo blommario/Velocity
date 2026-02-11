@@ -12,6 +12,12 @@ public sealed class MapRepository(VelocityDbContext db) : IMapRepository
             .Include(m => m.Author)
             .SingleOrDefaultAsync(m => m.Id == id, ct);
 
+    public async ValueTask<GameMap?> GetBySlugAsync(string slug, CancellationToken ct = default)
+        => await db.GameMaps
+            .AsNoTracking()
+            .Include(m => m.Author)
+            .SingleOrDefaultAsync(m => m.Slug == slug, ct);
+
     public async ValueTask<IReadOnlyList<GameMap>> GetAllAsync(
         int page, int pageSize, bool? isOfficial, MapDifficulty? difficulty, CancellationToken ct = default)
     {

@@ -117,7 +117,7 @@ public sealed class MapHandlers(IMapRepository maps)
     }
 
     private static MapResponse ToResponse(GameMap m) => new(
-        m.Id, m.Name, m.Description,
+        m.Id, m.Slug, m.Name, m.Description,
         m.Author?.Username ?? ValidationRules.UnknownAuthorName,
         m.Difficulty, m.IsOfficial,
         m.PlayCount, m.LikeCount, m.WorldRecordTime,

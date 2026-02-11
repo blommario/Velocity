@@ -3,6 +3,7 @@ namespace Velocity.Core.Entities;
 public class GameMap
 {
     public Guid Id { get; set; }
+    public string Slug { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public Guid AuthorId { get; set; }

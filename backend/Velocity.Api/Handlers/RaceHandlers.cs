@@ -28,14 +28,16 @@ public sealed class RaceHandlers(
         if (claimValue is null || !Guid.TryParse(claimValue, out var playerId))
             return Results.Problem(statusCode: 401, detail: ValidationMessages.InvalidCredentials);
 
-        var map = await maps.GetByIdAsync(request.MapId, ct);
+        var map = Guid.TryParse(request.MapId, out var mapGuid)
+            ? await maps.GetByIdAsync(mapGuid, ct)
+            : await maps.GetBySlugAsync(request.MapId, ct);
         if (map is null)
             return Results.BadRequest(ValidationMessages.RunInvalidMapId);
 
         var room = new RaceRoom
         {
             Id = Guid.NewGuid(),
-            MapId = request.MapId,
+            MapId = map.Id,
             HostPlayerId = playerId,
             Status = RaceRoomStatus.Waiting,
             MaxPlayers = ValidationRules.RaceMaxPlayers,

@@ -108,12 +108,13 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
-// ── Auto-create DB in development ──
+// ── Auto-create DB + seed in development ──
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<VelocityDbContext>();
     db.Database.EnsureCreated();
+    await DatabaseSeeder.SeedAsync(db);
 }
 
 // ── Middleware pipeline ──
