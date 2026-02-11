@@ -13,6 +13,8 @@ import { useCombatStore } from '@game/stores/combatStore';
 import { useReplayStore } from '@game/stores/replayStore';
 import { activeCount } from './projectileTick';
 import { devLog } from '@engine/stores/devLogStore';
+import { encodePosition } from '@engine/networking';
+import { useRaceStore } from '@game/stores/raceStore';
 
 const WALL_RUN_TILT = 0.15;
 const TILT_LERP_SPEED = 10;
@@ -20,6 +22,7 @@ const LANDING_DIP_DECAY = 8;
 const HUD_UPDATE_HZ = 30;
 const HUD_UPDATE_INTERVAL = 1000 / HUD_UPDATE_HZ;
 const DEV_LOG_INTERVAL = 2000;
+const POSITION_SEND_INTERVAL = 50; // 20Hz — matches backend broadcast rate
 
 export function handleCamera(ctx: TickContext): void {
   const { s, refs, camera, dt } = ctx;
@@ -112,6 +115,24 @@ export function handleHudAndReplay(ctx: TickContext, numCollisions: number): voi
 
     if (numCollisions > 0) {
       devLog.info('Collision', `${numCollisions} contacts`);
+    }
+  }
+
+  // Multiplayer: send position at 20Hz when racing
+  if (now - s.lastPositionSend > POSITION_SEND_INTERVAL) {
+    const race = useRaceStore.getState();
+    if (race.raceStatus === 'racing') {
+      const t = race.getTransport();
+      if (t) {
+        const hSpd = getHorizontalSpeed(velocity);
+        const buf = encodePosition(
+          _newPos.x, _newPos.y, _newPos.z,
+          refs.yaw.current, refs.pitch.current,
+          hSpd, store.currentCheckpoint,
+        );
+        t.sendBinary(buf);
+        s.lastPositionSend = now;
+      }
     }
   }
 }

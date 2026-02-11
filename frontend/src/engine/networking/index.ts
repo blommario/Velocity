@@ -18,3 +18,8 @@ export {
   type IGameTransport,
   type TransportState,
 } from './GameTransport';
+
+export {
+  NetworkInterpolator,
+  type NetSnapshot,
+} from './NetworkInterpolator';

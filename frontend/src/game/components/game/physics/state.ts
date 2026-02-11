@@ -57,6 +57,8 @@ export interface PhysicsTickState {
   dashDirZ: number;
   // Grapple timing
   grappleAttachTime: number;
+  // Multiplayer position sending
+  lastPositionSend: number;
 }
 
 export function createPhysicsTickState(): PhysicsTickState {
@@ -107,6 +109,7 @@ export function createPhysicsTickState(): PhysicsTickState {
     dashDirX: 0,
     dashDirZ: 0,
     grappleAttachTime: 0,
+    lastPositionSend: 0,
   };
 }
 

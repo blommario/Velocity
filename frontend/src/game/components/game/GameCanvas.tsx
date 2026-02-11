@@ -14,6 +14,7 @@ import { MapLoader } from './map/MapLoader';
 import { ScreenShake } from '@engine/effects/ScreenShake';
 import { ProjectileRenderer } from './ProjectileRenderer';
 import { GhostRenderer } from './GhostRenderer';
+import { RemotePlayers } from './RemotePlayers';
 import { SpeedTrail, GhostTrail, GrappleBeam, ExplosionManager, CheckpointShimmer, DecalPool, ScopeGlint } from './effects';
 import { Viewmodel } from './Viewmodel';
 import { PerfMonitor } from '@engine/stores/PerfMonitor';
@@ -91,6 +92,7 @@ export function GameCanvas() {
           <PlayerController />
           <ProjectileRenderer />
           <GhostRenderer />
+          <RemotePlayers />
         </Physics>
         <SpeedTrail />
         <GhostTrail />
