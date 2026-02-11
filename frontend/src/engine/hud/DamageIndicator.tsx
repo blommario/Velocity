@@ -1,3 +1,9 @@
+/**
+ * Red vignette flash overlay triggered on health decrease.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 import { useRef } from 'react';
 
 export interface DamageIndicatorProps {

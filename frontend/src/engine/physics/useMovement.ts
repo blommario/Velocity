@@ -1,3 +1,9 @@
+/**
+ * Core Quake-style ground/air movement — friction, acceleration, wish direction.
+ *
+ * Depends on: ENGINE_PHYSICS constants
+ * Used by: game physics tick (usePhysicsTick)
+ */
 import { Vector3 } from 'three';
 import { ENGINE_PHYSICS as PHYSICS } from './constants';
 

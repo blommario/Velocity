@@ -1,3 +1,9 @@
+/**
+ * Networking barrel — binary position codec and WebSocket transport.
+ *
+ * Depends on: PositionCodec, GameTransport
+ * Used by: multiplayer game layer
+ */
 export {
   encodePosition,
   decodeBatch,

@@ -1,3 +1,9 @@
+/**
+ * Spawns visual + audio impact feedback (sparks, decals, sounds).
+ *
+ * Depends on: ExplosionEffect (particle burst), DecalPool, AudioManager
+ * Used by: projectile hit logic, hitscan raycasts
+ */
 import { useExplosionStore } from './ExplosionEffect';
 import { spawnDecal } from './DecalPool';
 import { audioManager, SOUNDS } from '../audio/AudioManager';

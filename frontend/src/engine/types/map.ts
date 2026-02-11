@@ -1,3 +1,10 @@
+/**
+ * Map data schema — blocks, zones, environment, lighting, and terrain types.
+ *
+ * Depends on: three (Group, AnimationClip)
+ * Used by: editorStore, map loader, rendering layer, physics
+ */
+
 import type { Group, AnimationClip } from 'three';
 
 // ── Asset types ──

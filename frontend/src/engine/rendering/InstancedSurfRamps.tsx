@@ -1,3 +1,9 @@
+/**
+ * Instanced renderer for surf ramps grouped by color with batched physics.
+ *
+ * Depends on: @react-three/rapier, three, types/map
+ * Used by: map renderer
+ */
 import { useEffect, useRef, useMemo } from 'react';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import { Object3D, InstancedMesh, Euler, BoxGeometry } from 'three';

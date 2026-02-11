@@ -1,3 +1,9 @@
+/**
+ * Recursive Three.js scene graph disposal (geometries, materials, textures).
+ *
+ * Depends on: three
+ * Used by: map transitions, asset cleanup
+ */
 import type { Object3D, BufferGeometry, Material, Texture } from 'three';
 
 /**

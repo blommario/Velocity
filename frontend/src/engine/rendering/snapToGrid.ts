@@ -1,3 +1,9 @@
+/**
+ * Grid-snapping utilities for positions and rotations.
+ *
+ * Depends on: types/map
+ * Used by: map editor (editorStore, EditorGizmo)
+ */
 import type { Vec3 } from '../types/map';
 
 /**

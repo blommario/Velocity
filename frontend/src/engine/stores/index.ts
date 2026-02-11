@@ -1,3 +1,9 @@
+/**
+ * Stores barrel — devLog, settings, replay, and editor stores.
+ *
+ * Depends on: devLogStore, settingsStore, replayStore, editorStore
+ * Used by: game layer, UI components
+ */
 export {
   useDevLogStore,
   devLog,

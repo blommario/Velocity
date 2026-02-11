@@ -1,3 +1,9 @@
+/**
+ * Configurable crosshair renderer (dot, cross, ring, scope variants).
+ *
+ * Depends on: —
+ * Used by: game HUD composition, settingsStore (crosshair config)
+ */
 export type CrosshairType = 'dot' | 'cross' | 'ring' | 'scope';
 
 export interface CrosshairConfig {

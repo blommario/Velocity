@@ -1,3 +1,9 @@
+/**
+ * Rendering barrel — disposal, geometry, instancing, shadows, lighting, and materials.
+ *
+ * Depends on: all rendering submodules
+ * Used by: game rendering layer, map editor
+ */
 export { disposeSceneGraph } from './dispose';
 export { snapToGrid, snapPosition, snapRotation } from './snapToGrid';
 export { SpatialGrid, type SpatialGridConfig, type CellKey, type CellCoord } from './SpatialGrid';

@@ -1,3 +1,9 @@
+/**
+ * Centralized audio system with Web Audio API synthesis fallback.
+ *
+ * Depends on: settingsStore (volume levels), devLogStore (logging)
+ * Used by: game physics tick, weapon systems, UI components
+ */
 import { useSettingsStore } from '../stores/settingsStore';
 import { devLog } from '../stores/devLogStore';
 

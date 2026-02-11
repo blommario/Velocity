@@ -1,3 +1,9 @@
+/**
+ * Shows current player stance (crouch/slide/prone) with icon + label.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 export type StanceType = 'standing' | 'crouching' | 'sliding' | 'prone';
 
 export interface StanceIndicatorProps {

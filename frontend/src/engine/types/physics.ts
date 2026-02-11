@@ -1,3 +1,10 @@
+/**
+ * Physics input and movement state interfaces.
+ *
+ * Depends on: three (Vector3)
+ * Used by: useInputBuffer, useMovement, usePhysicsTick
+ */
+
 import type { Vector3 } from 'three';
 
 export interface InputState {

@@ -1,3 +1,9 @@
+/**
+ * Run timer display with configurable formatter.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 export interface TimerProps {
   /** Elapsed time in milliseconds */
   time: number;

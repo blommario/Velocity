@@ -1,3 +1,9 @@
+/**
+ * Timed event notification feed with imperative push API.
+ *
+ * Depends on: —
+ * Used by: game HUD composition, game logic (pushFeedEvent)
+ */
 import { useEffect, useState } from 'react';
 
 export interface FeedItem {

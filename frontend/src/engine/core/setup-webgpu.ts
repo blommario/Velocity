@@ -1,3 +1,9 @@
+/**
+ * One-time WebGPU + Rapier WASM initialization.
+ *
+ * Depends on: three/webgpu, @dimforge/rapier3d-compat
+ * Used by: main.tsx (imported before Canvas mount)
+ */
 import * as THREE from 'three/webgpu';
 import { extend } from '@react-three/fiber';
 import RAPIER from '@dimforge/rapier3d-compat';

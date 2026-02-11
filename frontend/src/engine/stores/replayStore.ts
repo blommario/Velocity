@@ -1,3 +1,9 @@
+/**
+ * Replay recording, delta compression, ghost playback with interpolation.
+ *
+ * Depends on: zustand
+ * Used by: GhostRenderer, race completion flow, leaderboard
+ */
 import { create } from 'zustand';
 
 /** A single replay frame recorded at 128Hz */

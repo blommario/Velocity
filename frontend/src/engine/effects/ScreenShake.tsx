@@ -1,3 +1,9 @@
+/**
+ * Camera screen-shake effect with exponential decay.
+ *
+ * Depends on: R3F useFrame, Three.js MathUtils
+ * Used by: game HUD layer (driven by explosion/damage events)
+ */
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { MathUtils } from 'three';

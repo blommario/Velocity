@@ -1,3 +1,9 @@
+/**
+ * Physics barrel — movement, friction, collider batching, and combat utilities.
+ *
+ * Depends on: useMovement, useAdvancedMovement, colliderBatch, scopeSway, hitboxRegistry, recoil
+ * Used by: game physics tick, PlayerController
+ */
 export { ENGINE_PHYSICS, DEG2RAD, RAD2DEG } from './constants';
 export { seedRandom, nextRandom } from './seededRandom';
 export { batchStaticColliders, type ColliderBatchGroup, type BatchedCollider } from './colliderBatch';

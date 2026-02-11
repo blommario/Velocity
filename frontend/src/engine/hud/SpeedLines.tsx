@@ -1,3 +1,9 @@
+/**
+ * Canvas-based radial speed lines drawn at high velocities.
+ *
+ * Depends on: —
+ * Used by: game HUD composition, settingsStore (toggle)
+ */
 import { useRef, useEffect, useCallback } from 'react';
 
 export interface SpeedLinesConfig {

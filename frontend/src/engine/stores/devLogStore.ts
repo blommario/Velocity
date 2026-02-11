@@ -1,3 +1,9 @@
+/**
+ * Developer logging store with batched writes, frame timing, and error capture.
+ *
+ * Depends on: zustand
+ * Used by: devLog API (all engine/game modules), PerfMonitor, DevLogPanel
+ */
 import { create } from 'zustand';
 
 export type LogLevel = 'info' | 'success' | 'warn' | 'error' | 'perf';

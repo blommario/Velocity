@@ -1,3 +1,9 @@
+/**
+ * Opacity-based screen transition wrapper for menu/screen switches.
+ *
+ * Depends on: —
+ * Used by: game screen navigation
+ */
 import { useEffect, useState, useRef } from 'react';
 
 export interface ScreenTransitionProps {

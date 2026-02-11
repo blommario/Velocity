@@ -1,3 +1,9 @@
+/**
+ * Composable full-screen color/gradient overlays.
+ *
+ * Depends on: —
+ * Used by: game HUD composition (speed boost, damage flash, etc.)
+ */
 export interface ScreenOverlay {
   /** Opacity 0–1 (0 = hidden) */
   opacity: number;

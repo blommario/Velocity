@@ -1,3 +1,9 @@
+/**
+ * Batches static MapBlocks into compound Rapier rigid bodies by shape.
+ *
+ * Depends on: types/map
+ * Used by: map loader, rendering layer
+ */
 import type { MapBlock, Vec3 } from '../types/map';
 
 /**

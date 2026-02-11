@@ -1,3 +1,9 @@
+/**
+ * Shadow quality presets and CSM configuration constants.
+ *
+ * Depends on: —
+ * Used by: useShadowLight, settingsStore
+ */
 export const SHADOW_QUALITY_LEVELS = {
   OFF: 'off',
   LOW: 'low',

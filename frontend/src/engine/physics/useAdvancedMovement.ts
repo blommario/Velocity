@@ -1,3 +1,9 @@
+/**
+ * Advanced movement mechanics — wall running, surfing, grapple, explosions, boost zones.
+ *
+ * Depends on: ENGINE_PHYSICS constants
+ * Used by: game physics tick (usePhysicsTick)
+ */
 import { Vector3 } from 'three';
 import { ENGINE_PHYSICS as PHYSICS, DEG2RAD } from './constants';
 

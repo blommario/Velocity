@@ -1,3 +1,9 @@
+/**
+ * Creates a persistent DirectionalLight with reactive CSM shadow mapping.
+ *
+ * Depends on: three, CSMShadowNode, shadowConfig, devLogStore
+ * Used by: game scene lighting setup
+ */
 import { useEffect, useRef } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { DirectionalLight } from 'three';

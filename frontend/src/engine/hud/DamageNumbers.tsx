@@ -1,3 +1,9 @@
+/**
+ * Floating damage numbers that drift upward and fade out.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 import { useEffect, useRef, useState } from 'react';
 
 export interface DamageNumbersConfig {

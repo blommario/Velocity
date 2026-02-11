@@ -1,3 +1,9 @@
+/**
+ * Developer slider panel for runtime physics/gameplay tweaks.
+ *
+ * Depends on: —
+ * Used by: game HUD (dev mode only)
+ */
 export interface DevSlider {
   label: string;
   value: number;

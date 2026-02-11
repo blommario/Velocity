@@ -1,3 +1,9 @@
+/**
+ * Renders a heightmap terrain mesh with Rapier heightfield collider.
+ *
+ * Depends on: @react-three/rapier, heightmapGeometry, types/map
+ * Used by: map renderer
+ */
 import { useMemo } from 'react';
 import { RigidBody, HeightfieldCollider } from '@react-three/rapier';
 import { createHeightmapGeometry } from './heightmapGeometry';

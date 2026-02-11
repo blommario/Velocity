@@ -1,3 +1,9 @@
+/**
+ * Speed bar with threshold coloring and optional tier labels.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 export interface SpeedThreshold {
   min: number;
   color: string;

@@ -1,3 +1,10 @@
+/**
+ * Types barrel — re-exports input, movement, and map data types.
+ *
+ * Depends on: physics, map
+ * Used by: engine and game modules
+ */
+
 export type { InputState, MovementState } from './physics';
 export type {
   ModelAsset,

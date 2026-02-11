@@ -1,3 +1,9 @@
+/**
+ * Bottom-edge progress bar showing checkpoint advancement.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 export interface TrackProgressBarProps {
   /** Current progress value (e.g. checkpoints reached) */
   current: number;

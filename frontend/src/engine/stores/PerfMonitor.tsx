@@ -1,3 +1,9 @@
+/**
+ * Invisible R3F component measuring FPS, frametime, memory, and draw calls.
+ *
+ * Depends on: R3F useFrame, devLogStore (perf metrics), frameTiming
+ * Used by: Canvas scene (mounted once)
+ */
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { WebGPURenderer } from 'three/webgpu';

@@ -1,3 +1,9 @@
+/**
+ * Map editor state — object CRUD, tool selection, undo/redo, serialization.
+ *
+ * Depends on: zustand, types/map
+ * Used by: MapEditor, EditorViewport, ObjectPalette, EditorGizmo
+ */
 import { create } from 'zustand';
 import type {
   MapData, MapBlock, Vec3, CheckpointData, FinishZoneData,

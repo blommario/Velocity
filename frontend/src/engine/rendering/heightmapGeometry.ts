@@ -1,3 +1,9 @@
+/**
+ * Generates BufferGeometry from a 2D heightmap array with smooth-shaded normals.
+ *
+ * Depends on: three
+ * Used by: HeightmapTerrain
+ */
 import { BufferGeometry, Float32BufferAttribute } from 'three';
 
 /**

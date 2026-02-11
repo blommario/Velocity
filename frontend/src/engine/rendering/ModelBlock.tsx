@@ -1,3 +1,9 @@
+/**
+ * Loads and renders a glTF model with LOD visibility and optional physics collider.
+ *
+ * Depends on: R3F, @react-three/rapier, LodManager, devLogStore, types/map
+ * Used by: map renderer
+ */
 import { useEffect, useRef, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { RigidBody, MeshCollider } from '@react-three/rapier';

@@ -1,3 +1,9 @@
+/**
+ * Persisted user settings — video, audio, keybindings, HUD, gameplay options.
+ *
+ * Depends on: zustand/persist, rendering/shadowConfig
+ * Used by: all engine/game systems (shared store)
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {

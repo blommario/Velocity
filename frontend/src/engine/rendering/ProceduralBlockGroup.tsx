@@ -1,3 +1,9 @@
+/**
+ * Instanced block group using TSL procedural materials with time animation.
+ *
+ * Depends on: proceduralMaterials, blockUtils, R3F useFrame
+ * Used by: map renderer
+ */
 import { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { createProceduralMaterial } from './proceduralMaterials';

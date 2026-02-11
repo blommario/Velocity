@@ -1,3 +1,9 @@
+/**
+ * Combat HUD showing health bar, active weapon, ammo, and weapon slots.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 export interface WeaponDisplay {
   id: string;
   short: string;

@@ -1,3 +1,9 @@
+/**
+ * Displays current/total checkpoint count as a HUD overlay.
+ *
+ * Depends on: —
+ * Used by: game HUD composition
+ */
 export interface CheckpointCounterProps {
   current: number;
   total: number;

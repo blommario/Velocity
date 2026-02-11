@@ -1,3 +1,9 @@
+/**
+ * Generic trigger volume using a Rapier sensor collider.
+ *
+ * Depends on: @react-three/rapier
+ * Used by: checkpoints, finish zones, kill zones, boost/launch pads
+ */
 import type { ReactNode } from 'react';
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 

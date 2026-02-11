@@ -1,3 +1,9 @@
+/**
+ * Keyboard + mouse input aggregator with configurable key bindings.
+ *
+ * Depends on: settingsStore (key bindings), inputUtils, types/physics
+ * Used by: PlayerController (physics tick reads inputRef)
+ */
 import { useEffect, useRef } from 'react';
 import type { InputState } from '../types/physics';
 import { getNormalizedWheelDelta } from './inputUtils';
