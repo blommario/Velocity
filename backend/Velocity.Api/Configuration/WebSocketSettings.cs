@@ -54,4 +54,21 @@ public static class WebSocketSettings
 
     /// <summary>Cleanup service scan interval (60 seconds).</summary>
     public const int CleanupIntervalMs = 60_000;
+
+    // ── Combat ──
+
+    /// <summary>Starting and max health for each player.</summary>
+    public const int MaxPlayerHealth = 100;
+
+    /// <summary>Delay in milliseconds before a killed player respawns.</summary>
+    public const int RespawnDelayMs = 3000;
+
+    /// <summary>Maximum valid hit distance (units). Hits beyond this are rejected.</summary>
+    public const float MaxHitDistance = 600f;
+
+    /// <summary>Minimum milliseconds between accepted hit events from one player (rate limit).</summary>
+    public const int MinFireIntervalMs = 50;
+
+    /// <summary>Maximum damage a single hit event can deal (server-side cap).</summary>
+    public const int MaxDamagePerHit = 500;
 }

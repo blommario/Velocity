@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Velocity.Api.Configuration;
+using Velocity.Api.Contracts;
 
 namespace Velocity.Api.Services.Multiplayer;
 
@@ -270,6 +271,11 @@ public sealed class Room : IAsyncDisposable
                         _players[i]!.IsFinished = false;
                         _players[i]!.FinishTime = 0;
                         _players[i]!.Placement = 0;
+                        _players[i]!.Health = WebSocketSettings.MaxPlayerHealth;
+                        _players[i]!.IsDead = false;
+                        _players[i]!.Kills = 0;
+                        _players[i]!.Deaths = 0;
+                        _players[i]!.LastHitEventAt = 0;
                     }
                 }
             }
@@ -674,6 +680,10 @@ public sealed class Room : IAsyncDisposable
                 case "rejoin":
                     await HandleRejoin(slot, ct);
                     break;
+
+                case CombatMessageTypes.Hit:
+                    await HandleHit(slot, root, ct);
+                    break;
             }
 
             _lastActivityAt = Environment.TickCount64;
@@ -830,6 +840,145 @@ public sealed class Room : IAsyncDisposable
         }
     }
 
+    // ── Combat ──
+
+    /// <summary>Finds a player by their PlayerId. Returns (slot, player) or (-1, null) if not found.</summary>
+    private (int slot, PlayerSocket? player) FindPlayerById(Guid playerId)
+    {
+        lock (_playerLock)
+        {
+            for (var i = 0; i < _players.Length; i++)
+            {
+                if (_players[i]?.PlayerId == playerId)
+                    return (i, _players[i]);
+            }
+        }
+
+        return (-1, null);
+    }
+
+    /// <summary>
+    /// Validates and applies a hit event from the attacking player.
+    /// Checks: racing state, both alive, not self, distance, rate limit, damage cap.
+    /// On kill: broadcasts player_killed and schedules respawn.
+    /// </summary>
+    private async Task HandleHit(int slot, JsonElement root, CancellationToken ct)
+    {
+        if (_status != RoomStatus.Racing) return;
+
+        if (!root.TryGetProperty("data", out var data)) return;
+        if (!data.TryGetProperty("targetPlayerId", out var targetProp)) return;
+        if (!Guid.TryParse(targetProp.GetString(), out var targetId)) return;
+        if (!data.TryGetProperty("damage", out var damageProp)) return;
+        if (!data.TryGetProperty("distance", out var distanceProp)) return;
+
+        var rawDamage = damageProp.GetInt32();
+        var distance = (float)distanceProp.GetDouble();
+        var weapon = data.TryGetProperty("weapon", out var weaponProp) ? weaponProp.GetString() ?? "" : "";
+        var zone = data.TryGetProperty("zone", out var zoneProp) ? zoneProp.GetString() ?? HitboxZones.Torso : HitboxZones.Torso;
+
+        // Validate attacker
+        PlayerSocket? attacker;
+        lock (_playerLock) { attacker = _players[slot]; }
+        if (attacker is null || attacker.IsDead) return;
+
+        // Self-hit rejected
+        if (attacker.PlayerId == targetId) return;
+
+        // Distance check
+        if (distance < 0 || distance > WebSocketSettings.MaxHitDistance) return;
+
+        // Rate limit
+        var now = Environment.TickCount64;
+        if (now - attacker.LastHitEventAt < WebSocketSettings.MinFireIntervalMs) return;
+        attacker.LastHitEventAt = now;
+
+        // Cap damage
+        var damage = Math.Min(rawDamage, WebSocketSettings.MaxDamagePerHit);
+        if (damage <= 0) return;
+
+        // Validate target
+        var (targetSlot, target) = FindPlayerById(targetId);
+        if (target is null || target.IsDead) return;
+
+        // Apply damage
+        int healthRemaining;
+        bool killed;
+
+        lock (_playerLock)
+        {
+            target.Health = Math.Max(0, target.Health - damage);
+            healthRemaining = target.Health;
+            killed = healthRemaining <= 0;
+
+            if (killed)
+            {
+                target.IsDead = true;
+                target.Deaths++;
+                attacker.Kills++;
+            }
+        }
+
+        // Broadcast damage
+        await BroadcastJsonAsync(CombatMessageTypes.PlayerDamaged, new
+        {
+            targetPlayerId = targetId,
+            attackerPlayerId = attacker.PlayerId,
+            damage,
+            healthRemaining,
+            weapon,
+            zone,
+        }, ct);
+
+        if (killed)
+        {
+            _logger.LogInformation("Room {RoomId} player {AttackerId} killed {TargetId} ({Weapon}, {Zone})",
+                _roomId, attacker.PlayerId, targetId, weapon, zone);
+
+            await BroadcastJsonAsync(CombatMessageTypes.PlayerKilled, new
+            {
+                targetPlayerId = targetId,
+                attackerPlayerId = attacker.PlayerId,
+                weapon,
+                zone,
+            }, ct);
+
+            _ = Task.Run(() => ScheduleRespawn(targetId, ct), ct);
+        }
+    }
+
+    /// <summary>
+    /// Waits RespawnDelayMs then resets the player's health and isDead, broadcasts player_respawned.
+    /// </summary>
+    private async Task ScheduleRespawn(Guid playerId, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(WebSocketSettings.RespawnDelayMs, ct);
+
+            var (targetSlot, target) = FindPlayerById(playerId);
+            if (target is null) return;
+
+            lock (_playerLock)
+            {
+                target.Health = WebSocketSettings.MaxPlayerHealth;
+                target.IsDead = false;
+            }
+
+            await BroadcastJsonAsync(CombatMessageTypes.PlayerRespawned, new
+            {
+                playerId,
+                health = WebSocketSettings.MaxPlayerHealth,
+            }, ct);
+
+            _logger.LogInformation("Room {RoomId} player {PlayerId} respawned", _roomId, playerId);
+        }
+        catch (OperationCanceledException)
+        {
+            // Room disposed during respawn delay
+        }
+    }
+
     private async Task HandleRejoin(int slot, CancellationToken ct)
     {
         var snapshot = GetFullSnapshot(slot);
@@ -859,6 +1008,10 @@ public sealed class Room : IAsyncDisposable
                     isFinished = p.IsFinished,
                     finishTime = p.IsFinished ? p.FinishTime : (float?)null,
                     placement = p.Placement,
+                    health = p.Health,
+                    isDead = p.IsDead,
+                    kills = p.Kills,
+                    deaths = p.Deaths,
                 });
 
                 // Include current position data if racing

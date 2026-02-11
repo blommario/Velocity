@@ -23,4 +23,21 @@ public sealed class PlayerSocket
 
     /// <summary>Last measured round-trip latency in milliseconds (from ping/pong).</summary>
     public double LatencyMs { get; set; }
+
+    // ── Combat state ──
+
+    /// <summary>Current health (0 = dead). Reset to MaxPlayerHealth on respawn/match start.</summary>
+    public int Health { get; set; } = Configuration.WebSocketSettings.MaxPlayerHealth;
+
+    /// <summary>Whether this player is currently dead and awaiting respawn.</summary>
+    public bool IsDead { get; set; }
+
+    /// <summary>Tick count of the last accepted hit event from this player (rate limiting).</summary>
+    public long LastHitEventAt { get; set; }
+
+    /// <summary>Total kills this match.</summary>
+    public int Kills { get; set; }
+
+    /// <summary>Total deaths this match.</summary>
+    public int Deaths { get; set; }
 }
