@@ -85,6 +85,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<SseConnectionManager>();
 builder.Services.AddSingleton<RoomManager>();
+builder.Services.AddSingleton<MetricsCollector>();
+builder.Services.AddHostedService<MetricsCollector>(sp => sp.GetRequiredService<MetricsCollector>());
 builder.Services.AddHostedService<RoomCleanupService>();
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();
 builder.Services.AddScoped<IMapRepository, MapRepository>();
@@ -151,5 +153,6 @@ app.MapReplayEndpoints();
 app.MapRaceEndpoints();
 app.MapSseEndpoints();
 app.MapWebSocketEndpoints();
+app.MapMetricsEndpoints();
 
 app.Run();

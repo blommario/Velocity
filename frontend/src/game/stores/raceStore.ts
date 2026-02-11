@@ -64,6 +64,10 @@ interface RaceState {
   localFinished: boolean;
   disconnectedMessage: string | null;
 
+  // T7: Reconnect state
+  reconnectAttempt: number;
+  isReconnecting: boolean;
+
   // Actions
   fetchRooms: () => Promise<void>;
   createRoom: (mapId: string) => Promise<void>;
@@ -78,13 +82,17 @@ interface RaceState {
   updatePosition: (playerId: string, position: Vec3, yaw: number, pitch: number) => void;
   setCountdown: (n: number | null) => void;
   resetRace: () => void;
+  retryReconnect: () => void;
   getTransport: () => IGameTransport | null;
 }
 
 let transport: WebSocketTransport | null = null;
+let latencyInterval: ReturnType<typeof setInterval> | null = null;
 
 /** Slot-to-playerId mapping, populated by room_snapshot and player_joined events. */
 const slotToPlayer = new Map<number, { playerId: string; playerName: string }>();
+
+const LATENCY_POLL_MS = 5000;
 
 export const useRaceStore = create<RaceState>((set, get) => ({
   currentRoom: null,
@@ -102,6 +110,8 @@ export const useRaceStore = create<RaceState>((set, get) => ({
   finishResults: [],
   localFinished: false,
   disconnectedMessage: null,
+  reconnectAttempt: 0,
+  isReconnecting: false,
 
   fetchRooms: async () => {
     set({ isLoading: true, error: null });
@@ -214,7 +224,18 @@ export const useRaceStore = create<RaceState>((set, get) => ({
 
     // ── JSON event handlers ──
 
-    transport.onJson<{ roomId: string; players: Array<{ playerId: string; name: string; slot: number }>; yourSlot: number }>(
+    interface RoomSnapshotData {
+      roomId: string;
+      players: Array<{ playerId: string; name: string; slot: number }>;
+      yourSlot: number;
+      // T7: enriched rejoin fields (optional — not present on initial connect)
+      status?: string;
+      raceStartTime?: number;
+      positions?: Array<{ slot: number; posX: number; posY: number; posZ: number; yaw: number; pitch: number; speed: number; checkpoint: number }>;
+      finishResults?: RaceFinishResult[];
+    }
+
+    transport.onJson<RoomSnapshotData>(
       'room_snapshot',
       (data) => {
         slotToPlayer.clear();
@@ -222,6 +243,41 @@ export const useRaceStore = create<RaceState>((set, get) => ({
           slotToPlayer.set(p.slot, { playerId: p.playerId, playerName: p.name });
         }
         set({ localSlot: data.yourSlot });
+
+        // T7: restore state from enriched rejoin snapshot
+        if (data.status) {
+          const statusMap: Record<string, RaceState['raceStatus']> = {
+            waiting: 'lobby', countdown: 'countdown', racing: 'racing', finished: 'finished',
+          };
+          const raceStatus = statusMap[data.status] ?? 'lobby';
+          set({ raceStatus });
+
+          if (data.raceStartTime) {
+            set({ raceStartTime: data.raceStartTime });
+          }
+
+          if (data.finishResults) {
+            set({ finishResults: data.finishResults });
+          }
+
+          // Restore positions from snapshot
+          if (data.positions && data.positions.length > 0) {
+            const positions = new Map(get().racePositions);
+            for (const pos of data.positions) {
+              const playerInfo = slotToPlayer.get(pos.slot);
+              if (!playerInfo) continue;
+              positions.set(playerInfo.playerId, {
+                position: [pos.posX, pos.posY, pos.posZ],
+                yaw: pos.yaw / 10000,
+                pitch: pos.pitch / 10000,
+                speed: pos.speed / 10,
+                checkpoint: pos.checkpoint,
+                timestamp: 0,
+              });
+            }
+            set({ racePositions: positions });
+          }
+        }
       },
     );
 
@@ -338,7 +394,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     });
 
     transport.onOpen(() => {
-      set({ isConnected: true, disconnectedMessage: null });
+      set({ isConnected: true, disconnectedMessage: null, reconnectAttempt: 0, isReconnecting: false });
     });
 
     transport.onClose((_code, reason) => {
@@ -347,6 +403,23 @@ export const useRaceStore = create<RaceState>((set, get) => ({
         set({ disconnectedMessage: reason || 'Connection lost' });
       }
     });
+
+    // T7: Reconnect — send rejoin to get full snapshot after auto-reconnect
+    transport.onReconnect(() => {
+      set({ isReconnecting: false, reconnectAttempt: 0 });
+      transport?.sendJson('rejoin', { lastTimestamp: 0 } as Record<string, unknown>);
+    });
+
+    // T7: Track reconnect attempts for UI
+    transport.onReconnectAttempt((attempt, maxAttempts) => {
+      set({ reconnectAttempt: attempt, isReconnecting: attempt < maxAttempts });
+    });
+
+    // T7: Latency polling — read transport.latencyMs every 5s
+    if (latencyInterval) clearInterval(latencyInterval);
+    latencyInterval = setInterval(() => {
+      if (transport) set({ latency: transport.latencyMs });
+    }, LATENCY_POLL_MS);
 
     // Connect
     const wsUrl = buildWsUrl(`/ws/race/${roomId}`);
@@ -373,6 +446,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
   },
 
   disconnectFromRace: () => {
+    if (latencyInterval) { clearInterval(latencyInterval); latencyInterval = null; }
     if (transport) {
       transport.disconnect();
       transport = null;
@@ -391,6 +465,8 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       finishResults: [],
       localFinished: false,
       disconnectedMessage: null,
+      reconnectAttempt: 0,
+      isReconnecting: false,
     });
   },
 
@@ -405,6 +481,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
   },
 
   resetRace: () => {
+    if (latencyInterval) { clearInterval(latencyInterval); latencyInterval = null; }
     if (transport) {
       transport.disconnect();
       transport = null;
@@ -426,7 +503,16 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       finishResults: [],
       localFinished: false,
       disconnectedMessage: null,
+      reconnectAttempt: 0,
+      isReconnecting: false,
     });
+  },
+
+  retryReconnect: () => {
+    if (transport) {
+      transport.resetReconnect();
+      set({ reconnectAttempt: 0, isReconnecting: true, disconnectedMessage: null });
+    }
   },
 
   getTransport: () => transport,

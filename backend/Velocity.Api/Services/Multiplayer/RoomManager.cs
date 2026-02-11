@@ -147,6 +147,40 @@ public sealed class RoomManager : IAsyncDisposable
         return stale;
     }
 
+    /// <summary>
+    /// Returns aggregate metrics across all rooms: total rooms, total players,
+    /// total inbound messages, and average player latency.
+    /// </summary>
+    public (int ActiveRooms, int PlayersOnline, long TotalMessages, double AverageLatencyMs) GetAggregateMetrics()
+    {
+        int rooms = 0;
+        int players = 0;
+        long messages = 0;
+        double latencySum = 0;
+        int latencyRooms = 0;
+
+        foreach (var kv in _rooms)
+        {
+            if (!kv.Value.IsValueCreated) continue;
+            var room = kv.Value.Value;
+            if (room.IsDisposed) continue;
+
+            rooms++;
+            players += room.PlayerCount;
+            messages += room.InboundMessageCount;
+
+            var avgLat = room.AveragePlayerLatencyMs;
+            if (avgLat > 0)
+            {
+                latencySum += avgLat;
+                latencyRooms++;
+            }
+        }
+
+        var avgLatency = latencyRooms > 0 ? latencySum / latencyRooms : 0;
+        return (rooms, players, messages, avgLatency);
+    }
+
     /// <summary>Force-closes a room, disconnecting all players.</summary>
     public async Task ForceCloseRoom(Guid roomId)
     {

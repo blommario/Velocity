@@ -18,7 +18,10 @@ export function RaceLobby() {
   const countdown = useRaceStore((s) => s.countdown);
   const raceStatus = useRaceStore((s) => s.raceStatus);
   const disconnectedMessage = useRaceStore((s) => s.disconnectedMessage);
+  const isReconnecting = useRaceStore((s) => s.isReconnecting);
+  const reconnectAttempt = useRaceStore((s) => s.reconnectAttempt);
   const disconnectFromRace = useRaceStore((s) => s.disconnectFromRace);
+  const retryReconnect = useRaceStore((s) => s.retryReconnect);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -65,20 +68,43 @@ export function RaceLobby() {
       {/* Countdown overlay */}
       {countdown !== null && <CountdownOverlay countdown={countdown} />}
 
-      {/* Disconnected overlay */}
-      {disconnectedMessage && (
+      {/* Reconnecting overlay */}
+      {isReconnecting && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-8 max-w-sm text-center space-y-4">
-            <h3 className="text-xl font-bold text-red-400">Disconnected</h3>
-            <p className="text-sm text-gray-300">{disconnectedMessage}</p>
+            <div className="inline-block w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+            <h3 className="text-xl font-bold text-yellow-400">Reconnecting...</h3>
+            <p className="text-sm text-gray-300">Attempt {reconnectAttempt} of 10</p>
             <button
-              onClick={() => {
-                disconnectFromRace();
-              }}
+              onClick={() => { disconnectFromRace(); }}
               className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors"
             >
               Back to Lobby
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Disconnected overlay (reconnect exhausted or server-closed) */}
+      {disconnectedMessage && !isReconnecting && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-8 max-w-sm text-center space-y-4">
+            <h3 className="text-xl font-bold text-red-400">Disconnected</h3>
+            <p className="text-sm text-gray-300">{disconnectedMessage}</p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={retryReconnect}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => { disconnectFromRace(); }}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors"
+              >
+                Back to Lobby
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -20,4 +20,7 @@ public sealed class PlayerSocket
     public bool IsFinished { get; set; }
     public float FinishTime { get; set; }
     public int Placement { get; set; }
+
+    /// <summary>Last measured round-trip latency in milliseconds (from ping/pong).</summary>
+    public double LatencyMs { get; set; }
 }

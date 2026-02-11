@@ -22,9 +22,15 @@ export interface IGameTransport {
   offJson(type: string): void;
   onClose(handler: (code: number, reason: string) => void): void;
   onOpen(handler: () => void): void;
+  onReconnect(handler: () => void): void;
+  onReconnectAttempt(handler: (attempt: number, maxAttempts: number) => void): void;
+  resetReconnect(): void;
   disconnect(): void;
   readonly state: TransportState;
   readonly latencyMs: number;
+  readonly reconnectAttempt: number;
+  readonly maxReconnectAttempts: number;
+  readonly isReconnecting: boolean;
 }
 
 // ── WebSocket implementation ──
@@ -53,6 +59,9 @@ export class WebSocketTransport implements IGameTransport {
   private _jsonHandlers = new Map<string, JsonHandler>();
   private _closeHandler: ((code: number, reason: string) => void) | null = null;
   private _openHandler: (() => void) | null = null;
+  private _reconnectHandler: (() => void) | null = null;
+  private _reconnectAttemptHandler: ((attempt: number, maxAttempts: number) => void) | null = null;
+  private _hasConnectedBefore = false;
 
   get state(): TransportState {
     return this._state;
@@ -62,11 +71,24 @@ export class WebSocketTransport implements IGameTransport {
     return this._latencyMs;
   }
 
+  get reconnectAttempt(): number {
+    return this._reconnectAttempts;
+  }
+
+  get maxReconnectAttempts(): number {
+    return RECONNECT_CONFIG.MAX_ATTEMPTS;
+  }
+
+  get isReconnecting(): boolean {
+    return this._reconnectAttempts > 0 && !this._closed && this._state !== 'open';
+  }
+
   connect(url: string, token: string): void {
     this._url = url;
     this._token = token;
     this._closed = false;
     this._reconnectAttempts = 0;
+    this._hasConnectedBefore = false;
     this._doConnect();
   }
 
@@ -125,6 +147,22 @@ export class WebSocketTransport implements IGameTransport {
     this._openHandler = handler;
   }
 
+  onReconnect(handler: () => void): void {
+    this._reconnectHandler = handler;
+  }
+
+  onReconnectAttempt(handler: (attempt: number, maxAttempts: number) => void): void {
+    this._reconnectAttemptHandler = handler;
+  }
+
+  resetReconnect(): void {
+    this._reconnectAttempts = 0;
+    this._clearReconnect();
+    if (this._state !== 'open' && !this._closed) {
+      this._doConnect();
+    }
+  }
+
   // ── Internal ──
 
   private _doConnect(): void {
@@ -140,10 +178,15 @@ export class WebSocketTransport implements IGameTransport {
     this._ws.binaryType = 'arraybuffer';
 
     this._ws.onopen = () => {
+      const wasReconnect = this._hasConnectedBefore;
       this._state = 'open';
       this._reconnectAttempts = 0;
+      this._hasConnectedBefore = true;
       this._startPing();
       this._openHandler?.();
+      if (wasReconnect) {
+        this._reconnectHandler?.();
+      }
     };
 
     this._ws.onmessage = (e: MessageEvent) => {
@@ -217,7 +260,10 @@ export class WebSocketTransport implements IGameTransport {
   }
 
   private _scheduleReconnect(): void {
-    if (this._reconnectAttempts >= RECONNECT_CONFIG.MAX_ATTEMPTS) return;
+    if (this._reconnectAttempts >= RECONNECT_CONFIG.MAX_ATTEMPTS) {
+      this._reconnectAttemptHandler?.(this._reconnectAttempts, RECONNECT_CONFIG.MAX_ATTEMPTS);
+      return;
+    }
 
     const delay = Math.min(
       RECONNECT_CONFIG.BASE_DELAY_MS * Math.pow(2, this._reconnectAttempts),
@@ -225,6 +271,7 @@ export class WebSocketTransport implements IGameTransport {
     );
 
     this._reconnectAttempts++;
+    this._reconnectAttemptHandler?.(this._reconnectAttempts, RECONNECT_CONFIG.MAX_ATTEMPTS);
     this._reconnectTimer = setTimeout(() => this._doConnect(), delay);
   }
 

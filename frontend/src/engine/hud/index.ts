@@ -60,3 +60,6 @@ export type { WeaponWheelProps, WeaponWheelSlot } from './WeaponWheel';
 
 export { KillstreakPopup } from './KillstreakPopup';
 export type { KillstreakPopupProps, MultikillEvent } from './KillstreakPopup';
+
+export { LatencyIndicator } from './LatencyIndicator';
+export type { LatencyIndicatorProps } from './LatencyIndicator';

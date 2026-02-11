@@ -74,6 +74,7 @@ public sealed class Room : IAsyncDisposable
     private Task? _heartbeatTask;
     private int _playerCount;
     private bool _disposed;
+    private long _inboundMessageCount;
 
     // ── Race state (T1) ──
     private RoomStatus _status = RoomStatus.Waiting;
@@ -93,6 +94,30 @@ public sealed class Room : IAsyncDisposable
 
     /// <summary>True once DisposeAsync has been called — used by RoomManager to guard against joining a disposing room.</summary>
     public bool IsDisposed => _disposed;
+
+    /// <summary>Total inbound messages received (binary + JSON). Used by MetricsCollector.</summary>
+    public long InboundMessageCount => Interlocked.Read(ref _inboundMessageCount);
+
+    /// <summary>Average latency across all connected players (from ping/pong RTT).</summary>
+    public double AveragePlayerLatencyMs
+    {
+        get
+        {
+            double sum = 0;
+            int count = 0;
+            lock (_playerLock)
+            {
+                for (var i = 0; i < _players.Length; i++)
+                {
+                    var p = _players[i];
+                    if (p is null || p.LatencyMs <= 0) continue;
+                    sum += p.LatencyMs;
+                    count++;
+                }
+            }
+            return count > 0 ? sum / count : 0;
+        }
+    }
 
     public Room(Guid roomId, ILogger<Room> logger)
     {
@@ -415,6 +440,8 @@ public sealed class Room : IAsyncDisposable
 
                 if (result.Count == 0) continue;
 
+                Interlocked.Increment(ref _inboundMessageCount);
+
                 if (result.MessageType == WebSocketMessageType.Binary)
                 {
                     // Only accept position data during Racing state
@@ -643,6 +670,10 @@ public sealed class Room : IAsyncDisposable
                 case "kick":
                     await HandleKick(slot, root, ct);
                     break;
+
+                case "rejoin":
+                    await HandleRejoin(slot, ct);
+                    break;
             }
 
             _lastActivityAt = Environment.TickCount64;
@@ -662,6 +693,15 @@ public sealed class Room : IAsyncDisposable
 
         PlayerSocket? player;
         lock (_playerLock) { player = _players[slot]; }
+
+        if (player is not null)
+        {
+            // Rough latency estimate: half the round-trip implied by clock difference.
+            // The client will compute a more accurate RTT from the pong response.
+            var rtt = serverT - clientT;
+            if (rtt is > 0 and < 10000)
+                player.LatencyMs = rtt / 2.0;
+        }
 
         if (player?.Socket.State == WebSocketState.Open)
         {
@@ -788,6 +828,73 @@ public sealed class Room : IAsyncDisposable
         {
             // Socket may already be closing
         }
+    }
+
+    private async Task HandleRejoin(int slot, CancellationToken ct)
+    {
+        var snapshot = GetFullSnapshot(slot);
+        await SendJsonToPlayerAsync(slot, "room_snapshot", snapshot, ct);
+    }
+
+    /// <summary>
+    /// Returns a comprehensive room snapshot for rejoin — includes players, positions, room state, and results.
+    /// </summary>
+    public object GetFullSnapshot(int yourSlot)
+    {
+        var players = new List<object>();
+        var positions = new List<object>();
+
+        lock (_playerLock)
+        {
+            for (var i = 0; i < _players.Length; i++)
+            {
+                var p = _players[i];
+                if (p is null) continue;
+
+                players.Add(new
+                {
+                    playerId = p.PlayerId,
+                    name = p.PlayerName,
+                    slot = p.Slot,
+                    isFinished = p.IsFinished,
+                    finishTime = p.IsFinished ? p.FinishTime : (float?)null,
+                    placement = p.Placement,
+                });
+
+                // Include current position data if racing
+                if (_status == RoomStatus.Racing)
+                {
+                    PositionSnapshot pos;
+                    lock (_positionLock) { pos = _positions[i]; }
+
+                    positions.Add(new
+                    {
+                        slot = i,
+                        posX = pos.PosX,
+                        posY = pos.PosY,
+                        posZ = pos.PosZ,
+                        yaw = pos.Yaw,
+                        pitch = pos.Pitch,
+                        speed = pos.Speed,
+                        checkpoint = pos.Checkpoint,
+                    });
+                }
+            }
+        }
+
+        var results = _status == RoomStatus.Finished ? GetFinishResults() : null;
+
+        return new
+        {
+            roomId = _roomId,
+            players,
+            yourSlot,
+            status = _status.ToString().ToLowerInvariant(),
+            raceStartTime = _raceStartTime,
+            hostPlayerId = _hostPlayerId,
+            positions,
+            finishResults = results,
+        };
     }
 
     // ── BroadcastLoop: 20Hz stable tick, fire-and-forget sends ──

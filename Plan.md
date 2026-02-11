@@ -192,26 +192,25 @@ Batch-format (server → klient):
 
 ---
 
-### T7 — Multiplayer Polish & UX
+### T7 — Multiplayer Polish & UX ✅
 *Finputsning — allt som gör multiplayer-upplevelsen smooth.*
 
-- 🔲 **Monitoring & metrics:**
+- ✅ **Monitoring & metrics:**
   - Exponera: aktiva rum, spelare online, messages/s, genomsnittlig latency
   - Endpoint: GET `/api/admin/metrics` (auth required)
-  - Integration: Prometheus-format (`IMetrics` interface)
+  - Integration: Prometheus-format (MetricsCollector singleton + 1s tick)
 
-
-- 🔲 **Latency-indikator (HUD)**
-  - `transport.latencyMs` → exponeras via `raceStore.latency`
-  - Engine: `engine/hud/LatencyIndicator.tsx` — props: `{ latencyMs, quality }`
+- ✅ **Latency-indikator (HUD)**
+  - `transport.latencyMs` → exponeras via `raceStore.latency` (5s polling)
+  - Engine: `engine/hud/LatencyIndicator.tsx` — props: `{ latencyMs }`
   - Färg: grön <50ms, gul 50-100ms, orange 100-200ms, röd >200ms
   - Visa: "23 ms" + färgad prick i övre hörnet
 
-- 🔲 **Reconnect-flow:**
+- ✅ **Reconnect-flow:**
   - Transport auto-reconnect (exponential backoff, max 10 försök)
-  - Vid reconnect: skicka `{ type: "rejoin", roomId, lastTimestamp }` → server svarar med snapshot
-  - Snapshot: alla spelares senaste position + room state + chat-historik (senaste 20)
-  - Smooth reentry: interpolera till korrekt state (ingen teleport-känsla)
+  - Vid reconnect: skicka `{ type: "rejoin" }` → server svarar med full snapshot
+  - Snapshot: alla spelares senaste position + room state + finish results
+  - Reconnecting-overlay med spinner + attempt counter, Retry-knapp vid exhaustion
 ---
 
 ## Fas V — Gameplay Mechanics
