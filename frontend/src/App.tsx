@@ -23,7 +23,7 @@ function App() {
   const token = useAuthStore((s) => s.token);
   const restoreSession = useAuthStore((s) => s.restoreSession);
 
-  // Restore session from localStorage on mount + preload audio
+  // Restore session from sessionStorage on mount + preload audio
   useEffect(() => {
     restoreSession();
     audioManager.preload();

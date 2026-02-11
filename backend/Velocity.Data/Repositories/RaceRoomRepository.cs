@@ -35,7 +35,7 @@ public sealed class RaceRoomRepository(VelocityDbContext db) : IRaceRoomReposito
 
     public async ValueTask UpdateAsync(RaceRoom room, CancellationToken ct = default)
     {
-        db.RaceRooms.Update(room);
+        db.Entry(room).State = EntityState.Modified;
         await db.SaveChangesAsync(ct);
     }
 
@@ -52,7 +52,7 @@ public sealed class RaceRoomRepository(VelocityDbContext db) : IRaceRoomReposito
 
     public async ValueTask UpdateParticipantAsync(RaceParticipant participant, CancellationToken ct = default)
     {
-        db.RaceParticipants.Update(participant);
+        db.Entry(participant).State = EntityState.Modified;
         await db.SaveChangesAsync(ct);
     }
 

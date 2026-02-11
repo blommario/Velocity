@@ -17,6 +17,10 @@ import {
   startRace as apiStartRace,
 } from '@game/services/raceService';
 import { STORAGE_KEYS } from '@game/services/api';
+import { useGameStore } from '@game/stores/gameStore';
+import { OFFICIAL_MAP_BY_ID, OFFICIAL_MAPS } from '@game/components/game/map/official';
+import { getMap } from '@game/services/mapService';
+import type { MapData } from '@game/components/game/map/types';
 import {
   WebSocketTransport,
   buildWsUrl,
@@ -191,7 +195,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
     }
     slotToPlayer.clear();
 
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = sessionStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) {
       set({ error: 'Not authenticated' });
       return;
@@ -285,6 +289,24 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       'player_joined',
       (data) => {
         slotToPlayer.set(data.slot, { playerId: data.playerId, playerName: data.playerName });
+        const room = get().currentRoom;
+        if (room) {
+          const alreadyExists = room.participants.some((p) => p.playerId === data.playerId);
+          if (!alreadyExists) {
+            set({
+              currentRoom: {
+                ...room,
+                participants: [...room.participants, {
+                  playerId: data.playerId,
+                  playerName: data.playerName,
+                  isReady: false,
+                  finishTime: null,
+                }],
+                currentPlayers: room.currentPlayers + 1,
+              },
+            });
+          }
+        }
       },
     );
 
@@ -294,7 +316,19 @@ export const useRaceStore = create<RaceState>((set, get) => ({
         slotToPlayer.delete(data.slot);
         const positions = new Map(get().racePositions);
         positions.delete(data.playerId);
-        set({ racePositions: positions });
+        const room = get().currentRoom;
+        if (room) {
+          set({
+            racePositions: positions,
+            currentRoom: {
+              ...room,
+              participants: room.participants.filter((p) => p.playerId !== data.playerId),
+              currentPlayers: Math.max(0, room.currentPlayers - 1),
+            },
+          });
+        } else {
+          set({ racePositions: positions });
+        }
       },
     );
 
@@ -314,6 +348,21 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       const room = get().currentRoom;
       if (room) {
         set({ currentRoom: { ...room, status: 'racing' } });
+
+        // Transition to game screen — load the race map
+        // mapId from server is a GUID; OFFICIAL_MAP_BY_ID keys by slug, so try both
+        const official = OFFICIAL_MAP_BY_ID[room.mapId]
+          ?? OFFICIAL_MAPS.find((m) => m.name === room.mapName);
+        if (official) {
+          useGameStore.getState().loadMap(room.mapId, official.data);
+        } else {
+          getMap(room.mapId).then((resp) => {
+            try {
+              const mapData = JSON.parse(resp.mapDataJson) as MapData;
+              useGameStore.getState().loadMap(room.mapId, mapData);
+            } catch { /* map parse failed */ }
+          }).catch(() => { /* fetch failed */ });
+        }
       }
     });
 
@@ -374,7 +423,19 @@ export const useRaceStore = create<RaceState>((set, get) => ({
       });
       const positions = new Map(get().racePositions);
       positions.delete(data.playerId);
-      set({ racePositions: positions });
+      const room = get().currentRoom;
+      if (room) {
+        set({
+          racePositions: positions,
+          currentRoom: {
+            ...room,
+            participants: room.participants.filter((p) => p.playerId !== data.playerId),
+            currentPlayers: Math.max(0, room.currentPlayers - 1),
+          },
+        });
+      } else {
+        set({ racePositions: positions });
+      }
     });
 
     // T1: room_closed — server killed the room

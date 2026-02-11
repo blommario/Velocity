@@ -37,7 +37,7 @@ export function createSseStream<T>(
   function connect(): void {
     if (closed) return;
 
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = sessionStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     const separator = path.includes('?') ? '&' : '?';
     const url = token
       ? `${SSE_CONFIG.BASE_PATH}${path}${separator}token=${encodeURIComponent(token)}`

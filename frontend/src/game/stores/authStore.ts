@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await api.post<AuthResponse>('/auth/login', req);
-      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, res.token);
+      sessionStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, res.token);
       set({ token: res.token, playerId: res.playerId, username: res.username, isLoading: false });
     } catch (e) {
       set({ isLoading: false, error: e instanceof Error ? e.message : 'Login failed' });
@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await api.post<AuthResponse>('/auth/register', req);
-      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, res.token);
+      sessionStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, res.token);
       set({ token: res.token, playerId: res.playerId, username: res.username, isLoading: false });
     } catch (e) {
       set({ isLoading: false, error: e instanceof Error ? e.message : 'Registration failed' });
@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await api.post<AuthResponse>('/auth/guest');
-      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, res.token);
+      sessionStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, res.token);
       set({ token: res.token, playerId: res.playerId, username: res.username, isLoading: false });
     } catch (e) {
       set({ isLoading: false, error: e instanceof Error ? e.message : 'Guest login failed' });
@@ -63,12 +63,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     set({ token: null, playerId: null, username: null, error: null });
   },
 
   restoreSession: () => {
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = sessionStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) return;
 
     // Decode JWT payload to extract claims (no verification — backend validates)
@@ -76,14 +76,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
       if (Date.now() >= exp) {
-        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         return;
       }
       const playerId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
       const username = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'];
       set({ token, playerId, username });
     } catch {
-      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     }
   },
 }));

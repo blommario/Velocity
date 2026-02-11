@@ -114,6 +114,13 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<VelocityDbContext>();
     db.Database.EnsureCreated();
+
+    // DEV: clear stale race data on startup so rooms don't linger across restarts
+    db.RaceResults.RemoveRange(db.RaceResults);
+    db.RaceParticipants.RemoveRange(db.RaceParticipants);
+    db.RaceRooms.RemoveRange(db.RaceRooms);
+    await db.SaveChangesAsync();
+
     await DatabaseSeeder.SeedAsync(db);
 }
 

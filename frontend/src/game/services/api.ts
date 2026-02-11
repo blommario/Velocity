@@ -12,7 +12,7 @@ export const STORAGE_KEYS = {
 
 function getHeaders(): HeadersInit {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  const token = sessionStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
