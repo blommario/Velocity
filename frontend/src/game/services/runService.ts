@@ -1,3 +1,9 @@
+/**
+ * Run API service — submitting completed runs and fetching player run history.
+ *
+ * Depends on: ./api, ./types
+ * Used by: GameCanvas (post-run), PlayerProfile
+ */
 import { api } from './api';
 import type { RunResponse, SubmitRunRequest } from './types';
 

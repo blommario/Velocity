@@ -1,3 +1,10 @@
+/**
+ * Server-Sent Events client with auto-reconnect and typed event dispatch.
+ * Token passed as query parameter since EventSource lacks custom headers.
+ *
+ * Depends on: ./api (STORAGE_KEYS)
+ * Used by: raceStore
+ */
 import { STORAGE_KEYS } from './api';
 
 const SSE_CONFIG = {

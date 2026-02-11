@@ -1,3 +1,10 @@
+/**
+ * Full-screen loading overlay with animated progress bar and stage indicators.
+ * Fades out when loading completes.
+ *
+ * Depends on: @game/stores/gameStore
+ * Used by: App
+ */
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '@game/stores/gameStore';
 

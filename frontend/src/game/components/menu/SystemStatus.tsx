@@ -1,3 +1,9 @@
+/**
+ * Expandable system status pill showing WebGPU, graphics, physics, and backend health.
+ *
+ * Depends on: @game/stores/settingsStore
+ * Used by: MainMenu
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { useSettingsStore } from '@game/stores/settingsStore';
 

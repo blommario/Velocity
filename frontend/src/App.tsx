@@ -1,3 +1,9 @@
+/**
+ * Root application component — session restore, auth gate, and screen router.
+ *
+ * Depends on: @game/stores/gameStore, @game/stores/authStore, @engine/audio/AudioManager, screen components
+ * Used by: main.tsx
+ */
 import { useEffect } from 'react';
 import { GameCanvas } from '@game/components/game/GameCanvas';
 import { MainMenu } from '@game/components/menu/MainMenu';

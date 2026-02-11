@@ -1,3 +1,10 @@
+/**
+ * Centralized asset loader with caching for models (GLTF/FBX), PBR texture sets,
+ * and HDRI environments. Supports DRACO compression and anisotropic filtering.
+ *
+ * Depends on: three/webgpu, three/addons loaders, @engine/types/map
+ * Used by: useTexturedMaterial, GameCanvas, MapEditor
+ */
 import {
   TextureLoader,
   SRGBColorSpace,

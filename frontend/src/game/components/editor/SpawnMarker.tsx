@@ -1,3 +1,9 @@
+/**
+ * Visual wireframe capsule + ground ring marking the player spawn point.
+ *
+ * Depends on: @game/stores/editorStore
+ * Used by: EditorViewport
+ */
 import { useEditorStore } from '@game/stores/editorStore';
 
 /** Visual marker showing the player spawn point in the editor */

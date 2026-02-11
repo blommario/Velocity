@@ -1,3 +1,10 @@
+/**
+ * Combat Zustand store — health, ammo, weapons, ADS, reload, grapple, and zone events.
+ * High-frequency state consumed by the 128Hz physics tick.
+ *
+ * Depends on: zustand, @game/components/game/physics/constants, @game/components/game/physics/types, @engine/physics/hitboxRegistry
+ * Used by: usePhysicsTick, CombatHud, GrappleBeam, ScopeGlint
+ */
 import { create } from 'zustand';
 import { PHYSICS, RELOAD_CONFIG } from '@game/components/game/physics/constants';
 import type { WeaponType } from '@game/components/game/physics/types';

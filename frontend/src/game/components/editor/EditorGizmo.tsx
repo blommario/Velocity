@@ -1,3 +1,10 @@
+/**
+ * Transform gizmo wrapper for the selected editor object.
+ * Maps editor tool mode to translate/rotate/scale with optional grid snapping.
+ *
+ * Depends on: @react-three/drei, @game/stores/editorStore
+ * Used by: EditorViewport
+ */
 import { useEffect, useRef } from 'react';
 import { TransformControls } from '@react-three/drei';
 import { useEditorStore, EDITOR_TOOLS } from '@game/stores/editorStore';

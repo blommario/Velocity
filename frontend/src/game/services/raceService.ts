@@ -1,3 +1,10 @@
+/**
+ * Race room API service — creating, joining, readying, and starting multiplayer races.
+ * Also fetches player profile details.
+ *
+ * Depends on: ./api, ./types
+ * Used by: raceStore, PlayerProfile
+ */
 import { api } from './api';
 import type {
   RoomResponse,

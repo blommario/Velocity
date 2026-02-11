@@ -1,3 +1,10 @@
+/**
+ * Free-fly camera controller for the map editor.
+ * WASD movement, right-click drag look, Shift for speed boost.
+ *
+ * Depends on: react, @react-three/fiber, three
+ * Used by: EditorViewport
+ */
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Vector3, Euler, MathUtils } from 'three';

@@ -1,3 +1,10 @@
+/**
+ * Top-level map editor screen with palette, viewport, properties panel,
+ * keyboard shortcuts, and test-play mode toggle.
+ *
+ * Depends on: ObjectPalette, PropertiesPanel, EditorViewport, SavePublishModal, GameCanvas, @game/stores/editorStore, @game/stores/gameStore
+ * Used by: App
+ */
 import { useEffect } from 'react';
 import { ObjectPalette } from './ObjectPalette';
 import { PropertiesPanel } from './PropertiesPanel';

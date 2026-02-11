@@ -1,3 +1,10 @@
+/**
+ * React hook that loads a PBR texture set and builds a MeshStandardNodeMaterial.
+ * Supports roughness/metalness overrides, emissive animation, and texture blending.
+ *
+ * Depends on: three/webgpu, three/tsl, @game/services/assetManager, @engine/rendering/proceduralMaterials, @engine/rendering/textureBlendNode, @engine/stores/devLogStore, @engine/types/map
+ * Used by: ModelBlock, ProceduralBlockGroup
+ */
 import { useEffect, useState } from 'react';
 import { MeshStandardNodeMaterial, RepeatWrapping } from 'three/webgpu';
 // UniformNode not exported from three/tsl — use any

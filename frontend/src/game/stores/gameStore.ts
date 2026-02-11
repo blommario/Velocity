@@ -1,3 +1,10 @@
+/**
+ * Core game state Zustand store — screen routing, run lifecycle, timer, checkpoints,
+ * respawn, stats tracking, bullet-time, and screen effects.
+ *
+ * Depends on: zustand, @game/components/game/map/types, ./replayStore, @engine/physics/seededRandom
+ * Used by: App, PlayerController, usePhysicsTick, HUD components, LoadingScreen
+ */
 import { create } from 'zustand';
 import type { MapData } from '@game/components/game/map/types';
 import { useReplayStore } from './replayStore';

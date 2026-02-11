@@ -1,3 +1,10 @@
+/**
+ * WebGPU 3D viewport canvas for the map editor.
+ * Composes camera, lighting, grid, gizmo, and editor objects.
+ *
+ * Depends on: @react-three/fiber, EditorCamera, EditorObjects, EditorGizmo, SpawnMarker, @game/stores/editorStore
+ * Used by: MapEditor
+ */
 import { Canvas } from '@react-three/fiber';
 import { WebGPURenderer } from 'three/webgpu';
 import { Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';

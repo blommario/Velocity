@@ -1,3 +1,10 @@
+/**
+ * Lens flare glint effect visible when the sniper scope is fully ADS.
+ * Feeds player position and look direction to the engine ScopeGlint effect.
+ *
+ * Depends on: @engine/effects, @game/stores/combatStore, @game/stores/gameStore
+ * Used by: GameCanvas
+ */
 import { useCallback } from 'react';
 import { useThree } from '@react-three/fiber';
 import { ScopeGlint as EngineScopeGlint, type ScopeGlintState } from '@engine/effects';

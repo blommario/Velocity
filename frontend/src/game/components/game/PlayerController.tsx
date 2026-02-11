@@ -1,3 +1,10 @@
+/**
+ * First-person kinematic character controller using Rapier KCC at 128Hz.
+ * Handles movement input, camera look, jump buffering, crouching, and sliding.
+ *
+ * Depends on: @react-three/rapier, @engine/input/useInputBuffer, ./physics/usePhysicsTick, ./physics/constants, @game/stores/gameStore, @engine/stores/devLogStore
+ * Used by: GameCanvas
+ */
 import { useRef, useEffect } from 'react';
 import { Vector3 } from 'three';
 import { useThree } from '@react-three/fiber';

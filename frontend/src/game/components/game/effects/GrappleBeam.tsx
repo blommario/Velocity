@@ -1,3 +1,10 @@
+/**
+ * Animated wavy beam connecting the player camera to the active grapple target.
+ * Delegates rendering to the engine LineRenderEffect component.
+ *
+ * Depends on: @engine/effects/LineRenderEffect, @game/stores/combatStore
+ * Used by: GameCanvas
+ */
 import { useThree } from '@react-three/fiber';
 import { useCallback } from 'react';
 import { LineRenderEffect } from '@engine/effects/LineRenderEffect';

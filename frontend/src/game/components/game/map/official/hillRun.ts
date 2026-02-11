@@ -1,3 +1,10 @@
+/**
+ * Hill Run — heightmap terrain map with a Gaussian hill obstacle.
+ * Tests slope physics: uphill slows, downhill accelerates.
+ *
+ * Depends on: ../types
+ * Used by: gameStore (map registry)
+ */
 import type { MapData } from '../types';
 
 /**

@@ -1,3 +1,10 @@
+/**
+ * Gold particle burst effect triggered when the player crosses a checkpoint.
+ * Delegates rendering to the engine ObjectHighlight component.
+ *
+ * Depends on: @engine/effects/ObjectHighlight, @game/stores/gameStore
+ * Used by: GameCanvas
+ */
 import { useRef, useCallback } from 'react';
 import { ObjectHighlight } from '@engine/effects/ObjectHighlight';
 import { useGameStore } from '@game/stores/gameStore';

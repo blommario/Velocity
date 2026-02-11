@@ -1,3 +1,9 @@
+/**
+ * Map API service — listing, fetching, and liking community maps.
+ *
+ * Depends on: ./api, ./types
+ * Used by: MainMenu, MapEditor
+ */
 import { api } from './api';
 import type { MapResponse, MapDifficulty } from './types';
 

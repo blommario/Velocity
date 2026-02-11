@@ -1,3 +1,10 @@
+/**
+ * Shared API request/response type definitions for all service modules.
+ * Mirrors backend Contracts/ DTOs with camelCase naming.
+ *
+ * Depends on: none
+ * Used by: api, leaderboardService, mapService, raceService, replayService, runService, authStore, raceStore
+ */
 // ── Auth ──
 export interface AuthResponse {
   token: string;

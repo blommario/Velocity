@@ -1,3 +1,10 @@
+/**
+ * Game-specific physics constants extending the engine core.
+ * Weapons, health, recoil patterns, ADS/reload configs, and combat tuning.
+ *
+ * Depends on: @engine/physics/constants, @engine/physics/recoil, ./types
+ * Used by: usePhysicsTick, PlayerController, combatStore, weaponFire
+ */
 import { ENGINE_PHYSICS, DEG2RAD as _DEG2RAD, RAD2DEG as _RAD2DEG } from '@engine/physics/constants';
 import type { RecoilPattern, RecoilConfig } from '@engine/physics/recoil';
 import type { WeaponType } from './types';

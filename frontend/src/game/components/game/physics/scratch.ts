@@ -1,3 +1,10 @@
+/**
+ * Pre-allocated scratch vectors and rays shared across physics tick sub-functions.
+ * Avoids GC pressure on the 128Hz hot path.
+ *
+ * Depends on: three, @dimforge/rapier3d-compat
+ * Used by: usePhysicsTick, movementTick, weaponFire, grappleAndZones
+ */
 import { Vector3 } from 'three';
 import { Ray } from '@dimforge/rapier3d-compat';
 

@@ -1,3 +1,9 @@
+/**
+ * Replay API service — submitting and retrieving run replay data.
+ *
+ * Depends on: ./api, ./types
+ * Used by: replayStore, GameCanvas (post-run)
+ */
 import { api } from './api';
 import type { ReplayResponse } from './types';
 

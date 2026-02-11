@@ -1,3 +1,10 @@
+/**
+ * First Steps — training facility map definition.
+ * Concrete arena with scattered cover, step platforms, and ammo pickups.
+ *
+ * Depends on: ../types
+ * Used by: gameStore (map registry)
+ */
 import type { MapData } from '../types';
 
 const ARENA_SIZE = 200;

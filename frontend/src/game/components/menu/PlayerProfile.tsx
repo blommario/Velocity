@@ -1,3 +1,9 @@
+/**
+ * Player profile screen showing stats, recent runs, and personal bests.
+ *
+ * Depends on: @game/stores/gameStore, @game/stores/authStore, @game/services/raceService, @game/services/types
+ * Used by: App
+ */
 import { useEffect, useState } from 'react';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
 import { useAuthStore } from '@game/stores/authStore';

@@ -1,3 +1,9 @@
+/**
+ * Login/register/guest authentication screen with animated space background.
+ *
+ * Depends on: @game/stores/authStore
+ * Used by: App (when unauthenticated)
+ */
 import { useState } from 'react';
 import { useAuthStore } from '@game/stores/authStore';
 

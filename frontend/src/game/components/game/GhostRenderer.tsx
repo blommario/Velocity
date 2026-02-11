@@ -1,3 +1,10 @@
+/**
+ * Renders a semi-transparent capsule ghost following a recorded replay path.
+ * Interpolates ghost position from replay data during an active run.
+ *
+ * Depends on: @game/stores/replayStore, @game/stores/gameStore, ./physics/constants
+ * Used by: GameCanvas
+ */
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Mesh, Euler } from 'three';

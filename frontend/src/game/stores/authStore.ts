@@ -1,3 +1,9 @@
+/**
+ * Authentication Zustand store — login, register, guest, JWT session management.
+ *
+ * Depends on: zustand, @game/services/api, @game/services/types
+ * Used by: App, AuthScreen, PlayerProfile
+ */
 import { create } from 'zustand';
 import { api, STORAGE_KEYS } from '@game/services/api';
 import type { AuthResponse, LoginRequest, RegisterRequest } from '@game/services/types';

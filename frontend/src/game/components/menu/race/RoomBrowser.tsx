@@ -1,3 +1,9 @@
+/**
+ * Room browser UI for creating and joining multiplayer race rooms.
+ *
+ * Depends on: @game/stores/raceStore, game/components/game/map/official, @game/services/types
+ * Used by: RaceLobby
+ */
 import { useEffect, useState } from 'react';
 import { useRaceStore } from '@game/stores/raceStore';
 import { OFFICIAL_MAPS } from '../../game/map/official';

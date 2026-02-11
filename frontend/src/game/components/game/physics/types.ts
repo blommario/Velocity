@@ -1,3 +1,9 @@
+/**
+ * Game-specific weapon types, slot order, and re-exported engine physics types.
+ *
+ * Depends on: @engine/types/physics
+ * Used by: constants, combatStore, weaponFire, combatTick
+ */
 // Re-export engine types for backward compatibility
 export type { InputState, MovementState } from '@engine/types/physics';
 

@@ -1,3 +1,10 @@
+/**
+ * Color-shifting trailing ribbon effect rendered behind the player at high speed.
+ * Wraps the engine SpeedTrail with game-specific speed thresholds and settings.
+ *
+ * Depends on: @engine/effects/SpeedTrail, @game/stores/gameStore, @game/stores/settingsStore
+ * Used by: GameCanvas
+ */
 import { useCallback } from 'react';
 import { SpeedTrail as EngineSpeedTrail } from '@engine/effects/SpeedTrail';
 import { useGameStore } from '@game/stores/gameStore';

@@ -1,3 +1,10 @@
+/**
+ * Sidebar palette listing placeable object types grouped by category.
+ * Clicking an item sets the active placement type in the editor store.
+ *
+ * Depends on: @game/stores/editorStore
+ * Used by: MapEditor
+ */
 import { useEditorStore, EDITOR_OBJECT_TYPES, type EditorObjectType } from '@game/stores/editorStore';
 
 const PALETTE_ITEMS: { type: EditorObjectType; label: string; color: string; group: string }[] = [

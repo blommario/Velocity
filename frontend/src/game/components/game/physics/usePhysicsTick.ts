@@ -1,3 +1,10 @@
+/**
+ * Main 128Hz physics tick orchestrator.
+ * Sequences respawn, input, movement, combat, projectiles, and camera sub-systems.
+ *
+ * Depends on: ./state, ./respawnAndInput, ./grappleAndZones, ./combatTick, ./weaponFire, ./projectileTick, ./movementTick, ./cameraTick, @engine/physics/useMovement
+ * Used by: PlayerController
+ */
 import { type Camera } from 'three';
 import { PHYSICS } from './constants';
 import { getWishDir } from '@engine/physics/useMovement';
