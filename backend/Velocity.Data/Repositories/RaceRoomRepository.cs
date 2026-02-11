@@ -55,4 +55,10 @@ public sealed class RaceRoomRepository(VelocityDbContext db) : IRaceRoomReposito
         db.RaceParticipants.Update(participant);
         await db.SaveChangesAsync(ct);
     }
+
+    public async ValueTask SaveResultAsync(RaceResult result, CancellationToken ct = default)
+    {
+        db.RaceResults.Add(result);
+        await db.SaveChangesAsync(ct);
+    }
 }

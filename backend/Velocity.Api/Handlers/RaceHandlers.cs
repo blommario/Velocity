@@ -178,11 +178,12 @@ public sealed class RaceHandlers(
             new { RoomId = roomId, StartedAt = room.StartedAt },
             ct);
 
-        // Notify WebSocket room (if players are already connected)
+        // Start countdown via WebSocket room (3→2→1→GO→race_start)
         var wsRoom = roomManager.GetRoom(roomId);
         if (wsRoom is not null)
         {
-            await wsRoom.BroadcastJsonAsync("race_starting", new { RoomId = roomId, StartedAt = room.StartedAt }, ct);
+            wsRoom.SetMetadata(room.HostPlayerId, room.MapId);
+            wsRoom.StartCountdown();
         }
 
         var updated = await rooms.GetByIdAsync(roomId, ct);

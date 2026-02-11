@@ -11,6 +11,7 @@ public class VelocityDbContext(DbContextOptions<VelocityDbContext> options) : Db
     public DbSet<LeaderboardEntry> LeaderboardEntries => Set<LeaderboardEntry>();
     public DbSet<RaceRoom> RaceRooms => Set<RaceRoom>();
     public DbSet<RaceParticipant> RaceParticipants => Set<RaceParticipant>();
+    public DbSet<RaceResult> RaceResults => Set<RaceResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

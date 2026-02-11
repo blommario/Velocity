@@ -17,4 +17,7 @@ public sealed class PlayerSocket
     public required WebSocket Socket { get; init; }
     public long LastSeenAt { get; set; } = Environment.TickCount64;
     public bool IsActive { get; set; } = true;
+    public bool IsFinished { get; set; }
+    public float FinishTime { get; set; }
+    public int Placement { get; set; }
 }

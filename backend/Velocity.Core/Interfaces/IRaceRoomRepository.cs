@@ -11,4 +11,5 @@ public interface IRaceRoomRepository
     ValueTask AddParticipantAsync(RaceParticipant participant, CancellationToken ct = default);
     ValueTask<RaceParticipant?> GetParticipantAsync(Guid roomId, Guid playerId, CancellationToken ct = default);
     ValueTask UpdateParticipantAsync(RaceParticipant participant, CancellationToken ct = default);
+    ValueTask SaveResultAsync(RaceResult result, CancellationToken ct = default);
 }

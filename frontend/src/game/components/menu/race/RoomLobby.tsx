@@ -1,3 +1,10 @@
+/**
+ * Room lobby — shows participants, ready state, and host controls.
+ * T1: adds kick button for host, leave via WebSocket, racing status display.
+ *
+ * Depends on: raceStore, authStore
+ * Used by: RaceLobby
+ */
 import { useRaceStore } from '@game/stores/raceStore';
 import { useAuthStore } from '@game/stores/authStore';
 import type { ParticipantResponse } from '@game/services/types';
@@ -12,13 +19,30 @@ const READY_COLORS = {
   notReady: 'text-gray-500',
 } as const;
 
+const STATUS_LABELS: Record<string, string> = {
+  waiting: 'Waiting',
+  countdown: 'Starting...',
+  racing: 'Racing',
+  finished: 'Finished',
+} as const;
+
+const STATUS_COLORS: Record<string, string> = {
+  waiting: 'text-green-400',
+  countdown: 'text-yellow-400',
+  racing: 'text-orange-400',
+  finished: 'text-gray-400',
+} as const;
+
 export function RoomLobby() {
   const currentRoom = useRaceStore((s) => s.currentRoom);
   const isConnected = useRaceStore((s) => s.isConnected);
   const isLoading = useRaceStore((s) => s.isLoading);
   const error = useRaceStore((s) => s.error);
+  const raceStatus = useRaceStore((s) => s.raceStatus);
   const setReady = useRaceStore((s) => s.setReady);
   const startRace = useRaceStore((s) => s.startRace);
+  const sendLeave = useRaceStore((s) => s.sendLeave);
+  const sendKick = useRaceStore((s) => s.sendKick);
   const disconnectFromRace = useRaceStore((s) => s.disconnectFromRace);
   const playerId = useAuthStore((s) => s.playerId);
 
@@ -28,7 +52,17 @@ export function RoomLobby() {
   const currentParticipant = currentRoom.participants.find((p) => p.playerId === playerId);
   const isReady = currentParticipant?.isReady ?? false;
   const allReady = currentRoom.participants.length > 0 &&
-    currentRoom.participants.every((p) => p.isReady);
+    currentRoom.participants.every((p) => p.isReady || p.playerId === currentRoom.hostPlayerId);
+  const isWaiting = currentRoom.status === 'waiting';
+  const statusLabel = STATUS_LABELS[currentRoom.status] ?? currentRoom.status;
+  const statusColor = STATUS_COLORS[currentRoom.status] ?? 'text-gray-400';
+
+  const handleLeave = () => {
+    if (raceStatus === 'racing' || raceStatus === 'countdown') {
+      sendLeave();
+    }
+    disconnectFromRace();
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -41,17 +75,19 @@ export function RoomLobby() {
               Hosted by {currentRoom.hostName}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-xs text-gray-400">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </span>
+          <div className="flex items-center gap-3">
+            <span className={`text-xs font-medium ${statusColor}`}>{statusLabel}</span>
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-xs text-gray-400">
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="text-sm text-gray-400">
           {currentRoom.currentPlayers}/{currentRoom.maxPlayers} players
-          &middot; Status: {currentRoom.status}
         </div>
       </div>
 
@@ -74,6 +110,8 @@ export function RoomLobby() {
               participant={p}
               isCurrentPlayer={p.playerId === playerId}
               isHost={p.playerId === currentRoom.hostPlayerId}
+              canKick={isHost && p.playerId !== playerId && isWaiting}
+              onKick={() => sendKick(p.playerId)}
             />
           ))}
         </div>
@@ -81,7 +119,7 @@ export function RoomLobby() {
 
       {/* Actions */}
       <div className="flex gap-3">
-        {!isReady && currentRoom.status === 'waiting' && (
+        {!isReady && isWaiting && (
           <button
             onClick={setReady}
             disabled={isLoading}
@@ -90,7 +128,7 @@ export function RoomLobby() {
             {isLoading ? 'Updating...' : 'Ready Up'}
           </button>
         )}
-        {isHost && allReady && currentRoom.status === 'waiting' && (
+        {isHost && allReady && isWaiting && currentRoom.participants.length >= 2 && (
           <button
             onClick={startRace}
             disabled={isLoading}
@@ -100,7 +138,7 @@ export function RoomLobby() {
           </button>
         )}
         <button
-          onClick={disconnectFromRace}
+          onClick={handleLeave}
           className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg text-sm transition-colors"
         >
           Leave
@@ -114,10 +152,14 @@ function ParticipantRow({
   participant,
   isCurrentPlayer,
   isHost,
+  canKick,
+  onKick,
 }: {
   participant: ParticipantResponse;
   isCurrentPlayer: boolean;
   isHost: boolean;
+  canKick: boolean;
+  onKick: () => void;
 }) {
   const readyText = participant.isReady ? READY_STATUS.READY : READY_STATUS.NOT_READY;
   const readyColor = participant.isReady ? READY_COLORS.ready : READY_COLORS.notReady;
@@ -146,6 +188,14 @@ function ParticipantRow({
           </span>
         )}
         <span className={`text-xs font-medium ${readyColor}`}>{readyText}</span>
+        {canKick && (
+          <button
+            onClick={onKick}
+            className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          >
+            Kick
+          </button>
+        )}
       </div>
     </div>
   );

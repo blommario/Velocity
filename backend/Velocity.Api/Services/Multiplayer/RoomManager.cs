@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using Microsoft.Extensions.Logging;
+using Velocity.Api.Configuration;
 
 namespace Velocity.Api.Services.Multiplayer;
 
@@ -10,6 +11,7 @@ namespace Velocity.Api.Services.Multiplayer;
 /// Rejects new joins during shutdown to prevent orphaned rooms.
 /// Uses Lazy&lt;Room&gt; to ensure the factory runs exactly once per room ID,
 /// preventing orphaned Room instances with running background tasks.
+/// T1: adds stale room detection, force-close, and race-finished event relay.
 /// </summary>
 /// <remarks>
 /// Depends on: Room
@@ -21,6 +23,9 @@ public sealed class RoomManager : IAsyncDisposable
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<RoomManager> _logger;
     private volatile bool _isShuttingDown;
+
+    /// <summary>Relayed from Room.OnRaceFinished — includes roomId, results, and mapId.</summary>
+    public event Action<Guid, IReadOnlyList<FinishResult>, Guid>? OnRoomRaceFinished;
 
     public RoomManager(ILoggerFactory loggerFactory)
     {
@@ -42,6 +47,7 @@ public sealed class RoomManager : IAsyncDisposable
         {
             var r = new Room(id, _loggerFactory.CreateLogger<Room>());
             r.OnEmpty += HandleRoomEmpty;
+            r.OnRaceFinished += HandleRaceFinished;
             return r;
         }));
 
@@ -51,7 +57,6 @@ public sealed class RoomManager : IAsyncDisposable
         // (e.g. last player left and OnEmpty fired concurrently), reject the join.
         if (room.IsDisposed)
         {
-            // Remove the stale entry so the next join creates a fresh room
             _rooms.TryRemove(roomId, out _);
             return (room, -1, Task.CompletedTask);
         }
@@ -101,9 +106,76 @@ public sealed class RoomManager : IAsyncDisposable
             .ToList();
     }
 
+    /// <summary>
+    /// Returns rooms that should be cleaned up based on age/status thresholds.
+    /// </summary>
+    public IReadOnlyList<(Guid RoomId, string Reason)> GetStaleRooms()
+    {
+        var stale = new List<(Guid, string)>();
+        var now = Environment.TickCount64;
+
+        foreach (var kv in _rooms)
+        {
+            if (!kv.Value.IsValueCreated) continue;
+            var room = kv.Value.Value;
+            if (room.IsDisposed) continue;
+
+            var idleMs = now - room.LastActivityAt;
+
+            switch (room.Status)
+            {
+                case RoomStatus.Waiting when idleMs > WebSocketSettings.WaitingRoomTimeoutMs:
+                    stale.Add((kv.Key, $"Waiting room idle for {idleMs / 1000}s"));
+                    break;
+
+                case RoomStatus.Racing when idleMs > WebSocketSettings.RaceTimeoutMs:
+                    stale.Add((kv.Key, $"Racing room exceeded timeout ({idleMs / 1000}s)"));
+                    break;
+
+                case RoomStatus.Finished when idleMs > WebSocketSettings.FinishedGracePeriodSeconds * 1000:
+                    stale.Add((kv.Key, "Finished room grace period expired"));
+                    break;
+            }
+
+            // Empty rooms with no players
+            if (room.PlayerCount == 0)
+            {
+                stale.Add((kv.Key, "Empty room"));
+            }
+        }
+
+        return stale;
+    }
+
+    /// <summary>Force-closes a room, disconnecting all players.</summary>
+    public async Task ForceCloseRoom(Guid roomId)
+    {
+        if (_rooms.TryRemove(roomId, out var lazy) && lazy.IsValueCreated)
+        {
+            var room = lazy.Value;
+            try
+            {
+                await room.BroadcastJsonAsync("room_closed", new { reason = "Room timed out" });
+            }
+            catch
+            {
+                // Best effort
+            }
+
+            await room.DisposeAsync();
+        }
+    }
+
     private void HandleRoomEmpty(Guid roomId)
     {
         RemoveRoom(roomId);
+    }
+
+    private void HandleRaceFinished(Guid roomId, IReadOnlyList<FinishResult> results)
+    {
+        var room = GetRoom(roomId);
+        var mapId = room?.MapId ?? Guid.Empty;
+        OnRoomRaceFinished?.Invoke(roomId, results, mapId);
     }
 
     private void RemoveRoom(Guid roomId)
@@ -116,10 +188,8 @@ public sealed class RoomManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        // Reject new joins first, then drain existing rooms
         _isShuttingDown = true;
 
-        // Snapshot + remove atomically per entry to avoid race with concurrent JoinRoom
         var roomIds = _rooms.Keys.ToList();
         var disposeTasks = new List<ValueTask>();
 

@@ -37,4 +37,21 @@ public static class WebSocketSettings
 
     /// <summary>JSON message type prefix.</summary>
     public const byte MsgTypeJson = 0x80;
+
+    // ── Race lifecycle ──
+
+    /// <summary>Countdown duration in seconds (3→2→1→GO).</summary>
+    public const int CountdownSeconds = 3;
+
+    /// <summary>Max race duration before force-finish (5 minutes).</summary>
+    public const int RaceTimeoutMs = 300_000;
+
+    /// <summary>Delay after all players finish before room auto-closes (seconds).</summary>
+    public const int FinishedGracePeriodSeconds = 120;
+
+    /// <summary>Max idle time for a waiting room before cleanup (30 minutes).</summary>
+    public const int WaitingRoomTimeoutMs = 1_800_000;
+
+    /// <summary>Cleanup service scan interval (60 seconds).</summary>
+    public const int CleanupIntervalMs = 60_000;
 }
