@@ -24,6 +24,7 @@ const HITSCAN_DAMAGE: Record<string, number> = {
   sniper: PHYSICS.SNIPER_DAMAGE,
   assault: PHYSICS.ASSAULT_DAMAGE,
   shotgun: PHYSICS.SHOTGUN_DAMAGE_PER_PELLET,
+  pistol: PHYSICS.PISTOL_DAMAGE,
 };
 
 /**
@@ -253,6 +254,39 @@ export function handleWeaponFire(ctx: TickContext): void {
         refs.pitch.current += rk.dpitch;
         refs.yaw.current += rk.dyaw;
         devLog.info('Combat', `Shotgun fired → ammo=${combat.ammo.shotgun.current}`);
+      }
+      break;
+    }
+    case WEAPONS.PISTOL: {
+      if (combat.fireHitscan(WEAPONS.PISTOL)) {
+        const effectivePistolSpread = PHYSICS.PISTOL_SPREAD * spreadMult;
+        const psx = (nextRandom() - 0.5) * effectivePistolSpread * PHYSICS.HITSCAN_SPREAD_FACTOR;
+        const psy = (nextRandom() - 0.5) * effectivePistolSpread * PHYSICS.HITSCAN_SPREAD_FACTOR;
+        const pAimX = _fireDir.x + psx;
+        const pAimY = _fireDir.y + psy;
+        const pAimZ = _fireDir.z;
+        const pLen = Math.sqrt(pAimX * pAimX + pAimY * pAimY + pAimZ * pAimZ);
+        _reusableRay.origin.x = _playerPos.x; _reusableRay.origin.y = _playerPos.y + eyeOff; _reusableRay.origin.z = _playerPos.z;
+        _reusableRay.dir.x = pAimX / pLen; _reusableRay.dir.y = pAimY / pLen; _reusableRay.dir.z = pAimZ / pLen;
+        const pistolHit = rapierWorld.castRayAndGetNormal(_reusableRay, PHYSICS.PISTOL_RANGE, true, undefined, undefined, undefined, rb);
+        if (pistolHit) {
+          const hx = _reusableRay.origin.x + _reusableRay.dir.x * pistolHit.timeOfImpact;
+          const hy = _reusableRay.origin.y + _reusableRay.dir.y * pistolHit.timeOfImpact;
+          const hz = _reusableRay.origin.z + _reusableRay.dir.z * pistolHit.timeOfImpact;
+          processHitscanHit(pistolHit.collider.handle, hx, hy, hz,
+            pistolHit.normal.x, pistolHit.normal.y, pistolHit.normal.z,
+            'pistol', IMPACT.LIGHT);
+        }
+        velocity.x -= _fireDir.x * PHYSICS.PISTOL_KNOCKBACK * ctx.dt;
+        velocity.z -= _fireDir.z * PHYSICS.PISTOL_KNOCKBACK * ctx.dt;
+        audioManager.play(SOUNDS.PISTOL_FIRE, 0.05);
+        const rk = applyRecoilKick(recoilState, RECOIL_PATTERNS.pistol,
+          ctx.s.adsProgress, refs.isProne.current ? 1 : 0,
+          RECOIL_CONFIG.adsRecoilMult, RECOIL_CONFIG.proneRecoilMult,
+          nextRandom() * 2 - 1);
+        refs.pitch.current += rk.dpitch;
+        refs.yaw.current += rk.dyaw;
+        devLog.info('Combat', `Pistol fired → mag=${combat.ammo.pistol.magazine}`);
       }
       break;
     }

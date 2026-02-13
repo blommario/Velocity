@@ -39,6 +39,7 @@ const DEFAULT_AMMO: Record<WeaponType, AmmoState> = {
   shotgun: { current: PHYSICS.SHOTGUN_MAX_AMMO, max: PHYSICS.SHOTGUN_MAX_AMMO, magazine: RELOAD_CONFIG.shotgun.magSize, magSize: RELOAD_CONFIG.shotgun.magSize },
   knife:   { current: Infinity, max: Infinity },
   plasma:  { current: PHYSICS.PLASMA_MAX_AMMO, max: PHYSICS.PLASMA_MAX_AMMO, magazine: RELOAD_CONFIG.plasma.magSize, magSize: RELOAD_CONFIG.plasma.magSize },
+  pistol:  { current: PHYSICS.PISTOL_MAX_AMMO, max: PHYSICS.PISTOL_MAX_AMMO, magazine: PHYSICS.PISTOL_MAG_SIZE, magSize: PHYSICS.PISTOL_MAG_SIZE },
 };
 
 function cloneAmmo(): Record<WeaponType, AmmoState> {
@@ -307,6 +308,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
     const cooldown = weapon === 'sniper' ? PHYSICS.SNIPER_FIRE_COOLDOWN
       : weapon === 'assault' ? PHYSICS.ASSAULT_FIRE_COOLDOWN
+      : weapon === 'pistol' ? PHYSICS.PISTOL_FIRE_COOLDOWN
       : PHYSICS.SHOTGUN_FIRE_COOLDOWN;
 
     set({

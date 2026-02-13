@@ -28,6 +28,7 @@ export const SOUNDS = {
   GRENADE_THROW: 'grenade_throw',
   GRENADE_BOUNCE: 'grenade_bounce',
   GRENADE_EXPLODE: 'grenade_explode',
+  PISTOL_FIRE: 'pistol_fire',
 
   // Grapple
   GRAPPLE_FIRE: 'grapple_fire',
@@ -84,6 +85,7 @@ const SOUND_CATEGORIES: Record<SoundId, 'sfx' | 'music' | 'ambient'> = {
   [SOUNDS.GRENADE_THROW]: 'sfx',
   [SOUNDS.GRENADE_BOUNCE]: 'sfx',
   [SOUNDS.GRENADE_EXPLODE]: 'sfx',
+  [SOUNDS.PISTOL_FIRE]: 'sfx',
   [SOUNDS.GRAPPLE_FIRE]: 'sfx',
   [SOUNDS.GRAPPLE_ATTACH]: 'sfx',
   [SOUNDS.GRAPPLE_RELEASE]: 'sfx',
@@ -132,6 +134,7 @@ const SYNTH_CONFIGS: Partial<Record<SoundId, SynthConfig>> = {
   [SOUNDS.GRENADE_THROW]: { frequency: 300, type: 'sine', duration: 0.1, gain: 0.2 },
   [SOUNDS.GRENADE_BOUNCE]: { frequency: 500, type: 'triangle', duration: 0.08, gain: 0.15 },
   [SOUNDS.GRENADE_EXPLODE]: { frequency: 50, type: 'sawtooth', duration: 0.5, gain: 0.55, decay: 0.4, filterFreq: 500 },
+  [SOUNDS.PISTOL_FIRE]: { frequency: 400, type: 'square', duration: 0.08, gain: 0.4, decay: 0.06, filterFreq: 1500 },
   [SOUNDS.GRAPPLE_FIRE]: { frequency: 600, type: 'square', duration: 0.15, gain: 0.3, filterFreq: 1200 },
   [SOUNDS.GRAPPLE_ATTACH]: { frequency: 800, type: 'sine', duration: 0.1, gain: 0.25 },
   [SOUNDS.GRAPPLE_RELEASE]: { frequency: 400, type: 'sine', duration: 0.12, gain: 0.2, decay: 0.1 },

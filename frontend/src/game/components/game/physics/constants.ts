@@ -73,6 +73,16 @@ export const PHYSICS = {
   KNIFE_LUNGE_DURATION: 0.08,   // seconds
   KNIFE_FIRE_COOLDOWN: 0.4,
 
+  // ── Pistol (hitscan, semi-auto) ──
+  PISTOL_DAMAGE: 25,
+  PISTOL_RANGE: 200,
+  PISTOL_SPREAD: 0.02,
+  PISTOL_FIRE_COOLDOWN: 0.25,  // ~4 rounds/sec
+  PISTOL_KNOCKBACK: 10,
+  PISTOL_MAX_AMMO: 48,
+  PISTOL_MAG_SIZE: 12,
+  PISTOL_RELOAD_TIME: 1.5,
+
   // ── Plasma gun (continuous beam) ──
   PLASMA_DAMAGE_PER_SEC: 80,
   PLASMA_RANGE: 60,
@@ -219,6 +229,7 @@ export const ADS_CONFIG: Record<WeaponType, AdsWeaponConfig> = {
   grenade: { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
   plasma:  { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
   knife:   { fov: 90,  canAds: false, anchorX: 0.05, anchorY: -0.30, anchorZ: -0.10 },
+  pistol:  { fov: 65,  canAds: true,  anchorX: 0,    anchorY: -0.10, anchorZ: -0.25 },
 } as const;
 
 /** Per-weapon reload configuration. */
@@ -237,6 +248,7 @@ export const RELOAD_CONFIG: Record<WeaponType, ReloadWeaponConfig> = {
   grenade: { canReload: true,  reloadTime: PHYSICS.GRENADE_RELOAD_TIME,           magSize: 3,                         perShell: false },
   plasma:  { canReload: true,  reloadTime: PHYSICS.PLASMA_RELOAD_TIME,            magSize: 100,                       perShell: false },
   knife:   { canReload: false, reloadTime: 0,                                     magSize: Infinity,                  perShell: false },
+  pistol:  { canReload: true,  reloadTime: PHYSICS.PISTOL_RELOAD_TIME,            magSize: PHYSICS.PISTOL_MAG_SIZE,   perShell: false },
 } as const;
 
 /** Per-weapon recoil patterns. */
@@ -248,6 +260,7 @@ export const RECOIL_PATTERNS: Record<WeaponType, RecoilPattern> = {
   grenade: { pitchPerShot: 0.005, yawPerShot: 0.003, accumulation: 0,    baseSpread: 0 },
   plasma:  { pitchPerShot: 0.002, yawPerShot: 0.001, accumulation: 0.05, baseSpread: 0.02 },
   knife:   { pitchPerShot: 0,     yawPerShot: 0,     accumulation: 0,    baseSpread: 0 },
+  pistol:  { pitchPerShot: 0.025, yawPerShot: 0.01,  accumulation: 0.05, baseSpread: 0.02 },
 } as const;
 
 /** System-wide recoil configuration derived from PHYSICS constants. */

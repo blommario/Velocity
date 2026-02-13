@@ -77,10 +77,13 @@ export function NetworkedPlayer({
     return () => { customMaterial.dispose(); };
   }, [customMaterial]);
 
-  // Push new snapshots into the interpolator
-  useEffect(() => {
-    if (snapshot) interpRef.current.push(snapshot);
-  }, [snapshot]);
+  // Push new snapshots into the interpolator synchronously during render
+  // (not deferred via useEffect) to avoid React batching delay causing choppy movement
+  const prevSnapshotRef = useRef<NetSnapshot | null>(null);
+  if (snapshot && snapshot !== prevSnapshotRef.current) {
+    prevSnapshotRef.current = snapshot;
+    interpRef.current.push(snapshot);
+  }
 
   useFrame(() => {
     const group = groupRef.current;

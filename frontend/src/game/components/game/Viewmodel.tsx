@@ -9,6 +9,7 @@
  * - Banking/tilt (rotZ) gives the weapon weight when turning
  *
  * ViewmodelLayer handles camera rotation sync — we work purely in local space.
+ * Supports two rendering modes: legacy (procedural-only) and skeletal (arms + bone socket).
  *
  * Depends on: ViewmodelLayer, useViewmodelAnimation, MuzzleFlash, combatStore, gameStore, viewmodelConfig
  * Used by: GameCanvas
@@ -28,10 +29,10 @@ import { ADS_CONFIG } from './physics/constants';
 import {
   VM_ANCHOR, SWAY_INTENSITY, TILT_INTENSITY,
   WEAPON_COLORS, MUZZLE_COLORS, WEAPON_MODELS,
-  knifeGeometry,
   type WeaponModelConfig,
 } from './viewmodelConfig';
 import type { WeaponType } from './physics/types';
+import { SkeletalViewmodelContent } from './SkeletalViewmodel';
 
 // Pre-allocated objects (zero GC)
 const _muzzleOffset = new Vector3();
@@ -70,8 +71,8 @@ function useWeaponModel(config: WeaponModelConfig): Group | null {
   return model;
 }
 
-function ViewmodelContent() {
-  const groupRef = useRef<any>(null);
+function LegacyViewmodelContent() {
+  const groupRef = useRef<Group>(null);
   const mouseDeltaRef = useRef<[number, number]>([0, 0]);
 
   useEffect(() => {
@@ -141,15 +142,10 @@ function ViewmodelContent() {
   });
 
   const color = WEAPON_COLORS[activeWeapon];
-  const isKnife = activeWeapon === 'knife';
 
   return (
     <group ref={groupRef}>
-      {isKnife ? (
-        <mesh geometry={knifeGeometry} position={[0, -0.1, -0.2]}>
-          <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
-        </mesh>
-      ) : weaponModel ? (
+      {weaponModel ? (
         <primitive object={weaponModel} />
       ) : (
         <mesh position={[0, 0, weaponConfig.offsetZ]}>
@@ -159,6 +155,15 @@ function ViewmodelContent() {
       )}
     </group>
   );
+}
+
+/** Selects skeletal or legacy viewmodel based on active weapon config. */
+function ViewmodelContent() {
+  const activeWeapon = useCombatStore((s) => s.activeWeapon);
+  const isSkeletal = WEAPON_MODELS[activeWeapon].skeletal === true;
+
+  if (isSkeletal) return <SkeletalViewmodelContent />;
+  return <LegacyViewmodelContent />;
 }
 
 export function Viewmodel() {

@@ -8,7 +8,7 @@
 export type { InputState, MovementState } from '@engine/types/physics';
 
 // Game-specific types
-export type WeaponType = 'rocket' | 'grenade' | 'sniper' | 'assault' | 'shotgun' | 'knife' | 'plasma';
+export type WeaponType = 'rocket' | 'grenade' | 'sniper' | 'assault' | 'shotgun' | 'knife' | 'plasma' | 'pistol';
 
 /** Named weapon type constants — use instead of raw string literals. */
 export const WEAPONS = {
@@ -19,7 +19,8 @@ export const WEAPONS = {
   SHOTGUN: 'shotgun',
   KNIFE: 'knife',
   PLASMA: 'plasma',
+  PISTOL: 'pistol',
 } as const satisfies Record<string, WeaponType>;
 
-/** Weapon slot order for switching (1-7 keys) */
-export const WEAPON_SLOTS: WeaponType[] = ['knife', 'assault', 'shotgun', 'rocket', 'grenade', 'sniper', 'plasma'] as const;
+/** Weapon slot order for switching (1-8 keys) */
+export const WEAPON_SLOTS: WeaponType[] = ['knife', 'pistol', 'assault', 'shotgun', 'rocket', 'grenade', 'sniper', 'plasma'] as const;

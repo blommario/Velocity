@@ -19,6 +19,7 @@ const WEAPON_INFO: Record<(typeof WEAPON_SLOTS)[number], { label: string; short:
   grenade: { label: 'Grenade',  short: 'GL',    color: '#22c55e' },
   sniper:  { label: 'Sniper',   short: 'SR',    color: '#a78bfa' },
   plasma:  { label: 'Plasma',   short: 'PG',    color: '#06b6d4' },
+  pistol:  { label: 'Pistol',   short: 'PT',    color: '#94a3b8' },
 } as const;
 
 export function WeaponWheelOverlay() {

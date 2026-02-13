@@ -16,6 +16,7 @@ const WEAPON_CROSSHAIR: Record<WeaponType, { type: CrosshairType; size: number; 
   grenade: { type: 'cross', size: 10, color: 'rgba(34,197,94,0.8)' },
   sniper:  { type: 'scope', size: 40, color: 'rgba(167,139,250,0.7)' },
   plasma:  { type: 'ring',  size: 16, color: 'rgba(6,182,212,0.7)' },
+  pistol:  { type: 'cross', size: 8,  color: 'rgba(148,163,184,0.8)' },
 } as const;
 
 function resolveStyle(settingsStyle: CrosshairStyle, weaponType: CrosshairType): CrosshairType {

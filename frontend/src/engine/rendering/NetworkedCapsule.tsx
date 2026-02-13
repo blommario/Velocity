@@ -5,7 +5,7 @@
  * Depends on: R3F, Three.js, NetworkInterpolator
  * Used by: game RemotePlayers (via prop injection)
  */
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Mesh, Euler } from 'three';
 import { NetworkInterpolator, type NetSnapshot } from '../networking/NetworkInterpolator';
@@ -41,10 +41,12 @@ export function NetworkedCapsule({
   const meshRef = useRef<Mesh>(null);
   const interpRef = useRef(new NetworkInterpolator(intervalMs));
 
-  // Push new snapshots into the interpolator
-  useEffect(() => {
-    if (snapshot) interpRef.current.push(snapshot);
-  }, [snapshot]);
+  // Push new snapshots synchronously during render to avoid React batching delay
+  const prevSnapshotRef = useRef<NetSnapshot | null>(null);
+  if (snapshot && snapshot !== prevSnapshotRef.current) {
+    prevSnapshotRef.current = snapshot;
+    interpRef.current.push(snapshot);
+  }
 
   useFrame(() => {
     const mesh = meshRef.current;

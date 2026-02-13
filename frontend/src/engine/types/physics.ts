@@ -23,7 +23,7 @@ export interface InputState {
   weaponWheel: boolean;   // held = show weapon wheel
   mouseDeltaX: number;
   mouseDeltaY: number;
-  weaponSlot: number;     // 0 = no switch, 1-7 = switch to slot
+  weaponSlot: number;     // 0 = no switch, 1-8 = switch to slot
   scrollDelta: number;    // accumulated scroll wheel delta
 }
 

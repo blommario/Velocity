@@ -23,6 +23,7 @@ const AMMO_COLORS: Record<WeaponType, string> = {
   shotgun: '#cc8844',
   knife: '#cccccc',
   plasma: '#aa44ff',
+  pistol: '#94a3b8',
 };
 
 const DEFAULT_RESPAWN_TIME = 10;

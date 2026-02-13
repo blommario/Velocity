@@ -18,6 +18,7 @@ const WEAPON_LABELS: Record<WeaponType, WeaponDisplay> = {
   grenade: { id: 'grenade', short: 'GL',    color: '#22c55e' },
   sniper:  { id: 'sniper',  short: 'SR',    color: '#a78bfa' },
   plasma:  { id: 'plasma',  short: 'PG',    color: '#06b6d4' },
+  pistol:  { id: 'pistol',  short: 'PT',    color: '#94a3b8' },
 } as const;
 
 export function CombatHud() {

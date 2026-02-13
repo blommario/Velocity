@@ -122,10 +122,29 @@ export function buildPostProcessingPipeline(
     devLog.success('PostFX', `Motion blur enabled (${MOTION_BLUR_SAMPLES} samples)`);
   }
 
+  // ── Depth of Field (applied to scene texture BEFORE viewmodel compositing) ──
+  // DoF uses .sample() which requires a texture node, not a computed node.
+  // Running it here on motionBlurredColor (texture) avoids the TSL error.
+  // Viewmodel is composited after, so weapons stay sharp (no bokeh on arms).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let uDofFocusDist: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let uDofAperture: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let dofColor: any = motionBlurredColor;
+
+  if (props.depthOfFieldEnabled) {
+    const dofDepth = scenePass.getTextureNode('depth');
+    uDofFocusDist = uniform(props.dofFocusDistance);
+    uDofAperture = uniform(props.dofAperture);
+    dofColor = buildDofNode(motionBlurredColor, dofDepth, uDofFocusDist, uDofAperture);
+    devLog.success('PostFX', 'Depth of Field enabled (12 samples, bokeh disc)');
+  }
+
   // ── Viewmodel compositing ──
   const vmRef = getViewmodelScene();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let worldWithViewmodel: any = motionBlurredColor.add(bloomPass).mul(fogFactor).mul(aoFactor);
+  let worldWithViewmodel: any = dofColor.add(bloomPass).mul(fogFactor).mul(aoFactor);
 
   let uVmBloomThreshold: { value: number } | undefined;
   let uVmBloomStrength: { value: number } | undefined;
@@ -155,20 +174,6 @@ export function buildPostProcessingPipeline(
     const vmMask = vmDepth.lessThan(float(0.9999)).toFloat();
     worldWithViewmodel = mix(worldWithViewmodel, vmWithBloom, vmMask);
     devLog.success('PostFX', 'Viewmodel compositing enabled');
-  }
-
-  // ── Depth of Field ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let uDofFocusDist: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let uDofAperture: any;
-
-  if (props.depthOfFieldEnabled) {
-    const dofDepth = scenePass.getTextureNode('depth');
-    uDofFocusDist = uniform(props.dofFocusDistance);
-    uDofAperture = uniform(props.dofAperture);
-    worldWithViewmodel = buildDofNode(worldWithViewmodel, dofDepth, uDofFocusDist, uDofAperture);
-    devLog.success('PostFX', 'Depth of Field enabled (12 samples, bokeh disc)');
   }
 
   // ── Vignette ──

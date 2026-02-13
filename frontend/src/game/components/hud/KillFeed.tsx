@@ -41,6 +41,7 @@ const WEAPON_ICONS: Record<WeaponType, string> = {
   shotgun: '\u25A0',      // filled square
   knife: '\u{1F5E1}',    // dagger (or fallback)
   plasma: '\u26A1',      // lightning
+  pistol: '\u{1F52B}',  // gun
 };
 
 export function KillFeed() {
