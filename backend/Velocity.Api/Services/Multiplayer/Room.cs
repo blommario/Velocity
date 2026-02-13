@@ -1099,6 +1099,9 @@ public sealed class Room : IAsyncDisposable
 
                         var span = batch.AsSpan();
 
+                        // Server-stamped time: ms since match start (monotonic for all clients)
+                        var serverTimeMs = (uint)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _matchStartTime);
+
                         for (var d = 0; d < dirtyCount; d++)
                         {
                             var offset = BatchHeaderSize + (d * BytesPerPlayer);
@@ -1112,7 +1115,7 @@ public sealed class Room : IAsyncDisposable
                             BinaryPrimitives.WriteInt16LittleEndian(span[(offset + BatchPitchOffset)..], pos.Pitch);
                             BinaryPrimitives.WriteUInt16LittleEndian(span[(offset + BatchSpeedOffset)..], pos.Speed);
                             span[offset + BatchCheckpointOffset] = pos.Checkpoint;
-                            BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + BatchTimestampOffset)..], pos.Timestamp);
+                            BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + BatchTimestampOffset)..], serverTimeMs);
                         }
 
                         var segment = new ArraySegment<byte>(batch, 0, batchSize);

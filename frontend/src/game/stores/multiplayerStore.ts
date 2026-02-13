@@ -215,7 +215,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // Binary position batch handler — push directly to interpolators (no React re-render)
     let _batchLogTimer = 0;
-    const _reusableSnapshot = { position: [0, 0, 0] as [number, number, number], yaw: 0 };
+    const _reusableSnapshot = { position: [0, 0, 0] as [number, number, number], yaw: 0, serverTime: 0 };
     transport.onBinary((buffer: ArrayBuffer) => {
       const { count, snapshots } = decodeBatch(buffer);
 
@@ -224,11 +224,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         const playerInfo = slotToPlayer.get(snap.slot);
         if (!playerInfo) continue;
 
-        // Push directly to interpolator — zero allocation, no Zustand set()
+        // Push directly to interpolator with server timestamp
         _reusableSnapshot.position[0] = snap.posX;
         _reusableSnapshot.position[1] = snap.posY;
         _reusableSnapshot.position[2] = snap.posZ;
         _reusableSnapshot.yaw = snap.yaw;
+        _reusableSnapshot.serverTime = snap.timestamp;
         pushRemoteSnapshot(playerInfo.playerId, _reusableSnapshot);
       }
 
@@ -292,6 +293,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
               pushRemoteSnapshot(playerInfo.playerId, {
                 position: [pos.posX, pos.posY, pos.posZ],
                 yaw: pos.yaw / 10000,
+                serverTime: 0,
               });
             }
           }
@@ -555,7 +557,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   },
 
   updatePosition: (playerId: string, position: Vec3, yaw: number, _pitch: number) => {
-    pushRemoteSnapshot(playerId, { position, yaw });
+    pushRemoteSnapshot(playerId, { position, yaw, serverTime: 0 });
   },
 
   setCountdown: (n: number | null) => {

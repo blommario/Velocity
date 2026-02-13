@@ -13,6 +13,7 @@ import { Group } from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { NetworkedPlayer } from '@engine/rendering/NetworkedPlayer';
 import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
+import { clearInterpolators } from '@engine/networking/RemotePlayerInterpolators';
 import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
@@ -63,6 +64,7 @@ export function RemotePlayers() {
 
   useEffect(() => {
     loadPlayerOBJ().then(setPlayerModel).catch(() => {});
+    return () => { clearInterpolators(); };
   }, []);
 
   if (multiplayerStatus !== 'racing' && multiplayerStatus !== 'countdown') return null;

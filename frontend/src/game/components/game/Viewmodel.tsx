@@ -160,9 +160,8 @@ function LegacyViewmodelContent() {
 /** Selects skeletal or legacy viewmodel based on active weapon config. */
 function ViewmodelContent() {
   const activeWeapon = useCombatStore((s) => s.activeWeapon);
-  const isSkeletal = WEAPON_MODELS[activeWeapon].skeletal === true;
-
-  if (isSkeletal) return <SkeletalViewmodelContent />;
+  const config = WEAPON_MODELS[activeWeapon];
+  if (config.skeletal) return <SkeletalViewmodelContent />;
   return <LegacyViewmodelContent />;
 }
 
