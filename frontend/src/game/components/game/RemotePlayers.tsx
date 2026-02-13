@@ -2,8 +2,10 @@
  * Renders networked player models for remote players during a multiplayer match.
  * Loads Player.obj once, then delegates interpolation to engine NetworkedPlayer.
  * Falls back to capsule while model is loading.
+ * Uses remotePlayerIds (Set) to drive the component list — position data flows
+ * through RemotePlayerInterpolators outside React for zero-churn 60Hz sampling.
  *
- * Depends on: multiplayerStore, authStore, engine NetworkedPlayer, OBJLoader
+ * Depends on: multiplayerStore, engine NetworkedPlayer, OBJLoader
  * Used by: GameCanvas
  */
 import { useState, useEffect } from 'react';
@@ -12,10 +14,8 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { NetworkedPlayer } from '@engine/rendering/NetworkedPlayer';
 import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
 import { useMultiplayerStore } from '@game/stores/multiplayerStore';
-import { useAuthStore } from '@game/stores/authStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
-import type { NetSnapshot } from '@engine/networking';
 
 const REMOTE_COLORS = [
   '#ff4466', '#44bbff', '#44ff88', '#ffaa44',
@@ -57,9 +57,8 @@ function loadPlayerOBJ(): Promise<Group> {
 }
 
 export function RemotePlayers() {
-  const multiplayerPositions = useMultiplayerStore((s) => s.multiplayerPositions);
+  const remotePlayerIds = useMultiplayerStore((s) => s.remotePlayerIds);
   const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
-  const localPlayerId = useAuthStore((s) => s.playerId);
   const [playerModel, setPlayerModel] = useState<Group | null>(null);
 
   useEffect(() => {
@@ -68,12 +67,10 @@ export function RemotePlayers() {
 
   if (multiplayerStatus !== 'racing' && multiplayerStatus !== 'countdown') return null;
 
-  const players: { id: string; snapshot: NetSnapshot; index: number }[] = [];
+  const players: { id: string; index: number }[] = [];
   let i = 0;
-  multiplayerPositions.forEach((pos, id) => {
-    if (id !== localPlayerId) {
-      players.push({ id, snapshot: pos, index: i });
-    }
+  remotePlayerIds.forEach((id) => {
+    players.push({ id, index: i });
     i++;
   });
 
@@ -83,7 +80,7 @@ export function RemotePlayers() {
         playerModel ? (
           <NetworkedPlayer
             key={p.id}
-            snapshot={p.snapshot}
+            playerId={p.id}
             model={playerModel}
             modelScale={MODEL_SCALE}
             yOffset={MODEL_Y_OFFSET}
@@ -92,7 +89,7 @@ export function RemotePlayers() {
         ) : (
           <NetworkedCapsule
             key={p.id}
-            snapshot={p.snapshot}
+            playerId={p.id}
             radius={PHYSICS.PLAYER_RADIUS}
             height={PHYSICS.PLAYER_HEIGHT}
             color={REMOTE_COLORS[p.index % REMOTE_COLORS.length]}

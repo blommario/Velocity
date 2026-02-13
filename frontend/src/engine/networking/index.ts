@@ -23,3 +23,11 @@ export {
   NetworkInterpolator,
   type NetSnapshot,
 } from './NetworkInterpolator';
+
+export {
+  pushRemoteSnapshot,
+  getInterpolator,
+  removeInterpolator,
+  clearInterpolators,
+  getTrackedPlayerIds,
+} from './RemotePlayerInterpolators';

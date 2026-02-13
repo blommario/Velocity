@@ -28,6 +28,12 @@ import {
   type IGameTransport,
   type PositionSnapshot,
 } from '@engine/networking';
+import {
+  pushRemoteSnapshot,
+  removeInterpolator,
+  clearInterpolators,
+} from '@engine/networking/RemotePlayerInterpolators';
+import { useAuthStore } from '@game/stores/authStore';
 import { devLog } from '@engine/stores/devLogStore';
 
 type Vec3 = [number, number, number];
@@ -56,6 +62,8 @@ interface MultiplayerState {
   isConnected: boolean;
   countdown: number | null;
   multiplayerPositions: Map<string, MultiplayerPosition>;
+  /** Set of remote player IDs currently in the match. Only changes on join/leave. */
+  remotePlayerIds: Set<string>;
   localSlot: number;
   latency: number;
   isLoading: boolean;
@@ -105,6 +113,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   isConnected: false,
   countdown: null,
   multiplayerPositions: new Map(),
+  remotePlayerIds: new Set(),
   localSlot: -1,
   latency: 0,
   isLoading: false,
@@ -204,35 +213,31 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     transport = new WebSocketTransport();
 
-    // Binary position batch handler
+    // Binary position batch handler — push directly to interpolators (no React re-render)
     let _batchLogTimer = 0;
+    const _reusableSnapshot = { position: [0, 0, 0] as [number, number, number], yaw: 0 };
     transport.onBinary((buffer: ArrayBuffer) => {
       const { count, snapshots } = decodeBatch(buffer);
-      const positions = new Map(get().multiplayerPositions);
 
       for (let i = 0; i < count; i++) {
         const snap: PositionSnapshot = snapshots[i];
         const playerInfo = slotToPlayer.get(snap.slot);
         if (!playerInfo) continue;
 
-        positions.set(playerInfo.playerId, {
-          position: [snap.posX, snap.posY, snap.posZ],
-          yaw: snap.yaw,
-          pitch: snap.pitch,
-          speed: snap.speed,
-          checkpoint: snap.checkpoint,
-          timestamp: snap.timestamp,
-        });
+        // Push directly to interpolator — zero allocation, no Zustand set()
+        _reusableSnapshot.position[0] = snap.posX;
+        _reusableSnapshot.position[1] = snap.posY;
+        _reusableSnapshot.position[2] = snap.posZ;
+        _reusableSnapshot.yaw = snap.yaw;
+        pushRemoteSnapshot(playerInfo.playerId, _reusableSnapshot);
       }
 
       // Throttled devLog: log at most once per second
       const now = performance.now();
       if (now - _batchLogTimer > 1000) {
         _batchLogTimer = now;
-        devLog.info('Net', `pos batch: ${count} players, map size=${positions.size}`);
+        devLog.info('Net', `pos batch: ${count} players`);
       }
-
-      set({ multiplayerPositions: positions });
     });
 
     // ── JSON event handlers ──
@@ -252,10 +257,16 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       'room_snapshot',
       (data) => {
         slotToPlayer.clear();
+        clearInterpolators();
+        const localPlayerId = useAuthStore.getState().playerId;
+        const newRemoteIds = new Set<string>();
         for (const p of data.players) {
           slotToPlayer.set(p.slot, { playerId: p.playerId, playerName: p.name });
+          if (p.playerId !== localPlayerId) {
+            newRemoteIds.add(p.playerId);
+          }
         }
-        set({ localSlot: data.yourSlot });
+        set({ localSlot: data.yourSlot, remotePlayerIds: newRemoteIds });
 
         // T7: restore state from enriched rejoin snapshot
         if (data.status) {
@@ -273,22 +284,16 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
             set({ finishResults: data.finishResults });
           }
 
-          // Restore positions from snapshot
+          // Restore positions from snapshot — push to interpolators
           if (data.positions && data.positions.length > 0) {
-            const positions = new Map(get().multiplayerPositions);
             for (const pos of data.positions) {
               const playerInfo = slotToPlayer.get(pos.slot);
               if (!playerInfo) continue;
-              positions.set(playerInfo.playerId, {
+              pushRemoteSnapshot(playerInfo.playerId, {
                 position: [pos.posX, pos.posY, pos.posZ],
                 yaw: pos.yaw / 10000,
-                pitch: pos.pitch / 10000,
-                speed: pos.speed / 10,
-                checkpoint: pos.checkpoint,
-                timestamp: 0,
               });
             }
-            set({ multiplayerPositions: positions });
           }
         }
       },
@@ -298,6 +303,11 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       'player_joined',
       (data) => {
         slotToPlayer.set(data.slot, { playerId: data.playerId, playerName: data.playerName });
+        // Update remote player set for rendering
+        const ids = new Set(get().remotePlayerIds);
+        ids.add(data.playerId);
+        set({ remotePlayerIds: ids });
+
         const room = get().currentRoom;
         if (room) {
           const alreadyExists = room.participants.some((p) => p.playerId === data.playerId);
@@ -323,12 +333,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       'player_left',
       (data) => {
         slotToPlayer.delete(data.slot);
-        const positions = new Map(get().multiplayerPositions);
-        positions.delete(data.playerId);
+        removeInterpolator(data.playerId);
+        const ids = new Set(get().remotePlayerIds);
+        ids.delete(data.playerId);
         const room = get().currentRoom;
         if (room) {
           set({
-            multiplayerPositions: positions,
+            remotePlayerIds: ids,
             currentRoom: {
               ...room,
               participants: room.participants.filter((p) => p.playerId !== data.playerId),
@@ -336,7 +347,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
             },
           });
         } else {
-          set({ multiplayerPositions: positions });
+          set({ remotePlayerIds: ids });
         }
       },
     );
@@ -430,12 +441,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       slotToPlayer.forEach((val, key) => {
         if (val.playerId === data.playerId) slotToPlayer.delete(key);
       });
-      const positions = new Map(get().multiplayerPositions);
-      positions.delete(data.playerId);
+      removeInterpolator(data.playerId);
+      const ids = new Set(get().remotePlayerIds);
+      ids.delete(data.playerId);
       const room = get().currentRoom;
       if (room) {
         set({
-          multiplayerPositions: positions,
+          remotePlayerIds: ids,
           currentRoom: {
             ...room,
             participants: room.participants.filter((p) => p.playerId !== data.playerId),
@@ -443,7 +455,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           },
         });
       } else {
-        set({ multiplayerPositions: positions });
+        set({ remotePlayerIds: ids });
       }
     });
 
@@ -522,11 +534,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       transport = null;
     }
     slotToPlayer.clear();
+    clearInterpolators();
     set({
       isConnected: false,
       currentRoom: null,
       countdown: null,
       multiplayerPositions: new Map(),
+      remotePlayerIds: new Set(),
       localSlot: -1,
       latency: 0,
       multiplayerStartTime: null,
@@ -540,10 +554,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     });
   },
 
-  updatePosition: (playerId: string, position: Vec3, yaw: number, pitch: number) => {
-    const positions = new Map(get().multiplayerPositions);
-    positions.set(playerId, { position, yaw, pitch, speed: 0, checkpoint: 0, timestamp: 0 });
-    set({ multiplayerPositions: positions });
+  updatePosition: (playerId: string, position: Vec3, yaw: number, _pitch: number) => {
+    pushRemoteSnapshot(playerId, { position, yaw });
   },
 
   setCountdown: (n: number | null) => {
@@ -557,12 +569,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       transport = null;
     }
     slotToPlayer.clear();
+    clearInterpolators();
     set({
       currentRoom: null,
       rooms: [],
       isConnected: false,
       countdown: null,
       multiplayerPositions: new Map(),
+      remotePlayerIds: new Set(),
       localSlot: -1,
       latency: 0,
       isLoading: false,

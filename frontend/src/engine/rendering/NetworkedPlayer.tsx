@@ -1,22 +1,22 @@
 /**
  * Generic networked player — renders a loaded Three.js Group at an
- * interpolated network position. Game layer injects model + snapshot via props.
- * Caches cloned graph and mutates materials directly to avoid scene graph churn.
+ * interpolated network position. Reads directly from RemotePlayerInterpolators
+ * in useFrame (60Hz) — no React re-renders needed for position updates.
  *
- * Depends on: R3F, Three.js, NetworkInterpolator
+ * Depends on: R3F, Three.js, RemotePlayerInterpolators
  * Used by: game RemotePlayers (via prop injection)
  */
 import { useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Euler, MeshStandardMaterial, Color, Mesh } from 'three';
-import { NetworkInterpolator, type NetSnapshot } from '../networking/NetworkInterpolator';
+import { getInterpolator } from '../networking/RemotePlayerInterpolators';
 
 const _euler = new Euler(0, 0, 0, 'YXZ');
 const _color = new Color();
 
 export interface NetworkedPlayerProps {
-  /** Current snapshot from network. */
-  snapshot: NetSnapshot | null;
+  /** Remote player ID — used to look up interpolator. */
+  playerId: string;
   /** Pre-loaded model Group (will be cloned internally). */
   model: Group;
   /** Uniform scale to apply (game layer computes from model height → player height). */
@@ -27,21 +27,17 @@ export interface NetworkedPlayerProps {
   color: string;
   /** Emissive intensity. */
   emissiveIntensity?: number;
-  /** Network tick interval in ms (default 50 = 20Hz). */
-  intervalMs?: number;
 }
 
 export function NetworkedPlayer({
-  snapshot,
+  playerId,
   model,
   modelScale,
   yOffset = 0,
   color,
   emissiveIntensity = 0.6,
-  intervalMs = 50,
 }: NetworkedPlayerProps) {
   const groupRef = useRef<Group>(null);
-  const interpRef = useRef(new NetworkInterpolator(intervalMs));
 
   // Clone model hierarchy once (or when base model changes)
   const clonedScene = useMemo(() => model.clone(), [model]);
@@ -77,20 +73,17 @@ export function NetworkedPlayer({
     return () => { customMaterial.dispose(); };
   }, [customMaterial]);
 
-  // Push new snapshots into the interpolator synchronously during render
-  // (not deferred via useEffect) to avoid React batching delay causing choppy movement
-  const prevSnapshotRef = useRef<NetSnapshot | null>(null);
-  if (snapshot && snapshot !== prevSnapshotRef.current) {
-    prevSnapshotRef.current = snapshot;
-    interpRef.current.push(snapshot);
-  }
-
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
 
-    const sampled = interpRef.current.sample();
+    const interp = getInterpolator(playerId);
+    if (!interp) {
+      if (group.visible) group.visible = false;
+      return;
+    }
 
+    const sampled = interp.sample();
     if (!sampled) {
       if (group.visible) group.visible = false;
       return;
