@@ -25,9 +25,9 @@ import {
   AnimationMixer,
   AnimationAction,
   LoopRepeat,
-  SkinnedMesh,
 } from 'three';
 import type { AnimationClip } from 'three';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { getInterpolator } from '../networking/RemotePlayerInterpolators';
 
 const _euler = new Euler(0, 0, 0, 'YXZ');
@@ -90,31 +90,8 @@ export function NetworkedPlayer({
     currentAnim: 'idle' as AnimState,
   });
 
-  // Clone model hierarchy once — deep clone with skeleton bindings
-  const clonedScene = useMemo(() => {
-    const clone = model.clone();
-    // SkinnedMesh.clone() doesn't rebind skeleton — must fix manually
-    const skinnedMeshes: SkinnedMesh[] = [];
-    clone.traverse((child) => {
-      if ((child as SkinnedMesh).isSkinnedMesh) {
-        skinnedMeshes.push(child as SkinnedMesh);
-      }
-    });
-    // Rebind skeletons to the cloned bone hierarchy
-    for (const sm of skinnedMeshes) {
-      if (sm.skeleton) {
-        const boneNames = sm.skeleton.bones.map((b) => b.name);
-        const newBones = boneNames.map((name) => {
-          const found = clone.getObjectByName(name);
-          return found ?? sm.skeleton.bones[boneNames.indexOf(name)];
-        });
-        sm.bind(sm.skeleton.clone());
-        sm.skeleton.bones = newBones as typeof sm.skeleton.bones;
-        sm.skeleton.calculateInverses();
-      }
-    }
-    return clone;
-  }, [model]);
+  // Clone model with correct skeleton rebinding (SkeletonUtils handles bone→mesh binding)
+  const clonedScene = useMemo(() => SkeletonUtils.clone(model) as Group, [model]);
 
   // Create AnimationMixer and actions
   const mixerRef = useRef<AnimationMixer | null>(null);

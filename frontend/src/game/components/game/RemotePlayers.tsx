@@ -1,20 +1,24 @@
 /**
  * Renders networked player models for remote players during a multiplayer match.
- * Loads animated player FBX once via assetManager, then delegates interpolation
- * and animation to engine NetworkedPlayer. Falls back to capsule while loading.
+ * Loads animated player FBX once, then delegates interpolation and animation
+ * to engine NetworkedPlayer. Falls back to capsule while loading.
  *
- * Depends on: multiplayerStore, engine NetworkedPlayer, assetManager
+ * Loads the FBX directly (not via assetManager) so NetworkedPlayer receives
+ * the original scene graph — required for SkeletonUtils.clone() to correctly
+ * rebind SkinnedMesh skeletons per player instance.
+ *
+ * Depends on: multiplayerStore, engine NetworkedPlayer, FBXLoader
  * Used by: GameCanvas
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Group, AnimationClip } from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { NetworkedPlayer } from '@engine/rendering/NetworkedPlayer';
 import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
 import { clearInterpolators, pushRemoteSnapshot } from '@engine/networking/RemotePlayerInterpolators';
 import { pollInboundPositions } from '@engine/networking/pollInboundPositions';
 import { useMultiplayerStore, slotToPlayer, MULTIPLAYER_STATUS } from '@game/stores/multiplayerStore';
-import { loadModelWithAnimations } from '@game/services/assetManager';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
 
@@ -31,30 +35,45 @@ const MODEL_SCALE = PHYSICS.PLAYER_HEIGHT / MODEL_HEIGHT;
 const MODEL_Y_OFFSET = -PHYSICS.PLAYER_HEIGHT / 2;
 
 /** FBX model faces +X by default; rotate -90° so it faces the yaw direction. */
-const MODEL_YAW_OFFSET = -Math.PI / 2;
+const MODEL_YAW_OFFSET = 0;
 
-const PLAYER_MODEL_NAME = 'player_animated.fbx';
+const PLAYER_MODEL_URL = '/assets/models/player_animated.fbx';
 
 interface PlayerModelAsset {
+  /** Original (un-cloned) scene — NetworkedPlayer clones per instance via SkeletonUtils. */
   scene: Group;
   animations: AnimationClip[];
 }
 
 let _cachedAsset: PlayerModelAsset | null = null;
 let _loadPromise: Promise<PlayerModelAsset> | null = null;
+let _fbxLoader: FBXLoader | null = null;
 
 function loadPlayerModel(): Promise<PlayerModelAsset> {
   if (_cachedAsset) return Promise.resolve(_cachedAsset);
   if (_loadPromise) return _loadPromise;
 
-  _loadPromise = loadModelWithAnimations(PLAYER_MODEL_NAME).then((asset) => {
-    _cachedAsset = asset;
-    devLog.success('Net', `Player model loaded (${asset.animations.length} animations)`);
-    return asset;
-  }).catch((err) => {
-    devLog.error('Net', `Failed to load player model: ${err}`);
-    _loadPromise = null;
-    throw err;
+  if (!_fbxLoader) _fbxLoader = new FBXLoader();
+
+  _loadPromise = new Promise<PlayerModelAsset>((resolve, reject) => {
+    _fbxLoader!.load(
+      PLAYER_MODEL_URL,
+      (group) => {
+        const asset: PlayerModelAsset = {
+          scene: group,
+          animations: group.animations ?? [],
+        };
+        _cachedAsset = asset;
+        devLog.success('Net', `Player model loaded (${asset.animations.length} animations)`);
+        resolve(asset);
+      },
+      undefined,
+      (err) => {
+        devLog.error('Net', `Failed to load player model: ${err}`);
+        _loadPromise = null;
+        reject(err);
+      },
+    );
   });
 
   return _loadPromise;
