@@ -2,7 +2,7 @@
  * React hook for attaching an Object3D to a named bone inside a SkinnedMesh hierarchy.
  *
  * Depends on: R3F, Three.js Bone/Object3D, devLogStore
- * Used by: SkeletalViewmodel (game layer)
+ * Used by: SkeletalViewmodel (game layer), RemotePlayerWeapon (game layer)
  */
 import { useRef, useEffect } from 'react';
 import type { Group, Object3D, Bone } from 'three/webgpu';
@@ -23,7 +23,7 @@ export interface UseBoneSocketProps {
 
 /**
  * Finds a bone by name in the root hierarchy, attaches/detaches the given Object3D.
- * Attachment is managed declaratively — changes to props trigger add/remove.
+ * Single effect handles both bone lookup and attachment — avoids extra re-renders.
  */
 export function useBoneSocket({
   root,
@@ -34,8 +34,9 @@ export function useBoneSocket({
 }: UseBoneSocketProps): Bone | null {
   const boneRef = useRef<Bone | null>(null);
 
-  // Find bone when root changes
+  // Single effect: find bone + attach/detach in one pass
   useEffect(() => {
+    // Find bone in root hierarchy
     if (!root) {
       boneRef.current = null;
       return;
@@ -45,7 +46,6 @@ export function useBoneSocket({
     const boneNames: string[] = [];
 
     root.traverse((child) => {
-      // Bone check: Three.js Bone has isBone = true
       if ((child as Bone).isBone) {
         boneNames.push(child.name);
         if (child.name === boneName) {
@@ -61,10 +61,8 @@ export function useBoneSocket({
       boneRef.current = null;
       devLog.warn('BoneSocket', `Bone "${boneName}" not found. Available: [${boneNames.join(', ')}]`);
     }
-  }, [root, boneName]);
 
-  // Attach/detach when bone or attachment changes
-  useEffect(() => {
+    // Attach if both bone and attachment are ready
     const bone = boneRef.current;
     if (!bone || !attachment) return;
 
@@ -82,7 +80,7 @@ export function useBoneSocket({
       bone.remove(attachment);
       devLog.info('BoneSocket', `Detached from "${boneName}"`);
     };
-  }, [boneRef.current, attachment, boneName, offset, rotation]);
+  }, [root, boneName, attachment, offset, rotation]);
 
   return boneRef.current;
 }

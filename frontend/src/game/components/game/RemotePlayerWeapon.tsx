@@ -2,19 +2,17 @@
  * Renders a weapon model attached to a remote player's RightHand bone.
  *
  * Reads weapon type from remotePlayerWeapons map (set by weapon_switch events),
- * loads the matching GLB via assetManager, and attaches it via useBoneSocket.
+ * loads the matching GLB via assetManager, and follows the bone transform each frame.
  *
- * Depends on: useBoneSocket, assetManager, multiplayerStore, viewmodelConfig, WeaponType
+ * Depends on: assetManager, multiplayerStore, R3F useFrame
  * Used by: RemotePlayers
  */
 import { useState, useEffect, useMemo, useLayoutEffect, useRef } from 'react';
-import type { Group, Mesh } from 'three';
-import { MeshStandardMaterial, Color } from 'three';
-import { useBoneSocket } from '@engine/effects/useBoneSocket';
+import { useFrame } from '@react-three/fiber';
+import type { Group, Mesh, Bone } from 'three';
+import { MeshStandardMaterial, Color, Vector3, Quaternion, Matrix4 } from 'three';
 import { loadModel } from '@game/services/assetManager';
 import { remotePlayerWeapons } from '@game/stores/multiplayerStore';
-import { WEAPON_MODELS } from './viewmodelConfig';
-import type { WeaponType } from './physics/types';
 import { devLog } from '@engine/stores/devLogStore';
 
 /** Bone name on the Quaternius animated player model for weapon attachment. */
@@ -69,17 +67,49 @@ interface RemotePlayerWeaponProps {
 }
 
 const _color = new Color();
+const _worldPos = new Vector3();
+const _worldQuat = new Quaternion();
+const _worldScale = new Vector3();
 
 export function RemotePlayerWeapon({ playerId, clonedScene, color }: RemotePlayerWeaponProps) {
   const [weaponScene, setWeaponScene] = useState<Group | null>(null);
   const currentPathRef = useRef<string | null>(null);
   const materialRef = useRef<MeshStandardMaterial | null>(null);
+  const boneRef = useRef<Bone | null>(null);
+  const weaponGroupRef = useRef<Group>(null);
 
-  // Poll weapon type from the mutable map (changes rarely — ~0.5Hz at most)
+  // Create shared material for weapon coloring
+  const weaponMaterial = useMemo(() => {
+    const mat = new MeshStandardMaterial({
+      transparent: false,
+      depthWrite: true,
+    });
+    materialRef.current = mat;
+    return mat;
+  }, []);
+
+  // Find bone in cloned scene
+  useEffect(() => {
+    boneRef.current = null;
+    if (!clonedScene) return;
+
+    clonedScene.traverse((child) => {
+      if ((child as Bone).isBone && child.name === WEAPON_BONE) {
+        boneRef.current = child as Bone;
+      }
+    });
+
+    if (boneRef.current) {
+      devLog.info('RemoteWeapon', `Found bone "${WEAPON_BONE}" for ${playerId.slice(0, 8)}`);
+    } else {
+      devLog.warn('RemoteWeapon', `Bone "${WEAPON_BONE}" not found for ${playerId.slice(0, 8)}`);
+    }
+  }, [clonedScene, playerId]);
+
+  // Poll weapon type from the mutable map
   const [weaponType, setWeaponType] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check weapon on mount and set up a polling interval
     const check = () => {
       const w = remotePlayerWeapons.get(playerId) ?? null;
       setWeaponType((prev) => (prev !== w ? w : prev));
@@ -122,16 +152,6 @@ export function RemotePlayerWeapon({ playerId, clonedScene, color }: RemotePlaye
     return () => { cancelled = true; };
   }, [config?.path, playerId]);
 
-  // Create shared material for weapon coloring
-  const weaponMaterial = useMemo(() => {
-    const mat = new MeshStandardMaterial({
-      transparent: false,
-      depthWrite: true,
-    });
-    materialRef.current = mat;
-    return mat;
-  }, []);
-
   // Update material color when player color changes
   useLayoutEffect(() => {
     _color.set(color);
@@ -145,10 +165,12 @@ export function RemotePlayerWeapon({ playerId, clonedScene, color }: RemotePlaye
     if (!weaponScene || !config) return;
 
     weaponScene.scale.setScalar(config.scale);
+    weaponScene.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
 
     weaponScene.traverse((child) => {
       if ((child as Mesh).isMesh) {
         (child as Mesh).material = weaponMaterial;
+        (child as Mesh).frustumCulled = false;
       }
     });
   }, [weaponScene, config, weaponMaterial]);
@@ -158,14 +180,26 @@ export function RemotePlayerWeapon({ playerId, clonedScene, color }: RemotePlaye
     return () => { materialRef.current?.dispose(); };
   }, []);
 
-  // Attach weapon to bone
-  useBoneSocket({
-    root: clonedScene,
-    boneName: WEAPON_BONE,
-    attachment: weaponScene,
-    offset: config?.offset,
-    rotation: config?.rotation,
+  // Follow bone world transform every frame
+  useFrame(() => {
+    const bone = boneRef.current;
+    const group = weaponGroupRef.current;
+    if (!bone || !group) return;
+
+    // Get bone world transform
+    bone.updateWorldMatrix(true, false);
+    bone.matrixWorld.decompose(_worldPos, _worldQuat, _worldScale);
+
+    group.position.copy(_worldPos);
+    group.quaternion.copy(_worldQuat);
+    // Use weapon scale directly (not bone scale)
   });
 
-  return null;
+  if (!weaponScene || !config) return null;
+
+  return (
+    <group ref={weaponGroupRef} frustumCulled={false}>
+      <primitive object={weaponScene} />
+    </group>
+  );
 }

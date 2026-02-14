@@ -95,10 +95,13 @@ export function NetworkedPlayer({
 
   // Clone model with correct skeleton rebinding (SkeletonUtils handles bone→mesh binding)
   const clonedScene = useMemo(() => {
-    const clone = SkeletonUtils.clone(model) as Group;
-    onClonedScene?.(clone);
-    return clone;
+    return SkeletonUtils.clone(model) as Group;
   }, [model]);
+
+  // Notify parent after render — avoids setState-during-render warning
+  useLayoutEffect(() => {
+    onClonedScene?.(clonedScene);
+  }, [clonedScene, onClonedScene]);
 
   // Create AnimationMixer and actions
   const mixerRef = useRef<AnimationMixer | null>(null);

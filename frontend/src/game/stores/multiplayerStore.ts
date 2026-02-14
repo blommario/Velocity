@@ -316,6 +316,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         devLog.info('Net', `player_joined: id=${data.playerId} name=${data.playerName} slot=${data.slot}`);
         if (!data.playerId) return;
         slotToPlayer.set(data.slot, { playerId: data.playerId, playerName: data.playerName });
+        // New players always start with assault — set default weapon
+        remotePlayerWeapons.set(data.playerId, 'assault');
         // Update remote player set for rendering
         const ids = new Set(get().remotePlayerIds);
         ids.add(data.playerId);

@@ -425,6 +425,24 @@ public sealed class Room : IAsyncDisposable
         return result;
     }
 
+    /// <summary>
+    /// Returns a snapshot of current player info including weapon state for initial room_snapshot.
+    /// </summary>
+    public IReadOnlyList<(Guid PlayerId, string Name, int Slot, string CurrentWeapon)> GetPlayerSnapshotWithWeapons()
+    {
+        var result = new List<(Guid, string, int, string)>();
+        lock (_playerLock)
+        {
+            for (var i = 0; i < _players.Length; i++)
+            {
+                if (_players[i] is not null)
+                    result.Add((_players[i]!.PlayerId, _players[i]!.PlayerName, i, _players[i]!.CurrentWeapon));
+            }
+        }
+
+        return result;
+    }
+
     // ── ReceiveLoop: per-player, zero-copy binary, channel for JSON only ──
 
     /// <summary>

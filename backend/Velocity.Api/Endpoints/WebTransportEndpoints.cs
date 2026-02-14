@@ -144,11 +144,11 @@ public static class WebTransportEndpoints
             });
 
             // Send current room state to the new player only
-            var snapshot = room.GetPlayerSnapshot();
+            var snapshot = room.GetPlayerSnapshotWithWeapons();
             await room.SendJsonToPlayerAsync(slot, "room_snapshot", new
             {
                 roomId,
-                players = snapshot.Select(p => new { playerId = p.PlayerId, name = p.Name, slot = p.Slot }),
+                players = snapshot.Select(p => new { playerId = p.PlayerId, name = p.Name, slot = p.Slot, currentWeapon = p.CurrentWeapon }),
                 yourSlot = slot,
             });
 
