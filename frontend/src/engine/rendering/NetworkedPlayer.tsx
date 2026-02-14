@@ -92,7 +92,8 @@ export function NetworkedPlayer({
     if (!group.visible) group.visible = true;
 
     group.position.set(sampled.position[0], sampled.position[1] + yOffset, sampled.position[2]);
-    _euler.set(sampled.pitch, sampled.yaw + Math.PI, 0);
+    // Only apply yaw to the body — pitch would tilt the entire model forward/backward
+    _euler.set(0, sampled.yaw + Math.PI, 0);
     group.rotation.copy(_euler);
   });
 
