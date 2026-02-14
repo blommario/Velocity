@@ -250,6 +250,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         const localPlayerId = useAuthStore.getState().playerId;
         const newRemoteIds = new Set<string>();
         for (const p of data.players) {
+          if (!p.playerId) continue;
           slotToPlayer.set(p.slot, { playerId: p.playerId, playerName: p.name });
           if (p.playerId !== localPlayerId) {
             newRemoteIds.add(p.playerId);
@@ -295,6 +296,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     transport.onJson<{ playerId: string; playerName: string; slot: number }>(
       'player_joined',
       (data) => {
+        if (!data.playerId) return;
         slotToPlayer.set(data.slot, { playerId: data.playerId, playerName: data.playerName });
         // Update remote player set for rendering
         const ids = new Set(get().remotePlayerIds);

@@ -120,7 +120,7 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
   }
   ctx.collider.setHalfHeight(targetHeight / 2 - PHYSICS.PLAYER_RADIUS);
 
-  // ── Dash / dodge — double-tap strafe ──
+  // ── Dash / dodge — double-tap strafe (edge-detected) ──
   if (s.dashCooldown > 0) s.dashCooldown -= dt;
   if (s.dashTimer > 0) {
     // Apply dash burst velocity each tick during the dash duration
@@ -129,10 +129,17 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
     velocity.x += s.dashDirX * burstFraction;
     velocity.z += s.dashDirZ * burstFraction;
   }
+
+  // Edge detection: only trigger on the rising edge (false → true)
+  const leftJustPressed = input.left && !s.wasLeftDown;
+  const rightJustPressed = input.right && !s.wasRightDown;
+  s.wasLeftDown = input.left;
+  s.wasRightDown = input.right;
+
   if (s.dashCooldown <= 0 && s.dashTimer <= 0 && !refs.isProne.current) {
     const now_dash = ctx.now;
     // Detect double-tap left
-    if (input.left && !input.right) {
+    if (leftJustPressed && !input.right) {
       if (s.lastLeftPress === 0) {
         s.lastLeftPress = now_dash;
       } else if ((now_dash - s.lastLeftPress) < PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
@@ -146,13 +153,13 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
         audioManager.play(SOUNDS.JUMP, 0.08);
         devLog.info('Physics', 'Dash left!');
       }
-    } else {
-      if (s.lastLeftPress > 0 && (now_dash - s.lastLeftPress) > PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
-        s.lastLeftPress = 0;
-      }
+    }
+    // Expire stale left press
+    if (s.lastLeftPress > 0 && (ctx.now - s.lastLeftPress) > PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
+      s.lastLeftPress = 0;
     }
     // Detect double-tap right
-    if (input.right && !input.left) {
+    if (rightJustPressed && !input.left) {
       if (s.lastRightPress === 0) {
         s.lastRightPress = now_dash;
       } else if ((now_dash - s.lastRightPress) < PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
@@ -166,10 +173,10 @@ export function handleMovement(ctx: TickContext, wishDir: Vector3, hasInput: boo
         audioManager.play(SOUNDS.JUMP, 0.08);
         devLog.info('Physics', 'Dash right!');
       }
-    } else {
-      if (s.lastRightPress > 0 && (now_dash - s.lastRightPress) > PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
-        s.lastRightPress = 0;
-      }
+    }
+    // Expire stale right press
+    if (s.lastRightPress > 0 && (ctx.now - s.lastRightPress) > PHYSICS.DASH_DOUBLE_TAP_WINDOW) {
+      s.lastRightPress = 0;
     }
   }
 

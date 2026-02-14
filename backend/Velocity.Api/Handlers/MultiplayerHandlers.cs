@@ -17,6 +17,7 @@ namespace Velocity.Api.Handlers;
 /// </remarks>
 public sealed class MultiplayerHandlers(
     IMultiplayerRoomRepository rooms,
+    IPlayerRepository players,
     IMapRepository maps,
     RoomManager roomManager)
 {
@@ -25,6 +26,10 @@ public sealed class MultiplayerHandlers(
         var claimValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (claimValue is null || !Guid.TryParse(claimValue, out var playerId))
             return Results.Problem(statusCode: 401, detail: ValidationMessages.InvalidCredentials);
+
+        var player = await players.GetByIdAsync(playerId, ct);
+        if (player is null)
+            return Results.Problem(statusCode: 401, detail: ValidationMessages.PlayerNotFound);
 
         var map = Guid.TryParse(request.MapId, out var mapGuid)
             ? await maps.GetByIdAsync(mapGuid, ct)
@@ -75,6 +80,10 @@ public sealed class MultiplayerHandlers(
         var claimValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (claimValue is null || !Guid.TryParse(claimValue, out var playerId))
             return Results.Problem(statusCode: 401, detail: ValidationMessages.InvalidCredentials);
+
+        var player = await players.GetByIdAsync(playerId, ct);
+        if (player is null)
+            return Results.Problem(statusCode: 401, detail: ValidationMessages.PlayerNotFound);
 
         var room = await rooms.GetByIdAsync(roomId, ct);
         if (room is null)

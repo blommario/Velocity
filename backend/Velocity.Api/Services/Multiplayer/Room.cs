@@ -443,20 +443,46 @@ public sealed class Room : IAsyncDisposable
 
                 if (result.Count == 0) continue;
 
-                Interlocked.Increment(ref _inboundMessageCount);
+                // QUIC streams are byte streams — multiple messages can arrive in a single read.
+                // Process all complete messages in the received data.
+                var received = buffer.AsSpan(0, result.Count);
+                var offset = 0;
 
-                var msgType = buffer[0];
+                while (offset < received.Length)
+                {
+                    var msgType = received[offset];
 
-                if (msgType == TransportSettings.MsgTypePosition)
-                {
-                    // Only accept position data during Racing state
-                    if (_status == RoomStatus.Racing)
-                        ParsePositionDirect(slot, buffer.AsSpan(0, result.Count));
-                }
-                else if (msgType == TransportSettings.MsgTypeJson || msgType == TransportSettings.MsgTypeMsgPack)
-                {
-                    var controlData = buffer.AsSpan(1, result.Count - 1).ToArray();
-                    _controlChannel.Writer.TryWrite(new ControlMessage(slot, controlData, IsMsgPack: msgType == TransportSettings.MsgTypeMsgPack));
+                    if (msgType == TransportSettings.MsgTypePosition)
+                    {
+                        var remaining = received.Length - offset;
+                        if (remaining < ClientMinSize) break; // incomplete position message — wait for more data
+
+                        Interlocked.Increment(ref _inboundMessageCount);
+
+                        if (_status == RoomStatus.Racing)
+                            ParsePositionDirect(slot, received.Slice(offset, Math.Min(remaining, ClientSizeWithTimestamp)));
+
+                        // Consume exactly one position message (20 bytes, or 24 with timestamp)
+                        offset += remaining >= ClientSizeWithTimestamp ? ClientSizeWithTimestamp : ClientMinSize;
+                    }
+                    else if (msgType == TransportSettings.MsgTypeJson || msgType == TransportSettings.MsgTypeMsgPack)
+                    {
+                        // Control messages should not be batched with position data on the position stream.
+                        // Process remaining bytes as a single control message and break.
+                        var controlLen = received.Length - offset - 1;
+                        if (controlLen > 0)
+                        {
+                            Interlocked.Increment(ref _inboundMessageCount);
+                            var controlData = received.Slice(offset + 1, controlLen).ToArray();
+                            _controlChannel.Writer.TryWrite(new ControlMessage(slot, controlData, IsMsgPack: msgType == TransportSettings.MsgTypeMsgPack));
+                        }
+                        offset = received.Length; // consumed everything
+                    }
+                    else
+                    {
+                        // Unknown message type — skip remaining to avoid infinite loop
+                        break;
+                    }
                 }
             }
         }

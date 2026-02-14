@@ -51,6 +51,8 @@ export interface PhysicsTickState {
   // Dash / dodge
   lastLeftPress: number;
   lastRightPress: number;
+  wasLeftDown: boolean;
+  wasRightDown: boolean;
   dashCooldown: number;
   dashTimer: number;
   dashDirX: number;
@@ -104,6 +106,8 @@ export function createPhysicsTickState(): PhysicsTickState {
     bhopPerfect: false,
     lastLeftPress: 0,
     lastRightPress: 0,
+    wasLeftDown: false,
+    wasRightDown: false,
     dashCooldown: 0,
     dashTimer: 0,
     dashDirX: 0,

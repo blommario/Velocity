@@ -174,28 +174,41 @@ async function readPositionStream(): Promise<void> {
       const { value, done } = await positionReader.read();
       if (done || !value) break;
 
-      // Parse position batch (same format as existing PositionCodec)
-      if (value.length < 2) continue;
-      if (value[0] !== MSG_TYPE.POSITION_BATCH) continue;
+      // QUIC streams are byte streams — multiple batches can arrive in a single read.
+      // Process all complete batches in the received data.
+      let offset = 0;
 
-      const count = value[1];
-      const view = new DataView(value.buffer, value.byteOffset, value.byteLength);
+      while (offset < value.length) {
+        // Need at least 2 bytes for batch header [msgType, count]
+        if (offset + 2 > value.length) break;
+        if (value[offset] !== MSG_TYPE.POSITION_BATCH) break;
 
-      for (let i = 0; i < count; i++) {
-        const offset = 2 + i * BYTES_PER_PLAYER;
-        if (offset + BYTES_PER_PLAYER > value.length) break;
+        const count = value[offset + 1];
+        const batchSize = 2 + count * BYTES_PER_PLAYER;
 
-        const p = _inboundPlayers[i];
-        p.slot = view.getUint8(offset);
-        p.posX = view.getFloat32(offset + 1, true);
-        p.posY = view.getFloat32(offset + 5, true);
-        p.posZ = view.getFloat32(offset + 9, true);
-        p.yaw = view.getInt16(offset + 13, true) / ROTATION_SCALE;
-        p.pitch = view.getInt16(offset + 15, true) / ROTATION_SCALE;
-        p.timestamp = view.getUint32(offset + 20, true);
+        // Check if we have a complete batch
+        if (offset + batchSize > value.length) break;
+
+        const view = new DataView(value.buffer, value.byteOffset + offset, batchSize);
+
+        for (let i = 0; i < count; i++) {
+          const pOffset = 2 + i * BYTES_PER_PLAYER;
+
+          const p = _inboundPlayers[i];
+          p.slot = view.getUint8(pOffset);
+          p.posX = view.getFloat32(pOffset + 1, true);
+          p.posY = view.getFloat32(pOffset + 5, true);
+          p.posZ = view.getFloat32(pOffset + 9, true);
+          p.yaw = view.getInt16(pOffset + 13, true) / ROTATION_SCALE;
+          p.pitch = view.getInt16(pOffset + 15, true) / ROTATION_SCALE;
+          p.timestamp = view.getUint32(pOffset + 20, true);
+        }
+
+        // Write the latest batch to SAB (only the most recent matters for interpolation)
+        writeInboundBatch(inSab, _inboundPlayers, count);
+
+        offset += batchSize;
       }
-
-      writeInboundBatch(inSab, _inboundPlayers, count);
     }
   } catch {
     // Stream closed

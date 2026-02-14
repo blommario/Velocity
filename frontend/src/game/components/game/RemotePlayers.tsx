@@ -101,6 +101,7 @@ export function RemotePlayers() {
   const players: { id: string; index: number }[] = [];
   let i = 0;
   remotePlayerIds.forEach((id) => {
+    if (!id) return;
     players.push({ id, index: i });
     i++;
   });
