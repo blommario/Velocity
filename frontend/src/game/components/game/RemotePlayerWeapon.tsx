@@ -192,13 +192,15 @@ export function RemotePlayerWeapon({ playerId, clonedScene, color }: RemotePlaye
 
     group.position.copy(_worldPos);
     group.quaternion.copy(_worldQuat);
-    // Use weapon scale directly (not bone scale)
+
+    // Show after first positioning to avoid flash at (0,0,0)
+    if (!group.visible) group.visible = true;
   });
 
   if (!weaponScene || !config) return null;
 
   return (
-    <group ref={weaponGroupRef} frustumCulled={false}>
+    <group ref={weaponGroupRef} frustumCulled={false} visible={false}>
       <primitive object={weaponScene} />
     </group>
   );

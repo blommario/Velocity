@@ -72,10 +72,10 @@ export const WEAPON_MODELS: Record<WeaponType, WeaponModelConfig> = {
   sniper:  { path: 'weapons/sniper.glb', scale: 0.50, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35, skeletal: true, socketWeaponScale: 0.50, socketOffsetX: 0.02, socketOffsetY: -0.01, socketOffsetZ: -0.08, socketRotX: 0, socketRotY: Math.PI / 2, socketRotZ: 0 },
   shotgun: { path: 'weapons/rifle.glb', scale: 0.065, rotationY: Math.PI / 2, offsetX: 0.00, offsetY: -0.02, offsetZ: -0.35, skeletal: true, socketWeaponScale: 0.065, socketOffsetX: 0.02, socketOffsetY: -0.01, socketOffsetZ: -0.08, socketRotX: 0, socketRotY: Math.PI / 2, socketRotZ: 0 },
   rocket:  { path: 'weapons/rocket_launcher.glb', scale: 0.065, rotationY: Math.PI, offsetX: 0.00, offsetY: -0.10, offsetZ: -0.35, skeletal: true, socketWeaponScale: 0.065, socketOffsetX: 0.02, socketOffsetY: -0.02, socketOffsetZ: -0.10, socketRotX: 0, socketRotY: Math.PI, socketRotZ: 0 },
-  grenade: { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
-  plasma:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
+  grenade: { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25, skeletal: true },
+  plasma:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25, skeletal: true },
   knife:   { path: 'weapons/knife.glb', scale: 0.35, rotationY: -Math.PI / 2, offsetX: 0.00, offsetY: -0.05, offsetZ: -0.35, skeletal: true, socketWeaponScale: 0.35, socketOffsetX: 0.01, socketOffsetY: 0.0, socketOffsetZ: -0.03, socketRotX: 0, socketRotY: -Math.PI / 2, socketRotZ: 0 },
-  pistol:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25 },
+  pistol:  { path: null, scale: 1, rotationY: 0, offsetX: 0, offsetY: 0, offsetZ: -0.25, skeletal: true },
 } as const;
 
 // ── Skeletal animation configuration ──

@@ -23,7 +23,8 @@ export interface UseBoneSocketProps {
 
 /**
  * Finds a bone by name in the root hierarchy, attaches/detaches the given Object3D.
- * Single effect handles both bone lookup and attachment — avoids extra re-renders.
+ * Attach/detach only depends on root, boneName, attachment identity.
+ * Offset/rotation are applied via refs — no re-attach on value changes.
  */
 export function useBoneSocket({
   root,
@@ -33,44 +34,65 @@ export function useBoneSocket({
   rotation,
 }: UseBoneSocketProps): Bone | null {
   const boneRef = useRef<Bone | null>(null);
+  const offsetRef = useRef(offset);
+  const rotationRef = useRef(rotation);
 
-  // Single effect: find bone + attach/detach in one pass
+  // Keep refs in sync without triggering attach/detach
+  offsetRef.current = offset;
+  rotationRef.current = rotation;
+
+  // Apply offset/rotation changes without re-attaching
   useEffect(() => {
-    // Find bone in root hierarchy
-    if (!root) {
-      boneRef.current = null;
-      return;
-    }
-
-    let found: Bone | null = null;
-    const boneNames: string[] = [];
-
-    root.traverse((child) => {
-      if ((child as Bone).isBone) {
-        boneNames.push(child.name);
-        if (child.name === boneName) {
-          found = child as Bone;
-        }
-      }
-    });
-
-    if (found) {
-      boneRef.current = found;
-      devLog.info('BoneSocket', `Found bone "${boneName}"`);
-    } else {
-      boneRef.current = null;
-      devLog.warn('BoneSocket', `Bone "${boneName}" not found. Available: [${boneNames.join(', ')}]`);
-    }
-
-    // Attach if both bone and attachment are ready
-    const bone = boneRef.current;
-    if (!bone || !attachment) return;
-
+    if (!attachment) return;
     if (offset) {
       attachment.position.set(offset.x, offset.y, offset.z);
     }
     if (rotation) {
       attachment.rotation.set(rotation.x, rotation.y, rotation.z);
+    }
+  }, [attachment, offset, rotation]);
+
+  // Find bone + attach/detach — only re-runs when identity of root/attachment changes
+  useEffect(() => {
+    if (!root) {
+      boneRef.current = null;
+      return;
+    }
+
+    const boneNames: string[] = [];
+    let result: Bone | null = null;
+
+    root.traverse((child) => {
+      if ((child as Bone).isBone) {
+        boneNames.push(child.name);
+        if (child.name === boneName) {
+          result = child as Bone;
+        }
+      }
+    });
+
+    // Re-assign to break TS closure narrowing (traverse runs synchronously)
+    const bone: Bone | null = result;
+
+    if (!bone) {
+      boneRef.current = null;
+      devLog.warn('BoneSocket', `Bone "${boneName}" not found. Available: [${boneNames.join(', ')}]`);
+      return;
+    }
+
+    boneRef.current = bone;
+    devLog.info('BoneSocket', `Found bone "${boneName}"`);
+
+    if (!attachment) return;
+
+    // Apply current offset/rotation from refs
+    const off = offsetRef.current;
+    const rot = rotationRef.current;
+    if (off) {
+      attachment.position.set(off.x, off.y, off.z);
+    }
+    if (rot) {
+      attachment.rotation.set(rot.x, rot.y, rot.z);
     }
 
     bone.add(attachment);
@@ -80,7 +102,7 @@ export function useBoneSocket({
       bone.remove(attachment);
       devLog.info('BoneSocket', `Detached from "${boneName}"`);
     };
-  }, [root, boneName, attachment, offset, rotation]);
+  }, [root, boneName, attachment]);
 
   return boneRef.current;
 }
