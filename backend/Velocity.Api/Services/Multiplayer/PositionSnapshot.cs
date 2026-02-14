@@ -3,14 +3,14 @@ using System.Runtime.InteropServices;
 namespace Velocity.Api.Services.Multiplayer;
 
 /// <summary>
-/// Pre-allocated position data for one player slot. Mutated in-place by ProcessInbound.
-/// Binary layout matches the client protocol: 25 bytes per player.
+/// Pre-allocated position data for one player slot. Mutated in-place by ReceiveLoop.
+/// Stored for room_snapshot (late joiners); relayed immediately on receive.
 /// </summary>
 /// <remarks>
 /// Depends on: nothing (mutable struct)
 /// Used by: Room (PositionBuffer array)
 /// </remarks>
-[StructLayout(LayoutKind.Sequential, Pack = 1)] // Optional optimization
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct PositionSnapshot
 {
     public float PosX;
@@ -21,5 +21,4 @@ public struct PositionSnapshot
     public ushort Speed;
     public byte Checkpoint;
     public uint Timestamp;
-    public bool Dirty;
 }

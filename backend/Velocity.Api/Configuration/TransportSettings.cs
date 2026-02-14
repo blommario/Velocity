@@ -8,9 +8,6 @@ namespace Velocity.Api.Configuration;
 /// </remarks>
 public static class TransportSettings
 {
-    /// <summary>Server broadcast tick rate in milliseconds (100Hz = 10ms).</summary>
-    public const int BroadcastIntervalMs = 10;
-
     /// <summary>Heartbeat ping interval in milliseconds.</summary>
     public const int HeartbeatIntervalMs = 5000;
 

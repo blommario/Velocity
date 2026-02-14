@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -13,10 +12,10 @@ namespace Velocity.Api.Services.Multiplayer;
 
 /// <summary>
 /// Isolated multiplayer room — owns player sockets, position buffers, and background loops.
-/// Each room runs its own BroadcastLoop (20Hz), ProcessControl (continuous), and HeartbeatMonitor (5s).
-/// Binary positions are written directly in each player's ReceiveLoop (zero-copy, no channel).
+/// Positions are relayed immediately on receive (zero tick delay) — each ReceiveLoop
+/// serializes and sends a single-player batch to all other players inline.
 /// JSON control messages use a separate unbounded channel (never dropped).
-/// T1: adds match state machine (Waiting→Countdown→Racing→Finished), finish tracking,
+/// Match state machine: Waiting→Countdown→Racing→Finished with finish tracking,
 /// leave/kick, host succession, and match timeout.
 /// </summary>
 /// <remarks>
@@ -73,7 +72,6 @@ public sealed class Room : IAsyncDisposable
 
     private readonly CancellationTokenSource _cts = new();
 
-    private Task? _broadcastTask;
     private Task? _processControlTask;
     private Task? _heartbeatTask;
     private int _playerCount;
@@ -127,7 +125,6 @@ public sealed class Room : IAsyncDisposable
     {
         _roomId = roomId;
         _logger = logger;
-        _broadcastTask = Task.Run(BroadcastLoop);
         _processControlTask = Task.Run(ProcessControlMessages);
         _heartbeatTask = Task.Run(HeartbeatMonitor);
         _logger.LogInformation("Room {RoomId} created", roomId);
@@ -444,39 +441,44 @@ public sealed class Room : IAsyncDisposable
                 if (result.Count == 0) continue;
 
                 // QUIC streams are byte streams — multiple messages can arrive in a single read.
-                // Process all complete messages in the received data.
-                var received = buffer.AsSpan(0, result.Count);
+                // Process all complete messages synchronously, then relay positions async.
+                var receivedLen = result.Count;
                 var offset = 0;
+                var needsRelay = false;
 
-                while (offset < received.Length)
+                while (offset < receivedLen)
                 {
-                    var msgType = received[offset];
+                    var msgType = buffer[offset];
 
                     if (msgType == TransportSettings.MsgTypePosition)
                     {
-                        var remaining = received.Length - offset;
+                        var remaining = receivedLen - offset;
                         if (remaining < ClientMinSize) break; // incomplete position message — wait for more data
 
                         Interlocked.Increment(ref _inboundMessageCount);
 
-                        if (_status == RoomStatus.Racing)
-                            ParsePositionDirect(slot, received.Slice(offset, Math.Min(remaining, ClientSizeWithTimestamp)));
+                        var msgLen = remaining >= ClientSizeWithTimestamp ? ClientSizeWithTimestamp : ClientMinSize;
 
-                        // Consume exactly one position message (20 bytes, or 24 with timestamp)
-                        offset += remaining >= ClientSizeWithTimestamp ? ClientSizeWithTimestamp : ClientMinSize;
+                        if (_status == RoomStatus.Racing)
+                        {
+                            ParsePositionDirect(slot, buffer.AsSpan(offset, Math.Min(remaining, ClientSizeWithTimestamp)));
+                            needsRelay = true;
+                        }
+
+                        offset += msgLen;
                     }
                     else if (msgType == TransportSettings.MsgTypeJson || msgType == TransportSettings.MsgTypeMsgPack)
                     {
                         // Control messages should not be batched with position data on the position stream.
-                        // Process remaining bytes as a single control message and break.
-                        var controlLen = received.Length - offset - 1;
+                        var controlLen = receivedLen - offset - 1;
                         if (controlLen > 0)
                         {
                             Interlocked.Increment(ref _inboundMessageCount);
-                            var controlData = received.Slice(offset + 1, controlLen).ToArray();
+                            var controlData = new byte[controlLen];
+                            Buffer.BlockCopy(buffer, offset + 1, controlData, 0, controlLen);
                             _controlChannel.Writer.TryWrite(new ControlMessage(slot, controlData, IsMsgPack: msgType == TransportSettings.MsgTypeMsgPack));
                         }
-                        offset = received.Length; // consumed everything
+                        offset = receivedLen; // consumed everything
                     }
                     else
                     {
@@ -484,6 +486,10 @@ public sealed class Room : IAsyncDisposable
                         break;
                     }
                 }
+
+                // Relay latest position to all other players (after Span usage is done)
+                if (needsRelay)
+                    await RelayPositionAsync(slot, ct);
             }
         }
         catch (OperationCanceledException)
@@ -530,9 +536,57 @@ public sealed class Room : IAsyncDisposable
 
             if (data.Length >= ClientSizeWithTimestamp)
                 pos.Timestamp = BinaryPrimitives.ReadUInt32LittleEndian(data[ClientTimestampOffset..]);
-
-            pos.Dirty = true;
         }
+    }
+
+    /// <summary>
+    /// Immediately relays a single player's latest position to all other connected players.
+    /// Serializes a 1-player batch and sends without waiting for a tick — zero added latency.
+    /// Called directly from ReceiveLoop when a position update is parsed.
+    /// </summary>
+    private async Task RelayPositionAsync(int senderSlot, CancellationToken ct)
+    {
+        PositionSnapshot pos;
+        lock (_positionLock) { pos = _positions[senderSlot]; }
+
+        var batchSize = BatchHeaderSize + BytesPerPlayer;
+        var batch = ArrayPool<byte>.Shared.Rent(batchSize);
+
+        batch[0] = TransportSettings.MsgTypePositionBatch;
+        batch[1] = 1; // single player
+
+        var span = batch.AsSpan();
+        var offset = BatchHeaderSize;
+        var serverTimeMs = (uint)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _matchStartTime);
+
+        span[offset + BatchSlotOffset] = (byte)senderSlot;
+        BinaryPrimitives.WriteSingleLittleEndian(span[(offset + BatchPosXOffset)..], pos.PosX);
+        BinaryPrimitives.WriteSingleLittleEndian(span[(offset + BatchPosYOffset)..], pos.PosY);
+        BinaryPrimitives.WriteSingleLittleEndian(span[(offset + BatchPosZOffset)..], pos.PosZ);
+        BinaryPrimitives.WriteInt16LittleEndian(span[(offset + BatchYawOffset)..], pos.Yaw);
+        BinaryPrimitives.WriteInt16LittleEndian(span[(offset + BatchPitchOffset)..], pos.Pitch);
+        BinaryPrimitives.WriteUInt16LittleEndian(span[(offset + BatchSpeedOffset)..], pos.Speed);
+        span[offset + BatchCheckpointOffset] = pos.Checkpoint;
+        BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + BatchTimestampOffset)..], serverTimeMs);
+
+        var sendData = new ReadOnlyMemory<byte>(batch, 0, batchSize);
+        var sendTasks = new List<Task>();
+
+        lock (_playerLock)
+        {
+            for (var i = 0; i < _players.Length; i++)
+            {
+                if (i == senderSlot) continue; // don't echo back to sender
+                var p = _players[i];
+                if (p is null || !p.Connection.IsOpen) continue;
+                sendTasks.Add(SendBinarySafeAsync(p, sendData, ct));
+            }
+        }
+
+        if (sendTasks.Count > 0)
+            _ = ReturnBufferAfterSends(sendTasks, batch);
+        else
+            ArrayPool<byte>.Shared.Return(batch);
     }
 
     /// <summary>
@@ -1088,110 +1142,6 @@ public sealed class Room : IAsyncDisposable
         };
     }
 
-    // ── BroadcastLoop: 20Hz stable tick, fire-and-forget sends ──
-
-    /// <summary>
-    /// 20Hz broadcast loop — snapshots all dirty positions atomically, serializes to binary batch,
-    /// and fires sends to all players without awaiting (no head-of-line blocking).
-    /// Only broadcasts during Racing state.
-    /// </summary>
-    private async Task BroadcastLoop()
-    {
-        var ct = _cts.Token;
-
-        var snapshotBuffer = new PositionSnapshot[TransportSettings.MaxPlayersPerRoom];
-        var dirtySlots = new int[TransportSettings.MaxPlayersPerRoom];
-        var tickInterval = TimeSpan.FromMilliseconds(TransportSettings.BroadcastIntervalMs);
-
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                var tickStart = Stopwatch.GetTimestamp();
-
-                // Only broadcast position data during racing
-                if (_status == RoomStatus.Racing)
-                {
-                    var dirtyCount = 0;
-
-                    lock (_positionLock)
-                    {
-                        for (var i = 0; i < _positions.Length; i++)
-                        {
-                            if (!_positions[i].Dirty) continue;
-
-                            snapshotBuffer[dirtyCount] = _positions[i];
-                            dirtySlots[dirtyCount] = i;
-                            _positions[i].Dirty = false;
-                            dirtyCount++;
-                        }
-                    }
-
-                    if (dirtyCount > 0)
-                    {
-                        var batchSize = BatchHeaderSize + (BytesPerPlayer * dirtyCount);
-                        var batch = ArrayPool<byte>.Shared.Rent(batchSize);
-
-                        batch[0] = TransportSettings.MsgTypePositionBatch;
-                        batch[1] = (byte)dirtyCount;
-
-                        var span = batch.AsSpan();
-
-                        // Server-stamped time: ms since match start (monotonic for all clients)
-                        var serverTimeMs = (uint)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _matchStartTime);
-
-                        for (var d = 0; d < dirtyCount; d++)
-                        {
-                            var offset = BatchHeaderSize + (d * BytesPerPlayer);
-                            ref readonly var pos = ref snapshotBuffer[d];
-
-                            span[offset + BatchSlotOffset] = (byte)dirtySlots[d];
-                            BinaryPrimitives.WriteSingleLittleEndian(span[(offset + BatchPosXOffset)..], pos.PosX);
-                            BinaryPrimitives.WriteSingleLittleEndian(span[(offset + BatchPosYOffset)..], pos.PosY);
-                            BinaryPrimitives.WriteSingleLittleEndian(span[(offset + BatchPosZOffset)..], pos.PosZ);
-                            BinaryPrimitives.WriteInt16LittleEndian(span[(offset + BatchYawOffset)..], pos.Yaw);
-                            BinaryPrimitives.WriteInt16LittleEndian(span[(offset + BatchPitchOffset)..], pos.Pitch);
-                            BinaryPrimitives.WriteUInt16LittleEndian(span[(offset + BatchSpeedOffset)..], pos.Speed);
-                            span[offset + BatchCheckpointOffset] = pos.Checkpoint;
-                            BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + BatchTimestampOffset)..], serverTimeMs);
-                        }
-
-                        var sendData = new ReadOnlyMemory<byte>(batch, 0, batchSize);
-                        var sendTasks = new List<Task>();
-
-                        lock (_playerLock)
-                        {
-                            for (var i = 0; i < _players.Length; i++)
-                            {
-                                var p = _players[i];
-                                if (p is null || !p.Connection.IsOpen) continue;
-                                sendTasks.Add(SendBinarySafeAsync(p, sendData, ct));
-                            }
-                        }
-
-                        if (sendTasks.Count > 0)
-                        {
-                            _ = ReturnBufferAfterSends(sendTasks, batch);
-                        }
-                        else
-                        {
-                            ArrayPool<byte>.Shared.Return(batch);
-                        }
-                    }
-                }
-
-                var elapsed = Stopwatch.GetElapsedTime(tickStart);
-                var delay = tickInterval - elapsed;
-                if (delay > TimeSpan.Zero)
-                    await Task.Delay(delay, ct);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Normal shutdown
-        }
-    }
-
     /// <summary>
     /// Returns a pooled buffer after all send tasks have completed.
     /// </summary>
@@ -1343,7 +1293,7 @@ public sealed class Room : IAsyncDisposable
         }
 
         // Wait for background tasks to complete
-        var tasks = new[] { _broadcastTask, _processControlTask, _heartbeatTask }
+        var tasks = new[] { _processControlTask, _heartbeatTask }
             .Where(t => t is not null)
             .Select(t => t!);
 
