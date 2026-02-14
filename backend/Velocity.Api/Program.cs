@@ -1,7 +1,7 @@
 using System.Text;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Velocity.Api.Configuration;
@@ -14,6 +14,16 @@ using Velocity.Data;
 using Velocity.Data.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Kestrel: HTTP/3 + WebTransport ──
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5001, listenOptions =>
+    {
+        listenOptions.UseHttps();
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+    });
+});
 
 // ── JWT Settings (Options pattern) ──
 var jwtSection = builder.Configuration.GetSection(JwtSettings.SectionName);
@@ -83,7 +93,6 @@ builder.Services.AddOpenApi();
 
 // ── Services ──
 builder.Services.AddSingleton<TokenService>();
-builder.Services.AddSingleton<SseConnectionManager>();
 builder.Services.AddSingleton<RoomManager>();
 builder.Services.AddSingleton<MetricsCollector>();
 builder.Services.AddHostedService<MetricsCollector>(sp => sp.GetRequiredService<MetricsCollector>());
@@ -134,7 +143,6 @@ app.UseHttpsRedirection();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseResponseCompression();
-app.UseWebSockets();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -159,8 +167,7 @@ app.MapLeaderboardEndpoints();
 app.MapPlayerEndpoints();
 app.MapReplayEndpoints();
 app.MapMultiplayerEndpoints();
-app.MapSseEndpoints();
-app.MapWebSocketEndpoints();
+app.MapWebTransportEndpoints();
 app.MapMetricsEndpoints();
 
 app.Run();

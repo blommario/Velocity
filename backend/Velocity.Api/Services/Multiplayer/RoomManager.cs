@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net.WebSockets;
-using Microsoft.Extensions.Logging;
 using Velocity.Api.Configuration;
 
 namespace Velocity.Api.Services.Multiplayer;
@@ -15,37 +13,29 @@ namespace Velocity.Api.Services.Multiplayer;
 /// </summary>
 /// <remarks>
 /// Depends on: Room
-/// Used by: WebSocketEndpoints, MultiplayerHandlers, RoomCleanupService
+/// Used by: WebTransportEndpoints, MultiplayerHandlers, RoomCleanupService
 /// </remarks>
-public sealed class RoomManager : IAsyncDisposable
+public sealed class RoomManager(ILoggerFactory loggerFactory) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<Guid, Lazy<Room>> _rooms = new();
-    private readonly ILoggerFactory _loggerFactory;
-    private readonly ILogger<RoomManager> _logger;
     private volatile bool _isShuttingDown;
 
     /// <summary>Relayed from Room.OnMatchFinished — includes roomId, results, and mapId.</summary>
     public event Action<Guid, IReadOnlyList<FinishResult>, Guid>? OnRoomMatchFinished;
 
-    public RoomManager(ILoggerFactory loggerFactory)
-    {
-        _loggerFactory = loggerFactory;
-        _logger = loggerFactory.CreateLogger<RoomManager>();
-    }
-
     /// <summary>
-    /// Joins (or creates) a room and registers the player's WebSocket.
+    /// Joins (or creates) a room and registers the player's connection.
     /// Returns the room, assigned slot (or -1 if full or shutting down), and a Task that completes on disconnect.
     /// Uses Lazy&lt;Room&gt; so concurrent GetOrAdd calls never create duplicate Room instances.
     /// </summary>
-    public (Room? room, int slot, Task disconnectTask) JoinRoom(Guid roomId, Guid playerId, string playerName, WebSocket socket)
+    public (Room? room, int slot, Task disconnectTask) JoinRoom(Guid roomId, Guid playerId, string playerName, IPlayerConnection connection)
     {
         if (_isShuttingDown)
             return (null, -1, Task.CompletedTask);
 
         var lazy = _rooms.GetOrAdd(roomId, id => new Lazy<Room>(() =>
         {
-            var r = new Room(id, _loggerFactory.CreateLogger<Room>());
+            var r = new Room(id, loggerFactory.CreateLogger<Room>());
             r.OnEmpty += HandleRoomEmpty;
             r.OnMatchFinished += HandleMatchFinished;
             return r;
@@ -61,7 +51,7 @@ public sealed class RoomManager : IAsyncDisposable
             return (room, -1, Task.CompletedTask);
         }
 
-        var (slot, disconnectTask) = room.AddPlayer(playerId, playerName, socket);
+        var (slot, disconnectTask) = room.AddPlayer(playerId, playerName, connection);
         return (room, slot, disconnectTask);
     }
 
@@ -124,15 +114,15 @@ public sealed class RoomManager : IAsyncDisposable
 
             switch (room.Status)
             {
-                case RoomStatus.Waiting when idleMs > WebSocketSettings.WaitingRoomTimeoutMs:
+                case RoomStatus.Waiting when idleMs > TransportSettings.WaitingRoomTimeoutMs:
                     stale.Add((kv.Key, $"Waiting room idle for {idleMs / 1000}s"));
                     break;
 
-                case RoomStatus.Racing when idleMs > WebSocketSettings.MatchTimeoutMs:
+                case RoomStatus.Racing when idleMs > TransportSettings.MatchTimeoutMs:
                     stale.Add((kv.Key, $"Racing room exceeded timeout ({idleMs / 1000}s)"));
                     break;
 
-                case RoomStatus.Finished when idleMs > WebSocketSettings.FinishedGracePeriodSeconds * 1000:
+                case RoomStatus.Finished when idleMs > TransportSettings.FinishedGracePeriodSeconds * 1000:
                     stale.Add((kv.Key, "Finished room grace period expired"));
                     break;
             }

@@ -6,7 +6,7 @@
  * Used by: App.tsx (screen router)
  */
 import { useEffect } from 'react';
-import { useMultiplayerStore } from '@game/stores/multiplayerStore';
+import { useMultiplayerStore, MULTIPLAYER_STATUS } from '@game/stores/multiplayerStore';
 import { useGameStore, SCREENS } from '@game/stores/gameStore';
 import { RoomBrowser } from './multiplayer/RoomBrowser';
 import { RoomLobby } from './multiplayer/RoomLobby';
@@ -27,7 +27,7 @@ export function MultiplayerLobby() {
   useEffect(() => {
     return () => {
       const { multiplayerStatus } = useMultiplayerStore.getState();
-      if (multiplayerStatus !== 'racing' && multiplayerStatus !== 'countdown') {
+      if (multiplayerStatus !== MULTIPLAYER_STATUS.RACING && multiplayerStatus !== MULTIPLAYER_STATUS.COUNTDOWN) {
         disconnectFromMatch();
       }
     };
@@ -39,7 +39,7 @@ export function MultiplayerLobby() {
   };
 
   const renderContent = () => {
-    if (multiplayerStatus === 'finished' && currentRoom) {
+    if (multiplayerStatus === MULTIPLAYER_STATUS.FINISHED && currentRoom) {
       return <MultiplayerResults />;
     }
     if (currentRoom) {

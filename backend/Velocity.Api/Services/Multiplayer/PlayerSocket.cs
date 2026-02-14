@@ -1,12 +1,12 @@
-using System.Net.WebSockets;
+using Velocity.Api.Configuration;
 
 namespace Velocity.Api.Services.Multiplayer;
 
 /// <summary>
-/// Holds a player's WebSocket connection and metadata within a Room.
+/// Holds a player's transport connection and metadata within a Room.
 /// </summary>
 /// <remarks>
-/// Depends on: nothing (pure data + WebSocket reference)
+/// Depends on: IPlayerConnection, TransportSettings
 /// Used by: Room
 /// </remarks>
 public sealed class PlayerSocket
@@ -14,7 +14,7 @@ public sealed class PlayerSocket
     public required int Slot { get; init; }
     public required Guid PlayerId { get; init; }
     public required string PlayerName { get; init; }
-    public required WebSocket Socket { get; init; }
+    public required IPlayerConnection Connection { get; init; }
     public long LastSeenAt { get; set; } = Environment.TickCount64;
     public bool IsActive { get; set; } = true;
     public bool IsFinished { get; set; }
@@ -27,7 +27,7 @@ public sealed class PlayerSocket
     // ── Combat state ──
 
     /// <summary>Current health (0 = dead). Reset to MaxPlayerHealth on respawn/match start.</summary>
-    public int Health { get; set; } = Configuration.WebSocketSettings.MaxPlayerHealth;
+    public int Health { get; set; } = TransportSettings.MaxPlayerHealth;
 
     /// <summary>Whether this player is currently dead and awaiting respawn.</summary>
     public bool IsDead { get; set; }

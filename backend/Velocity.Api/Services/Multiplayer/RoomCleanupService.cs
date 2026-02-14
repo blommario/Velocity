@@ -6,7 +6,7 @@ namespace Velocity.Api.Services.Multiplayer;
 
 /// <summary>
 /// Background service that (1) periodically cleans up stale rooms and
-/// (2) gracefully shuts down all WebSocket rooms when the application stops.
+/// (2) gracefully shuts down all multiplayer rooms when the application stops.
 /// Also persists multiplayer results to DB when rooms finish via RoomManager event.
 /// </summary>
 /// <remarks>
@@ -26,7 +26,7 @@ public sealed class RoomCleanupService(
         {
             try
             {
-                await Task.Delay(WebSocketSettings.CleanupIntervalMs, stoppingToken);
+                await Task.Delay(TransportSettings.CleanupIntervalMs, stoppingToken);
                 await CleanupStaleRooms();
             }
             catch (OperationCanceledException)

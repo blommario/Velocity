@@ -1,11 +1,11 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
-using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
-using Microsoft.Extensions.Logging;
+using MessagePack;
+using MessagePack.Resolvers;
 using Velocity.Api.Configuration;
 using Velocity.Api.Contracts;
 
@@ -20,7 +20,7 @@ namespace Velocity.Api.Services.Multiplayer;
 /// leave/kick, host succession, and match timeout.
 /// </summary>
 /// <remarks>
-/// Depends on: PlayerSocket, PositionSnapshot, WebSocketSettings
+/// Depends on: PlayerSocket, PositionSnapshot, TransportSettings
 /// Used by: RoomManager
 /// </remarks>
 public sealed class Room : IAsyncDisposable
@@ -56,11 +56,14 @@ public sealed class Room : IAsyncDisposable
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    private static readonly MessagePackSerializerOptions MsgPackOptions =
+        ContractlessStandardResolver.Options;
+
     private readonly Guid _roomId;
     private readonly ILogger<Room> _logger;
-    private readonly PlayerSocket?[] _players = new PlayerSocket?[WebSocketSettings.MaxPlayersPerRoom];
-    private readonly PositionSnapshot[] _positions = new PositionSnapshot[WebSocketSettings.MaxPlayersPerRoom];
-    private readonly TaskCompletionSource[] _disconnectSignals = CreateSignals(WebSocketSettings.MaxPlayersPerRoom);
+    private readonly PlayerSocket?[] _players = new PlayerSocket?[TransportSettings.MaxPlayersPerRoom];
+    private readonly PositionSnapshot[] _positions = new PositionSnapshot[TransportSettings.MaxPlayersPerRoom];
+    private readonly TaskCompletionSource[] _disconnectSignals = CreateSignals(TransportSettings.MaxPlayersPerRoom);
     private readonly Lock _positionLock = new();
     private readonly Lock _playerLock = new();
 
@@ -141,7 +144,7 @@ public sealed class Room : IAsyncDisposable
     /// Adds a player to the room. Returns the assigned slot (or -1 if full) and a Task
     /// that completes when the player disconnects (used by the endpoint to keep the request alive).
     /// </summary>
-    public (int slot, Task disconnectTask) AddPlayer(Guid playerId, string playerName, WebSocket socket)
+    public (int slot, Task disconnectTask) AddPlayer(Guid playerId, string playerName, IPlayerConnection connection)
     {
         lock (_playerLock)
         {
@@ -154,7 +157,7 @@ public sealed class Room : IAsyncDisposable
                     Slot = i,
                     PlayerId = playerId,
                     PlayerName = playerName,
-                    Socket = socket,
+                    Connection = connection,
                 };
 
                 lock (_positionLock) { _positions[i] = default; }
@@ -250,7 +253,7 @@ public sealed class Room : IAsyncDisposable
 
         try
         {
-            for (var i = WebSocketSettings.CountdownSeconds; i >= 1; i--)
+            for (var i = TransportSettings.CountdownSeconds; i >= 1; i--)
             {
                 await BroadcastJsonAsync("countdown", new { countdown = i }, ct);
                 await Task.Delay(1000, ct);
@@ -271,7 +274,7 @@ public sealed class Room : IAsyncDisposable
                         _players[i]!.IsFinished = false;
                         _players[i]!.FinishTime = 0;
                         _players[i]!.Placement = 0;
-                        _players[i]!.Health = WebSocketSettings.MaxPlayerHealth;
+                        _players[i]!.Health = TransportSettings.MaxPlayerHealth;
                         _players[i]!.IsDead = false;
                         _players[i]!.Kills = 0;
                         _players[i]!.Deaths = 0;
@@ -299,7 +302,7 @@ public sealed class Room : IAsyncDisposable
     {
         try
         {
-            await Task.Delay(WebSocketSettings.MatchTimeoutMs, ct);
+            await Task.Delay(TransportSettings.MatchTimeoutMs, ct);
 
             if (_status != RoomStatus.Racing) return;
 
@@ -352,26 +355,23 @@ public sealed class Room : IAsyncDisposable
     }
 
     /// <summary>
-    /// Broadcasts a JSON message to all connected players in the room.
+    /// Broadcasts a MessagePack-encoded control message to all connected players in the room.
     /// </summary>
     public async Task BroadcastJsonAsync<T>(string type, T data, CancellationToken ct = default)
     {
-        var payload = JsonSerializer.Serialize(new { type, data }, JsonOptions);
-        var bytes = Encoding.UTF8.GetBytes(payload);
+        var bytes = MessagePackSerializer.Serialize(new { type, data }, MsgPackOptions);
 
         var frame = new byte[1 + bytes.Length];
-        frame[0] = WebSocketSettings.MsgTypeJson;
+        frame[0] = TransportSettings.MsgTypeMsgPack;
         bytes.CopyTo(frame, 1);
-
-        var segment = new ArraySegment<byte>(frame);
 
         lock (_playerLock)
         {
             for (var i = 0; i < _players.Length; i++)
             {
                 var p = _players[i];
-                if (p is null || p.Socket.State != WebSocketState.Open) continue;
-                _ = SendSafeAsync(p, segment, ct);
+                if (p is null || !p.Connection.IsOpen) continue;
+                _ = SendSafeAsync(p, frame, ct);
             }
         }
 
@@ -379,22 +379,21 @@ public sealed class Room : IAsyncDisposable
     }
 
     /// <summary>
-    /// Sends a JSON message to a specific player by slot.
+    /// Sends a MessagePack-encoded control message to a specific player by slot.
     /// </summary>
-    private async Task SendJsonToPlayerAsync<T>(int slot, string type, T data, CancellationToken ct)
+    internal async Task SendJsonToPlayerAsync<T>(int slot, string type, T data, CancellationToken ct = default)
     {
-        var payload = JsonSerializer.Serialize(new { type, data }, JsonOptions);
-        var bytes = Encoding.UTF8.GetBytes(payload);
+        var bytes = MessagePackSerializer.Serialize(new { type, data }, MsgPackOptions);
 
         var frame = new byte[1 + bytes.Length];
-        frame[0] = WebSocketSettings.MsgTypeJson;
+        frame[0] = TransportSettings.MsgTypeMsgPack;
         bytes.CopyTo(frame, 1);
 
         PlayerSocket? player;
         lock (_playerLock) { player = _players[slot]; }
 
-        if (player?.Socket.State == WebSocketState.Open)
-            await SendSafeAsync(player, new ArraySegment<byte>(frame), ct);
+        if (player is not null && player.Connection.IsOpen)
+            await SendSafeAsync(player, frame, ct);
     }
 
     /// <summary>
@@ -425,7 +424,7 @@ public sealed class Room : IAsyncDisposable
     private async Task ReceiveLoop(int slot)
     {
         var ct = _cts.Token;
-        var buffer = ArrayPool<byte>.Shared.Rent(WebSocketSettings.ReceiveBufferSize);
+        var buffer = ArrayPool<byte>.Shared.Rent(TransportSettings.ReceiveBufferSize);
 
         try
         {
@@ -433,13 +432,11 @@ public sealed class Room : IAsyncDisposable
             lock (_playerLock) { player = _players[slot]; }
             if (player is null) return;
 
-            while (!ct.IsCancellationRequested && player.IsActive &&
-                   player.Socket.State == WebSocketState.Open)
+            while (!ct.IsCancellationRequested && player.IsActive && player.Connection.IsOpen)
             {
-                var result = await player.Socket.ReceiveAsync(
-                    new ArraySegment<byte>(buffer), ct);
+                var result = await player.Connection.ReceiveAsync(buffer, ct);
 
-                if (result.MessageType == WebSocketMessageType.Close)
+                if (result.IsEnd)
                     break;
 
                 player.LastSeenAt = Environment.TickCount64;
@@ -448,16 +445,18 @@ public sealed class Room : IAsyncDisposable
 
                 Interlocked.Increment(ref _inboundMessageCount);
 
-                if (result.MessageType == WebSocketMessageType.Binary)
+                var msgType = buffer[0];
+
+                if (msgType == TransportSettings.MsgTypePosition)
                 {
                     // Only accept position data during Racing state
                     if (_status == RoomStatus.Racing)
                         ParsePositionDirect(slot, buffer.AsSpan(0, result.Count));
                 }
-                else if (result.MessageType == WebSocketMessageType.Text)
+                else if (msgType == TransportSettings.MsgTypeJson || msgType == TransportSettings.MsgTypeMsgPack)
                 {
-                    var jsonData = buffer.AsSpan(0, result.Count).ToArray();
-                    _controlChannel.Writer.TryWrite(new ControlMessage(slot, jsonData));
+                    var controlData = buffer.AsSpan(1, result.Count - 1).ToArray();
+                    _controlChannel.Writer.TryWrite(new ControlMessage(slot, controlData, IsMsgPack: msgType == TransportSettings.MsgTypeMsgPack));
                 }
             }
         }
@@ -465,7 +464,7 @@ public sealed class Room : IAsyncDisposable
         {
             // Normal shutdown
         }
-        catch (WebSocketException)
+        catch (Exception)
         {
             // Connection dropped
         }
@@ -490,7 +489,7 @@ public sealed class Room : IAsyncDisposable
             return;
         }
 
-        if (data[ClientMsgTypeOffset] != WebSocketSettings.MsgTypePosition) return;
+        if (data[ClientMsgTypeOffset] != TransportSettings.MsgTypePosition) return;
 
         lock (_positionLock)
         {
@@ -621,10 +620,10 @@ public sealed class Room : IAsyncDisposable
         }
     }
 
-    // ── ProcessControlMessages: JSON only (unbounded channel, never drops) ──
+    // ── ProcessControlMessages: JSON + MessagePack (unbounded channel, never drops) ──
 
     /// <summary>
-    /// Processes JSON control messages from the unbounded channel.
+    /// Processes control messages (JSON or MessagePack) from the unbounded channel.
     /// Binary position data never enters this path — it's parsed directly in ReceiveLoop.
     /// </summary>
     private async Task ProcessControlMessages()
@@ -636,7 +635,11 @@ public sealed class Room : IAsyncDisposable
             await foreach (var msg in _controlChannel.Reader.ReadAllAsync(ct))
             {
                 if (msg.Data.Length == 0) continue;
-                await ProcessJsonMessage(msg.Slot, msg.Data, ct);
+
+                if (msg.IsMsgPack)
+                    await ProcessMsgPackMessage(msg.Slot, msg.Data, ct);
+                else
+                    await ProcessJsonMessage(msg.Slot, msg.Data, ct);
             }
         }
         catch (OperationCanceledException)
@@ -646,8 +649,8 @@ public sealed class Room : IAsyncDisposable
     }
 
     /// <summary>
-    /// Parses a JSON message from a player and dispatches accordingly.
-    /// Handles: ping, finish, leave, kick.
+    /// Parses a JSON control message from a player and dispatches accordingly.
+    /// Handles: ping, finish, leave, kick, rejoin, hit.
     /// </summary>
     private async Task ProcessJsonMessage(int slot, byte[] data, CancellationToken ct)
     {
@@ -694,6 +697,25 @@ public sealed class Room : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Parses a MessagePack control message from a player and dispatches accordingly.
+    /// Converts to JSON internally for handler reuse until full MessagePack migration completes.
+    /// </summary>
+    private async Task ProcessMsgPackMessage(int slot, byte[] data, CancellationToken ct)
+    {
+        try
+        {
+            // Convert MessagePack to JSON for handler compatibility during transition
+            var json = MessagePackSerializer.ConvertToJson(data, MsgPackOptions);
+            var jsonBytes = Encoding.UTF8.GetBytes(json);
+            await ProcessJsonMessage(slot, jsonBytes, ct);
+        }
+        catch
+        {
+            // Malformed MessagePack — ignore
+        }
+    }
+
     private async Task HandlePing(int slot, JsonElement root, CancellationToken ct)
     {
         if (!root.TryGetProperty("t", out var tProp)) return;
@@ -713,7 +735,7 @@ public sealed class Room : IAsyncDisposable
                 player.LatencyMs = rtt / 2.0;
         }
 
-        if (player?.Socket.State == WebSocketState.Open)
+        if (player is not null && player.Connection.IsOpen)
         {
             await SendJsonToPlayerAsync(slot, "pong", new { t = clientT, serverT }, ct);
         }
@@ -767,17 +789,12 @@ public sealed class Room : IAsyncDisposable
 
         try
         {
-            if (player.Socket.State == WebSocketState.Open)
-            {
-                await player.Socket.CloseAsync(
-                    WebSocketCloseStatus.NormalClosure,
-                    "Player left",
-                    ct);
-            }
+            if (player.Connection.IsOpen)
+                await player.Connection.CloseAsync("Player left", ct);
         }
         catch
         {
-            // Socket may already be closing
+            // Connection may already be closing
         }
     }
 
@@ -826,17 +843,12 @@ public sealed class Room : IAsyncDisposable
 
         try
         {
-            if (targetPlayer.Socket.State == WebSocketState.Open)
-            {
-                await targetPlayer.Socket.CloseAsync(
-                    WebSocketCloseStatus.PolicyViolation,
-                    "Kicked by host",
-                    ct);
-            }
+            if (targetPlayer.Connection.IsOpen)
+                await targetPlayer.Connection.CloseAsync("Kicked by host", ct);
         }
         catch
         {
-            // Socket may already be closing
+            // Connection may already be closing
         }
     }
 
@@ -886,15 +898,15 @@ public sealed class Room : IAsyncDisposable
         if (attacker.PlayerId == targetId) return;
 
         // Distance check
-        if (distance < 0 || distance > WebSocketSettings.MaxHitDistance) return;
+        if (distance < 0 || distance > TransportSettings.MaxHitDistance) return;
 
         // Rate limit
         var now = Environment.TickCount64;
-        if (now - attacker.LastHitEventAt < WebSocketSettings.MinFireIntervalMs) return;
+        if (now - attacker.LastHitEventAt < TransportSettings.MinFireIntervalMs) return;
         attacker.LastHitEventAt = now;
 
         // Cap damage
-        var damage = Math.Min(rawDamage, WebSocketSettings.MaxDamagePerHit);
+        var damage = Math.Min(rawDamage, TransportSettings.MaxDamagePerHit);
         if (damage <= 0) return;
 
         // Validate target
@@ -954,21 +966,21 @@ public sealed class Room : IAsyncDisposable
     {
         try
         {
-            await Task.Delay(WebSocketSettings.RespawnDelayMs, ct);
+            await Task.Delay(TransportSettings.RespawnDelayMs, ct);
 
             var (targetSlot, target) = FindPlayerById(playerId);
             if (target is null) return;
 
             lock (_playerLock)
             {
-                target.Health = WebSocketSettings.MaxPlayerHealth;
+                target.Health = TransportSettings.MaxPlayerHealth;
                 target.IsDead = false;
             }
 
             await BroadcastJsonAsync(CombatMessageTypes.PlayerRespawned, new
             {
                 playerId,
-                health = WebSocketSettings.MaxPlayerHealth,
+                health = TransportSettings.MaxPlayerHealth,
             }, ct);
 
             _logger.LogInformation("Room {RoomId} player {PlayerId} respawned", _roomId, playerId);
@@ -1061,9 +1073,9 @@ public sealed class Room : IAsyncDisposable
     {
         var ct = _cts.Token;
 
-        var snapshotBuffer = new PositionSnapshot[WebSocketSettings.MaxPlayersPerRoom];
-        var dirtySlots = new int[WebSocketSettings.MaxPlayersPerRoom];
-        var tickInterval = TimeSpan.FromMilliseconds(WebSocketSettings.BroadcastIntervalMs);
+        var snapshotBuffer = new PositionSnapshot[TransportSettings.MaxPlayersPerRoom];
+        var dirtySlots = new int[TransportSettings.MaxPlayersPerRoom];
+        var tickInterval = TimeSpan.FromMilliseconds(TransportSettings.BroadcastIntervalMs);
 
         try
         {
@@ -1094,7 +1106,7 @@ public sealed class Room : IAsyncDisposable
                         var batchSize = BatchHeaderSize + (BytesPerPlayer * dirtyCount);
                         var batch = ArrayPool<byte>.Shared.Rent(batchSize);
 
-                        batch[0] = WebSocketSettings.MsgTypePositionBatch;
+                        batch[0] = TransportSettings.MsgTypePositionBatch;
                         batch[1] = (byte)dirtyCount;
 
                         var span = batch.AsSpan();
@@ -1118,7 +1130,7 @@ public sealed class Room : IAsyncDisposable
                             BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + BatchTimestampOffset)..], serverTimeMs);
                         }
 
-                        var segment = new ArraySegment<byte>(batch, 0, batchSize);
+                        var sendData = new ReadOnlyMemory<byte>(batch, 0, batchSize);
                         var sendTasks = new List<Task>();
 
                         lock (_playerLock)
@@ -1126,8 +1138,8 @@ public sealed class Room : IAsyncDisposable
                             for (var i = 0; i < _players.Length; i++)
                             {
                                 var p = _players[i];
-                                if (p is null || p.Socket.State != WebSocketState.Open) continue;
-                                sendTasks.Add(SendSafeAsync(p, segment, ct));
+                                if (p is null || !p.Connection.IsOpen) continue;
+                                sendTasks.Add(SendBinarySafeAsync(p, sendData, ct));
                             }
                         }
 
@@ -1186,7 +1198,7 @@ public sealed class Room : IAsyncDisposable
         {
             while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(WebSocketSettings.HeartbeatIntervalMs, ct);
+                await Task.Delay(TransportSettings.HeartbeatIntervalMs, ct);
 
                 var now = Environment.TickCount64;
                 var stale = new List<(int slot, PlayerSocket player)>();
@@ -1198,7 +1210,7 @@ public sealed class Room : IAsyncDisposable
                         var p = _players[i];
                         if (p is null) continue;
 
-                        if (now - p.LastSeenAt > WebSocketSettings.HeartbeatTimeoutMs)
+                        if (now - p.LastSeenAt > TransportSettings.HeartbeatTimeoutMs)
                             stale.Add((i, p));
                     }
                 }
@@ -1210,17 +1222,12 @@ public sealed class Room : IAsyncDisposable
 
                     try
                     {
-                        if (player.Socket.State == WebSocketState.Open)
-                        {
-                            await player.Socket.CloseAsync(
-                                WebSocketCloseStatus.PolicyViolation,
-                                "Heartbeat timeout",
-                                CancellationToken.None);
-                        }
+                        if (player.Connection.IsOpen)
+                            await player.Connection.CloseAsync("Heartbeat timeout", CancellationToken.None);
                     }
                     catch
                     {
-                        // Socket may already be closed
+                        // Connection may already be closed
                     }
                 }
             }
@@ -1234,16 +1241,30 @@ public sealed class Room : IAsyncDisposable
     // ── Send helper ──
 
     /// <summary>
-    /// Sends a WebSocket binary frame, catching and ignoring failures (disconnected clients).
+    /// Sends a control frame via the connection, catching and ignoring failures (disconnected clients).
     /// </summary>
-    private static async Task SendSafeAsync(PlayerSocket player, ArraySegment<byte> data, CancellationToken ct)
+    private static async Task SendSafeAsync(PlayerSocket player, byte[] frame, CancellationToken ct)
     {
         try
         {
-            if (player.Socket.State == WebSocketState.Open)
-            {
-                await player.Socket.SendAsync(data, WebSocketMessageType.Binary, true, ct);
-            }
+            if (player.Connection.IsOpen)
+                await player.Connection.SendControlFrameAsync(frame, ct);
+        }
+        catch
+        {
+            // Client disconnected — ReceiveLoop handles cleanup
+        }
+    }
+
+    /// <summary>
+    /// Sends a binary frame via the connection, catching and ignoring failures (disconnected clients).
+    /// </summary>
+    private static async Task SendBinarySafeAsync(PlayerSocket player, ReadOnlyMemory<byte> data, CancellationToken ct)
+    {
+        try
+        {
+            if (player.Connection.IsOpen)
+                await player.Connection.SendBinaryAsync(data, ct);
         }
         catch
         {
@@ -1266,7 +1287,7 @@ public sealed class Room : IAsyncDisposable
 
         await _cts.CancelAsync();
 
-        // Close all sockets gracefully
+        // Close all connections gracefully
         lock (_playerLock)
         {
             for (var i = 0; i < _players.Length; i++)
@@ -1276,13 +1297,13 @@ public sealed class Room : IAsyncDisposable
 
                 try
                 {
-                    if (p.Socket.State == WebSocketState.Open)
+                    if (p.Connection.IsOpen)
                     {
-                        p.Socket.CloseAsync(
-                            WebSocketCloseStatus.NormalClosure,
-                            "Room closing",
-                            CancellationToken.None).Wait(TimeSpan.FromSeconds(2));
+                        p.Connection.CloseAsync("Room closing", CancellationToken.None)
+                            .AsTask().Wait(TimeSpan.FromSeconds(2));
                     }
+
+                    p.Connection.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(1));
                 }
                 catch
                 {
@@ -1315,10 +1336,10 @@ public sealed class Room : IAsyncDisposable
 }
 
 /// <summary>
-/// JSON control message from a player — queued in Room's unbounded control channel.
+/// Control message from a player — queued in Room's unbounded control channel.
 /// Binary position data never enters this struct — it's parsed directly in ReceiveLoop.
 /// </summary>
-public readonly record struct ControlMessage(int Slot, byte[] Data);
+public readonly record struct ControlMessage(int Slot, byte[] Data, bool IsMsgPack = false);
 
 /// <summary>Room status enum for in-memory room state.</summary>
 public enum RoomStatus

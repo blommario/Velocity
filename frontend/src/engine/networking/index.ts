@@ -1,7 +1,7 @@
 /**
- * Networking barrel — binary position codec and WebSocket transport.
+ * Networking barrel — binary position codec and WebTransport transport.
  *
- * Depends on: PositionCodec, GameTransport
+ * Depends on: PositionCodec, GameTransport, WebTransportTransport
  * Used by: multiplayer game layer
  */
 export {
@@ -13,11 +13,12 @@ export {
 } from './PositionCodec';
 
 export {
-  WebSocketTransport,
-  buildWsUrl,
+  buildTransportUrl,
   type IGameTransport,
   type TransportState,
 } from './GameTransport';
+
+export { WebTransportTransport } from './WebTransportTransport';
 
 export {
   NetworkInterpolator,
@@ -31,3 +32,5 @@ export {
   clearInterpolators,
   getTrackedPlayerIds,
 } from './RemotePlayerInterpolators';
+
+export { pollInboundPositions, resetInboundPoll } from './pollInboundPositions';

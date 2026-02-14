@@ -8,13 +8,15 @@
  * Depends on: multiplayerStore, engine NetworkedPlayer, OBJLoader
  * Used by: GameCanvas
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Group } from 'three';
+import { useFrame } from '@react-three/fiber';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { NetworkedPlayer } from '@engine/rendering/NetworkedPlayer';
 import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
-import { clearInterpolators } from '@engine/networking/RemotePlayerInterpolators';
-import { useMultiplayerStore } from '@game/stores/multiplayerStore';
+import { clearInterpolators, pushRemoteSnapshot } from '@engine/networking/RemotePlayerInterpolators';
+import { pollInboundPositions } from '@engine/networking/pollInboundPositions';
+import { useMultiplayerStore, slotToPlayer, MULTIPLAYER_STATUS } from '@game/stores/multiplayerStore';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
 
@@ -57,6 +59,12 @@ function loadPlayerOBJ(): Promise<Group> {
   return _loadPromise;
 }
 
+/** Reusable map: slot → playerId (rebuilt from slotToPlayer each frame to avoid alloc). */
+const _slotToId = new Map<number, string>();
+
+/** Reusable snapshot object for pushing to interpolators — zero alloc. */
+const _snap = { position: [0, 0, 0] as [number, number, number], yaw: 0, serverTime: 0 };
+
 export function RemotePlayers() {
   const remotePlayerIds = useMultiplayerStore((s) => s.remotePlayerIds);
   const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
@@ -67,7 +75,28 @@ export function RemotePlayers() {
     return () => { clearInterpolators(); };
   }, []);
 
-  if (multiplayerStatus !== 'racing' && multiplayerStatus !== 'countdown') return null;
+  // Poll inbound SharedArrayBuffer for remote player positions at 60Hz
+  useFrame(() => {
+    const transport = useMultiplayerStore.getState().getTransport();
+    if (!transport) return;
+    const sab = transport.getInboundBuffer();
+    if (!sab) return;
+
+    // Build slot→playerId map from the richer slotToPlayer map
+    _slotToId.clear();
+    slotToPlayer.forEach((info, slot) => { _slotToId.set(slot, info.playerId); });
+
+    pollInboundPositions(sab, _slotToId, (playerId, snap) => {
+      _snap.position[0] = snap.posX;
+      _snap.position[1] = snap.posY;
+      _snap.position[2] = snap.posZ;
+      _snap.yaw = snap.yaw;
+      _snap.serverTime = snap.timestamp;
+      pushRemoteSnapshot(playerId, _snap);
+    });
+  });
+
+  if (multiplayerStatus !== MULTIPLAYER_STATUS.RACING && multiplayerStatus !== MULTIPLAYER_STATUS.COUNTDOWN) return null;
 
   const players: { id: string; index: number }[] = [];
   let i = 0;

@@ -1,7 +1,7 @@
 namespace Velocity.Api.Contracts;
 
 /// <summary>
-/// WebSocket JSON message types for the combat system.
+/// JSON message types for the combat system (sent over WebTransport control stream).
 /// </summary>
 /// <remarks>
 /// Used by: Room (hit handling, broadcast), Frontend (multiplayerStore)

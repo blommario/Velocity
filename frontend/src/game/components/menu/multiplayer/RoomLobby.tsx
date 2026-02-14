@@ -5,7 +5,7 @@
  * Depends on: multiplayerStore, authStore
  * Used by: MultiplayerLobby
  */
-import { useMultiplayerStore } from '@game/stores/multiplayerStore';
+import { useMultiplayerStore, MULTIPLAYER_STATUS } from '@game/stores/multiplayerStore';
 import { useAuthStore } from '@game/stores/authStore';
 import type { ParticipantResponse } from '@game/services/types';
 
@@ -58,7 +58,7 @@ export function RoomLobby() {
   const statusColor = STATUS_COLORS[currentRoom.status] ?? 'text-gray-400';
 
   const handleLeave = () => {
-    if (multiplayerStatus === 'racing' || multiplayerStatus === 'countdown') {
+    if (multiplayerStatus === MULTIPLAYER_STATUS.RACING || multiplayerStatus === MULTIPLAYER_STATUS.COUNTDOWN) {
       sendLeave();
     }
     disconnectFromMatch();

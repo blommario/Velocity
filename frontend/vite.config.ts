@@ -39,18 +39,18 @@ export default defineConfig({
   },
   server: {
     open: false,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     proxy: {
       '/api': {
         target: 'https://localhost:5001',
         changeOrigin: true,
         secure: false, // Accept self-signed dev cert
       },
-      '/ws': {
-        target: 'https://localhost:5001',
-        changeOrigin: true,
-        secure: false,
-        ws: true, // Enable WebSocket proxying
-      },
+      // WebTransport uses HTTP/3 CONNECT — Vite proxy can't forward it.
+      // In dev, client connects directly to https://localhost:5001 for WebTransport.
     },
   },
 })

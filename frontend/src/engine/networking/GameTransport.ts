@@ -1,21 +1,20 @@
 /**
- * WebSocket transport abstraction for multiplayer.
- * Provides binary + JSON messaging, auto-reconnect with exponential backoff,
- * and ping/pong latency measurement.
+ * Transport interface for multiplayer networking.
+ * Implemented by WebTransportTransport (Web Worker + SharedArrayBuffer).
  *
- * Depends on: PositionCodec (MSG_TYPE), STORAGE_KEYS from api.ts
- * Used by: multiplayerStore
+ * Depends on: nothing
+ * Used by: multiplayerStore, cameraTick
  */
 
-import { MSG_TYPE } from './PositionCodec';
-
-// ── Transport interface (engine-generic, future WebTransport swap) ──
+// ── Transport interface (engine-generic) ──
 
 export type TransportState = 'disconnected' | 'connecting' | 'open' | 'closed';
 
 export interface IGameTransport {
   connect(url: string, token: string): void;
   sendBinary(buffer: ArrayBuffer): void;
+  /** Fire-and-forget position send — writes to SharedArrayBuffer for zero-copy transfer. */
+  sendUnreliable(buffer: ArrayBuffer): void;
   sendJson<T extends Record<string, unknown>>(type: string, data?: T): void;
   onBinary(handler: (buffer: ArrayBuffer) => void): void;
   onJson<T>(type: string, handler: (data: T) => void): void;
@@ -26,268 +25,23 @@ export interface IGameTransport {
   onReconnectAttempt(handler: (attempt: number, maxAttempts: number) => void): void;
   resetReconnect(): void;
   disconnect(): void;
+  /** Returns the inbound SharedArrayBuffer for position polling, or null if not supported. */
+  getInboundBuffer(): SharedArrayBuffer | null;
   readonly state: TransportState;
   readonly latencyMs: number;
   readonly reconnectAttempt: number;
   readonly maxReconnectAttempts: number;
   readonly isReconnecting: boolean;
-}
-
-// ── WebSocket implementation ──
-
-const RECONNECT_CONFIG = {
-  BASE_DELAY_MS: 1000,
-  MAX_DELAY_MS: 16000,
-  MAX_ATTEMPTS: 10,
-  PING_INTERVAL_MS: 5000,
-} as const;
-
-type JsonHandler = (data: unknown) => void;
-
-export class WebSocketTransport implements IGameTransport {
-  private _ws: WebSocket | null = null;
-  private _state: TransportState = 'disconnected';
-  private _latencyMs = 0;
-  private _url = '';
-  private _token = '';
-  private _reconnectAttempts = 0;
-  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private _pingTimer: ReturnType<typeof setInterval> | null = null;
-  private _closed = false;
-
-  private _binaryHandler: ((buffer: ArrayBuffer) => void) | null = null;
-  private _jsonHandlers = new Map<string, JsonHandler>();
-  private _closeHandler: ((code: number, reason: string) => void) | null = null;
-  private _openHandler: (() => void) | null = null;
-  private _reconnectHandler: (() => void) | null = null;
-  private _reconnectAttemptHandler: ((attempt: number, maxAttempts: number) => void) | null = null;
-  private _hasConnectedBefore = false;
-
-  get state(): TransportState {
-    return this._state;
-  }
-
-  get latencyMs(): number {
-    return this._latencyMs;
-  }
-
-  get reconnectAttempt(): number {
-    return this._reconnectAttempts;
-  }
-
-  get maxReconnectAttempts(): number {
-    return RECONNECT_CONFIG.MAX_ATTEMPTS;
-  }
-
-  get isReconnecting(): boolean {
-    return this._reconnectAttempts > 0 && !this._closed && this._state !== 'open';
-  }
-
-  connect(url: string, token: string): void {
-    this._url = url;
-    this._token = token;
-    this._closed = false;
-    this._reconnectAttempts = 0;
-    this._hasConnectedBefore = false;
-    this._doConnect();
-  }
-
-  disconnect(): void {
-    this._closed = true;
-    this._stopPing();
-    this._clearReconnect();
-
-    if (this._ws) {
-      if (this._ws.readyState === WebSocket.OPEN) {
-        this._ws.close(1000, 'Client disconnect');
-      }
-      this._ws = null;
-    }
-
-    this._state = 'disconnected';
-  }
-
-  sendBinary(buffer: ArrayBuffer): void {
-    if (this._ws?.readyState === WebSocket.OPEN) {
-      this._ws.send(buffer);
-    }
-  }
-
-  sendJson<T extends Record<string, unknown>>(type: string, data?: T): void {
-    if (this._ws?.readyState !== WebSocket.OPEN) return;
-
-    const payload = JSON.stringify({ type, ...data });
-    const bytes = new TextEncoder().encode(payload);
-
-    // Frame: [0x80 (JSON marker)] + UTF-8 payload
-    const frame = new Uint8Array(1 + bytes.length);
-    frame[0] = MSG_TYPE.JSON;
-    frame.set(bytes, 1);
-
-    this._ws.send(frame.buffer);
-  }
-
-  onBinary(handler: (buffer: ArrayBuffer) => void): void {
-    this._binaryHandler = handler;
-  }
-
-  onJson<T>(type: string, handler: (data: T) => void): void {
-    this._jsonHandlers.set(type, handler as JsonHandler);
-  }
-
-  offJson(type: string): void {
-    this._jsonHandlers.delete(type);
-  }
-
-  onClose(handler: (code: number, reason: string) => void): void {
-    this._closeHandler = handler;
-  }
-
-  onOpen(handler: () => void): void {
-    this._openHandler = handler;
-  }
-
-  onReconnect(handler: () => void): void {
-    this._reconnectHandler = handler;
-  }
-
-  onReconnectAttempt(handler: (attempt: number, maxAttempts: number) => void): void {
-    this._reconnectAttemptHandler = handler;
-  }
-
-  resetReconnect(): void {
-    this._reconnectAttempts = 0;
-    this._clearReconnect();
-    if (this._state !== 'open' && !this._closed) {
-      this._doConnect();
-    }
-  }
-
-  // ── Internal ──
-
-  private _doConnect(): void {
-    if (this._closed) return;
-
-    this._state = 'connecting';
-
-    // Build WebSocket URL with token as query param
-    const separator = this._url.includes('?') ? '&' : '?';
-    const wsUrl = `${this._url}${separator}token=${encodeURIComponent(this._token)}`;
-
-    this._ws = new WebSocket(wsUrl);
-    this._ws.binaryType = 'arraybuffer';
-
-    this._ws.onopen = () => {
-      const wasReconnect = this._hasConnectedBefore;
-      this._state = 'open';
-      this._reconnectAttempts = 0;
-      this._hasConnectedBefore = true;
-      this._startPing();
-      this._openHandler?.();
-      if (wasReconnect) {
-        this._reconnectHandler?.();
-      }
-    };
-
-    this._ws.onmessage = (e: MessageEvent) => {
-      if (e.data instanceof ArrayBuffer) {
-        this._handleBinaryMessage(e.data);
-      }
-    };
-
-    this._ws.onclose = (e: CloseEvent) => {
-      this._stopPing();
-      this._state = 'closed';
-      this._closeHandler?.(e.code, e.reason);
-
-      if (!this._closed) {
-        this._scheduleReconnect();
-      }
-    };
-
-    this._ws.onerror = () => {
-      // onclose will fire after onerror
-    };
-  }
-
-  private _handleBinaryMessage(buffer: ArrayBuffer): void {
-    const view = new Uint8Array(buffer);
-    if (view.length === 0) return;
-
-    const msgType = view[0];
-
-    if (msgType === MSG_TYPE.POSITION_BATCH) {
-      // Binary position batch
-      this._binaryHandler?.(buffer);
-    } else if (msgType === MSG_TYPE.JSON) {
-      // JSON message (skip first byte)
-      const jsonBytes = buffer.slice(1);
-      try {
-        const text = new TextDecoder().decode(jsonBytes);
-        const parsed = JSON.parse(text) as { type?: string; [key: string]: unknown };
-        const type = parsed.type;
-
-        if (type === 'pong') {
-          // Clock calibration response
-          const t = parsed.t as number;
-          const rtt = Date.now() - t;
-          this._latencyMs = Math.round(rtt / 2);
-          return;
-        }
-
-        if (type) {
-          const handler = this._jsonHandlers.get(type);
-          handler?.(parsed.data ?? parsed);
-        }
-      } catch {
-        // Malformed JSON — ignore
-      }
-    }
-  }
-
-  private _startPing(): void {
-    this._stopPing();
-    this._pingTimer = setInterval(() => {
-      this.sendJson('ping', { t: Date.now() } as Record<string, unknown>);
-    }, RECONNECT_CONFIG.PING_INTERVAL_MS);
-  }
-
-  private _stopPing(): void {
-    if (this._pingTimer !== null) {
-      clearInterval(this._pingTimer);
-      this._pingTimer = null;
-    }
-  }
-
-  private _scheduleReconnect(): void {
-    if (this._reconnectAttempts >= RECONNECT_CONFIG.MAX_ATTEMPTS) {
-      this._reconnectAttemptHandler?.(this._reconnectAttempts, RECONNECT_CONFIG.MAX_ATTEMPTS);
-      return;
-    }
-
-    const delay = Math.min(
-      RECONNECT_CONFIG.BASE_DELAY_MS * Math.pow(2, this._reconnectAttempts),
-      RECONNECT_CONFIG.MAX_DELAY_MS,
-    );
-
-    this._reconnectAttempts++;
-    this._reconnectAttemptHandler?.(this._reconnectAttempts, RECONNECT_CONFIG.MAX_ATTEMPTS);
-    this._reconnectTimer = setTimeout(() => this._doConnect(), delay);
-  }
-
-  private _clearReconnect(): void {
-    if (this._reconnectTimer !== null) {
-      clearTimeout(this._reconnectTimer);
-      this._reconnectTimer = null;
-    }
-  }
+  readonly supportsUnreliable: boolean;
 }
 
 /**
- * Creates a WebSocket URL from the current page location.
- * Handles ws:// vs wss:// based on page protocol.
+ * Builds an HTTPS URL for WebTransport.
+ * In development, connects directly to the backend since Vite cannot proxy HTTP/3.
+ * In production, uses the current page host (reverse proxy handles it).
  */
-export function buildWsUrl(path: string): string {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${window.location.host}${path}`;
+export function buildTransportUrl(path: string): string {
+  const isDev = window.location.port === '5173';
+  const host = isDev ? 'localhost:5001' : window.location.host;
+  return `https://${host}${path}`;
 }

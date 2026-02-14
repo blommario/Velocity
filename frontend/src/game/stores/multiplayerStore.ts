@@ -1,11 +1,10 @@
 /**
- * Multiplayer store — manages lobby state + WebSocket transport for real-time racing.
- * REST endpoints handle room CRUD; WebSocket handles position streaming + lifecycle events.
- * T1: adds match_start/match_finished/player_finished/host_changed/player_kicked,
- * multiplayerStartTime for synced timer, clockOffset calibration, finish results tracking.
+ * Multiplayer store — manages lobby state + WebTransport for real-time racing.
+ * REST endpoints handle room CRUD; WebTransport handles position streaming + lifecycle events.
+ * Position data flows via SharedArrayBuffer (zero-copy, off-main-thread).
  *
- * Depends on: multiplayerService (REST), GameTransport (WebSocket), PositionCodec (binary)
- * Used by: MultiplayerLobby, RoomBrowser, RoomLobby, CountdownOverlay, MultiplayerResults, RemotePlayers (T2)
+ * Depends on: multiplayerService (REST), WebTransportTransport, pollInboundPositions
+ * Used by: MultiplayerLobby, RoomBrowser, RoomLobby, CountdownOverlay, MultiplayerResults, RemotePlayers
  */
 import { create } from 'zustand';
 import type { RoomResponse } from '@game/services/types';
@@ -21,13 +20,9 @@ import { useGameStore } from '@game/stores/gameStore';
 import { OFFICIAL_MAP_BY_ID, OFFICIAL_MAPS } from '@game/components/game/map/official';
 import { getMap } from '@game/services/mapService';
 import type { MapData } from '@game/components/game/map/types';
-import {
-  WebSocketTransport,
-  buildWsUrl,
-  decodeBatch,
-  type IGameTransport,
-  type PositionSnapshot,
-} from '@engine/networking';
+import { WebTransportTransport } from '@engine/networking/WebTransportTransport';
+import { buildTransportUrl, type IGameTransport } from '@engine/networking/GameTransport';
+import { resetInboundPoll } from '@engine/networking/pollInboundPositions';
 import {
   pushRemoteSnapshot,
   removeInterpolator,
@@ -37,6 +32,17 @@ import { useAuthStore } from '@game/stores/authStore';
 import { devLog } from '@engine/stores/devLogStore';
 
 type Vec3 = [number, number, number];
+
+/** Client-side multiplayer match status. Maps from backend RoomStatus at boundary. */
+export type MultiplayerStatus = 'lobby' | 'countdown' | 'racing' | 'finished';
+
+/** Named constants for MultiplayerStatus — eliminates magic strings in comparisons. */
+export const MULTIPLAYER_STATUS = {
+  LOBBY: 'lobby',
+  COUNTDOWN: 'countdown',
+  RACING: 'racing',
+  FINISHED: 'finished',
+} as const satisfies Record<string, MultiplayerStatus>;
 
 export interface MultiplayerPosition {
   position: Vec3;
@@ -72,7 +78,7 @@ interface MultiplayerState {
   // T1: Match lifecycle state
   multiplayerStartTime: number | null;
   clockOffset: number;
-  multiplayerStatus: 'lobby' | 'countdown' | 'racing' | 'finished';
+  multiplayerStatus: MultiplayerStatus;
   finishResults: MultiplayerFinishResult[];
   localFinished: boolean;
   disconnectedMessage: string | null;
@@ -99,11 +105,11 @@ interface MultiplayerState {
   getTransport: () => IGameTransport | null;
 }
 
-let transport: WebSocketTransport | null = null;
+let transport: WebTransportTransport | null = null;
 let latencyInterval: ReturnType<typeof setInterval> | null = null;
 
 /** Slot-to-playerId mapping, populated by room_snapshot and player_joined events. */
-const slotToPlayer = new Map<number, { playerId: string; playerName: string }>();
+export const slotToPlayer = new Map<number, { playerId: string; playerName: string }>();
 
 const LATENCY_POLL_MS = 5000;
 
@@ -120,7 +126,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   error: null,
   multiplayerStartTime: null,
   clockOffset: 0,
-  multiplayerStatus: 'lobby',
+  multiplayerStatus: MULTIPLAYER_STATUS.LOBBY,
   finishResults: [],
   localFinished: false,
   disconnectedMessage: null,
@@ -211,35 +217,11 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
-    transport = new WebSocketTransport();
+    transport = new WebTransportTransport();
+    resetInboundPoll();
 
-    // Binary position batch handler — push directly to interpolators (no React re-render)
-    let _batchLogTimer = 0;
-    const _reusableSnapshot = { position: [0, 0, 0] as [number, number, number], yaw: 0, serverTime: 0 };
-    transport.onBinary((buffer: ArrayBuffer) => {
-      const { count, snapshots } = decodeBatch(buffer);
-
-      for (let i = 0; i < count; i++) {
-        const snap: PositionSnapshot = snapshots[i];
-        const playerInfo = slotToPlayer.get(snap.slot);
-        if (!playerInfo) continue;
-
-        // Push directly to interpolator with server timestamp
-        _reusableSnapshot.position[0] = snap.posX;
-        _reusableSnapshot.position[1] = snap.posY;
-        _reusableSnapshot.position[2] = snap.posZ;
-        _reusableSnapshot.yaw = snap.yaw;
-        _reusableSnapshot.serverTime = snap.timestamp;
-        pushRemoteSnapshot(playerInfo.playerId, _reusableSnapshot);
-      }
-
-      // Throttled devLog: log at most once per second
-      const now = performance.now();
-      if (now - _batchLogTimer > 1000) {
-        _batchLogTimer = now;
-        devLog.info('Net', `pos batch: ${count} players`);
-      }
-    });
+    // Position data flows via SharedArrayBuffer — no onBinary handler needed.
+    // The render loop (RemotePlayers) calls pollInboundPositions() from the SAB.
 
     // ── JSON event handlers ──
 
@@ -271,10 +253,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
         // T7: restore state from enriched rejoin snapshot
         if (data.status) {
-          const statusMap: Record<string, MultiplayerState['multiplayerStatus']> = {
-            waiting: 'lobby', countdown: 'countdown', racing: 'racing', finished: 'finished',
+          const statusMap: Record<string, MultiplayerStatus> = {
+            waiting: MULTIPLAYER_STATUS.LOBBY,
+            countdown: MULTIPLAYER_STATUS.COUNTDOWN,
+            racing: MULTIPLAYER_STATUS.RACING,
+            finished: MULTIPLAYER_STATUS.FINISHED,
           };
-          const multiplayerStatus = statusMap[data.status] ?? 'lobby';
+          const multiplayerStatus = statusMap[data.status] ?? MULTIPLAYER_STATUS.LOBBY;
           set({ multiplayerStatus });
 
           if (data.multiplayerStartTime) {
@@ -355,14 +340,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     );
 
     transport.onJson<{ countdown: number }>('countdown', (data) => {
-      set({ countdown: data.countdown, multiplayerStatus: 'countdown' });
+      set({ countdown: data.countdown, multiplayerStatus: MULTIPLAYER_STATUS.COUNTDOWN });
     });
 
     // T1: match_start — server sends multiplayerStartTime (epoch ms)
     transport.onJson<{ matchStartTime: number }>('match_start', (data) => {
       set({
         multiplayerStartTime: data.matchStartTime,
-        multiplayerStatus: 'racing',
+        multiplayerStatus: MULTIPLAYER_STATUS.RACING,
         countdown: null,
         localFinished: false,
         finishResults: [],
@@ -421,7 +406,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     // T1: match_finished — all done or timeout
     transport.onJson<{ results: MultiplayerFinishResult[] }>('match_finished', (data) => {
       set({
-        multiplayerStatus: 'finished',
+        multiplayerStatus: MULTIPLAYER_STATUS.FINISHED,
         finishResults: data.results,
       });
       const room = get().currentRoom;
@@ -473,7 +458,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     transport.onJson<{ roomId: string }>('match_starting', () => {
       const room = get().currentRoom;
       if (room) {
-        set({ currentRoom: { ...room, status: 'countdown' }, multiplayerStatus: 'countdown' });
+        set({ currentRoom: { ...room, status: 'countdown' }, multiplayerStatus: MULTIPLAYER_STATUS.COUNTDOWN });
       }
     });
 
@@ -506,24 +491,24 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     }, LATENCY_POLL_MS);
 
     // Connect
-    const wsUrl = buildWsUrl(`/ws/multiplayer/${roomId}`);
-    transport.connect(wsUrl, token);
+    const wtUrl = buildTransportUrl(`/wt/multiplayer/${roomId}`);
+    transport.connect(wtUrl, token);
   },
 
-  // T1: Send finish time to server via WebSocket
+  // T1: Send finish time to server
   sendFinish: (finishTimeMs: number) => {
     if (!transport || get().localFinished) return;
     set({ localFinished: true });
     transport.sendJson('finish', { finishTime: finishTimeMs } as Record<string, unknown>);
   },
 
-  // T1: Request leave via WebSocket
+  // T1: Request leave
   sendLeave: () => {
     if (!transport) return;
     transport.sendJson('leave');
   },
 
-  // T1: Host kicks a player via WebSocket
+  // T1: Host kicks a player
   sendKick: (targetPlayerId: string) => {
     if (!transport) return;
     transport.sendJson('kick', { targetPlayerId } as Record<string, unknown>);
@@ -537,6 +522,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     }
     slotToPlayer.clear();
     clearInterpolators();
+    resetInboundPoll();
     set({
       isConnected: false,
       currentRoom: null,
@@ -547,7 +533,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       latency: 0,
       multiplayerStartTime: null,
       clockOffset: 0,
-      multiplayerStatus: 'lobby',
+      multiplayerStatus: MULTIPLAYER_STATUS.LOBBY,
       finishResults: [],
       localFinished: false,
       disconnectedMessage: null,
@@ -572,6 +558,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     }
     slotToPlayer.clear();
     clearInterpolators();
+    resetInboundPoll();
     set({
       currentRoom: null,
       rooms: [],
@@ -585,7 +572,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       error: null,
       multiplayerStartTime: null,
       clockOffset: 0,
-      multiplayerStatus: 'lobby',
+      multiplayerStatus: MULTIPLAYER_STATUS.LOBBY,
       finishResults: [],
       localFinished: false,
       disconnectedMessage: null,

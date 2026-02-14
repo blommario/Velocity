@@ -1,12 +1,12 @@
 namespace Velocity.Api.Configuration;
 
 /// <summary>
-/// Centralized constants for WebSocket multiplayer transport.
+/// Centralized constants for multiplayer transport (WebTransport over HTTP/3).
 /// </summary>
 /// <remarks>
-/// Used by: Room, RoomManager, WebSocketEndpoints, RoomCleanupService
+/// Used by: Room, RoomManager, WebTransportEndpoints, RoomCleanupService
 /// </remarks>
-public static class WebSocketSettings
+public static class TransportSettings
 {
     /// <summary>Server broadcast tick rate in milliseconds (20Hz = 50ms).</summary>
     public const int BroadcastIntervalMs = 50;
@@ -26,7 +26,7 @@ public static class WebSocketSettings
     /// <summary>Maximum inbound messages per second per player (position rate limit).</summary>
     public const int MaxPositionMessagesPerSecond = 25;
 
-    /// <summary>WebSocket receive buffer size in bytes.</summary>
+    /// <summary>Receive buffer size in bytes.</summary>
     public const int ReceiveBufferSize = 1024;
 
     /// <summary>Binary message type prefix: position update from client.</summary>
@@ -71,4 +71,33 @@ public static class WebSocketSettings
 
     /// <summary>Maximum damage a single hit event can deal (server-side cap).</summary>
     public const int MaxDamagePerHit = 500;
+
+    // ── WebTransport ──
+
+    /// <summary>WebTransport endpoint path prefix.</summary>
+    public const string WebTransportPath = "/wt/multiplayer";
+
+    // ── Stream identification ──
+
+    /// <summary>Type byte sent by client as first byte on the position stream.</summary>
+    public const byte StreamTypePosition = 0x01;
+
+    /// <summary>Type byte sent by client as first byte on the control stream.</summary>
+    public const byte StreamTypeControl = 0x02;
+
+    // ── Abort codes ──
+
+    /// <summary>Abort code: stream handshake or protocol violation.</summary>
+    public const int AbortProtocolError = 0x0100;
+
+    /// <summary>Abort code: room is full.</summary>
+    public const int AbortRoomFull = 0x0101;
+
+    /// <summary>Abort code: server shutting down.</summary>
+    public const int AbortServerShutdown = 0x0102;
+
+    // ── MessagePack ──
+
+    /// <summary>MessagePack message type prefix (replaces 0x80 JSON).</summary>
+    public const byte MsgTypeMsgPack = 0x81;
 }

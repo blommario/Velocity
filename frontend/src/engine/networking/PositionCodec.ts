@@ -12,11 +12,12 @@
  * Used by: GameTransport, multiplayerStore
  */
 
-/** Binary message type constants — must match backend WebSocketSettings. */
+/** Binary message type constants — must match backend TransportSettings. */
 export const MSG_TYPE = {
   POSITION: 0x01,
   POSITION_BATCH: 0x02,
   JSON: 0x80,
+  MSGPACK: 0x81,
 } as const;
 
 /** Quantization factor for yaw/pitch: radians × 10000 → int16. */

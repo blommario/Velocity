@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Velocity.Api.Configuration;
 using Velocity.Api.Contracts;
-using Velocity.Api.Services;
 using Velocity.Api.Services.Multiplayer;
 using Velocity.Core.Entities;
 using Velocity.Core.Interfaces;
@@ -10,16 +9,15 @@ namespace Velocity.Api.Handlers;
 
 /// <summary>
 /// CQRS handlers for multiplayer room lobby operations (REST).
-/// Broadcasts lifecycle events to both SSE (legacy) and WebSocket rooms.
+/// Lifecycle events (countdown, match start) are delivered via WebTransport rooms.
 /// </summary>
 /// <remarks>
-/// Depends on: IMultiplayerRoomRepository, IMapRepository, SseConnectionManager, RoomManager
+/// Depends on: IMultiplayerRoomRepository, IMapRepository, RoomManager
 /// Used by: MultiplayerEndpoints
 /// </remarks>
 public sealed class MultiplayerHandlers(
     IMultiplayerRoomRepository rooms,
     IMapRepository maps,
-    SseConnectionManager sse,
     RoomManager roomManager)
 {
     public async ValueTask<IResult> CreateRoom(CreateRoomRequest request, ClaimsPrincipal user, CancellationToken ct)
@@ -103,14 +101,6 @@ public sealed class MultiplayerHandlers(
 
         await rooms.AddParticipantAsync(participant, ct);
 
-        var playerName = user.FindFirstValue(ClaimTypes.Name) ?? ValidationRules.UnknownAuthorName;
-
-        await sse.BroadcastAsync(
-            SseChannels.Multiplayer(roomId),
-            SseEvents.PlayerJoined,
-            new { PlayerId = playerId, PlayerName = playerName },
-            ct);
-
         var updated = await rooms.GetByIdAsync(roomId, ct);
         return Results.Ok(ToResponse(updated!));
     }
@@ -134,14 +124,6 @@ public sealed class MultiplayerHandlers(
 
         participant.IsReady = !participant.IsReady;
         await rooms.UpdateParticipantAsync(participant, ct);
-
-        var playerName = user.FindFirstValue(ClaimTypes.Name) ?? ValidationRules.UnknownAuthorName;
-
-        await sse.BroadcastAsync(
-            SseChannels.Multiplayer(roomId),
-            SseEvents.PlayerReady,
-            new { PlayerId = playerId, PlayerName = playerName, participant.IsReady },
-            ct);
 
         var updated = await rooms.GetByIdAsync(roomId, ct);
         return Results.Ok(ToResponse(updated!));
@@ -174,18 +156,12 @@ public sealed class MultiplayerHandlers(
         room.StartedAt = DateTime.UtcNow;
         await rooms.UpdateAsync(room, ct);
 
-        await sse.BroadcastAsync(
-            SseChannels.Multiplayer(roomId),
-            SseEvents.MatchStarting,
-            new { RoomId = roomId, StartedAt = room.StartedAt },
-            ct);
-
-        // Start countdown via WebSocket room (3→2→1→GO→match_start)
-        var wsRoom = roomManager.GetRoom(roomId);
-        if (wsRoom is not null)
+        // Start countdown via transport room (3→2→1→GO→match_start)
+        var transportRoom = roomManager.GetRoom(roomId);
+        if (transportRoom is not null)
         {
-            wsRoom.SetMetadata(room.HostPlayerId, room.MapId);
-            wsRoom.StartCountdown();
+            transportRoom.SetMetadata(room.HostPlayerId, room.MapId);
+            transportRoom.StartCountdown();
         }
 
         var updated = await rooms.GetByIdAsync(roomId, ct);
@@ -213,22 +189,4 @@ public sealed class MultiplayerHandlers(
             p.Player?.Username ?? ValidationRules.UnknownAuthorName,
             p.IsReady,
             p.FinishTime)).ToList());
-}
-
-internal static class SseChannels
-{
-    public static string Multiplayer(Guid roomId) => $"multiplayer:{roomId}";
-    public static string Leaderboard(Guid mapId) => $"leaderboard:{mapId}";
-    public const string Activity = "activity";
-}
-
-internal static class SseEvents
-{
-    public const string PlayerJoined = "player_joined";
-    public const string PlayerReady = "player_ready";
-    public const string MatchStarting = "match_starting";
-    public const string MatchFinished = "match_finished";
-    public const string PositionUpdate = "position_update";
-    public const string LeaderboardUpdate = "leaderboard_update";
-    public const string ActivityUpdate = "activity_update";
 }
