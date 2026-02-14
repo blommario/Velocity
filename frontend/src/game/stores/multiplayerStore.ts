@@ -211,6 +211,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     }
     slotToPlayer.clear();
 
+    // SharedArrayBuffer requires cross-origin isolation (COOP + COEP headers)
+    if (typeof SharedArrayBuffer === 'undefined') {
+      set({ error: 'SharedArrayBuffer is not available. Ensure the page is served with cross-origin isolation headers (COOP/COEP).' });
+      return;
+    }
+
     const token = sessionStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) {
       set({ error: 'Not authenticated' });

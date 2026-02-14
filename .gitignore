@@ -1,3 +1,6 @@
+# ── Temp assets ──
+frontend/Temp.Assets/
+
 # ── OS ──
 .DS_Store
 Thumbs.db

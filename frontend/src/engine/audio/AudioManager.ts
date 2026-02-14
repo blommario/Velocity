@@ -176,12 +176,16 @@ class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private audioBuffers: Map<string, AudioBuffer> = new Map();
+  /** Raw ArrayBuffer data fetched during preload — decoded lazily on first getContext(). */
+  private pendingBuffers: Map<string, ArrayBuffer> = new Map();
 
   private getContext(): AudioContext {
     if (!this.ctx) {
       this.ctx = new AudioContext();
       this.masterGain = this.ctx.createGain();
       this.masterGain.connect(this.ctx.destination);
+      // Decode any pending raw buffers now that we have a context
+      this.decodePending();
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -189,17 +193,33 @@ class AudioManager {
     return this.ctx;
   }
 
-  /** Preload all audio files defined in AUDIO_FILES. Call once at app start. */
+  /** Decode raw ArrayBuffers that were fetched before AudioContext existed. */
+  private decodePending(): void {
+    if (this.pendingBuffers.size === 0 || !this.ctx) return;
+    const ctx = this.ctx;
+    for (const [soundId, raw] of this.pendingBuffers) {
+      ctx.decodeAudioData(raw).then((decoded) => {
+        this.audioBuffers.set(soundId, decoded);
+      }).catch((e) => {
+        devLog.warn('Audio', `Failed to decode ${soundId}: ${e}`);
+      });
+    }
+    this.pendingBuffers.clear();
+  }
+
+  /**
+   * Preload all audio files defined in AUDIO_FILES. Call once at app start.
+   * Fetches raw data without creating AudioContext — avoids autoplay policy warning.
+   * Actual decoding happens lazily on first user-triggered sound play.
+   */
   async preload(): Promise<void> {
-    const ctx = this.getContext();
     const entries = Object.entries(AUDIO_FILES) as [SoundId, string][];
     const results = await Promise.all(entries.map(async ([soundId, path]) => {
       try {
         const response = await fetch(path);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        this.audioBuffers.set(soundId, audioBuffer);
+        this.pendingBuffers.set(soundId, arrayBuffer);
         return true;
       } catch (e) {
         devLog.warn('Audio', `Failed to load ${soundId} from ${path}: ${e}`);
@@ -207,7 +227,7 @@ class AudioManager {
       }
     }));
     const loaded = results.filter(Boolean).length;
-    devLog.info('Audio', `Preloaded ${loaded}/${entries.length} audio files`);
+    devLog.info('Audio', `Preloaded ${loaded}/${entries.length} audio files (raw, pending decode)`);
   }
 
   play(soundId: SoundId, pitchVariation = 0): void {
@@ -349,6 +369,7 @@ class AudioManager {
   /** Release AudioContext and all cached buffers. */
   dispose(): void {
     this.audioBuffers.clear();
+    this.pendingBuffers.clear();
     if (this.masterGain) {
       this.masterGain.disconnect();
       this.masterGain = null;

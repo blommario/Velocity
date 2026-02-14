@@ -28,7 +28,6 @@ export class WebTransportTransport implements IGameTransport {
   private _outSab: SharedArrayBuffer | null = null;
   private _inSab: SharedArrayBuffer | null = null;
 
-  private _binaryHandler: ((buffer: ArrayBuffer) => void) | null = null;
   private _jsonHandlers = new Map<string, JsonHandler>();
   private _closeHandler: ((code: number, reason: string) => void) | null = null;
   private _openHandler: (() => void) | null = null;
@@ -129,8 +128,8 @@ export class WebTransportTransport implements IGameTransport {
     }
   }
 
-  onBinary(handler: (buffer: ArrayBuffer) => void): void {
-    this._binaryHandler = handler;
+  onBinary(_handler: (buffer: ArrayBuffer) => void): void {
+    // Binary data flows via SharedArrayBuffer — no callback needed.
   }
 
   onJson<T>(type: string, handler: (data: T) => void): void {

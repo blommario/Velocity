@@ -202,11 +202,11 @@ public sealed class RoomManager(ILoggerFactory loggerFactory) : IAsyncDisposable
         OnRoomMatchFinished?.Invoke(roomId, results, mapId);
     }
 
-    private void RemoveRoom(Guid roomId)
+    private async void RemoveRoom(Guid roomId)
     {
         if (_rooms.TryRemove(roomId, out var lazy) && lazy.IsValueCreated)
         {
-            _ = lazy.Value.DisposeAsync();
+            await lazy.Value.DisposeAsync();
         }
     }
 
@@ -215,19 +215,16 @@ public sealed class RoomManager(ILoggerFactory loggerFactory) : IAsyncDisposable
         _isShuttingDown = true;
 
         var roomIds = _rooms.Keys.ToList();
-        var disposeTasks = new List<ValueTask>();
+        var disposeTasks = new List<Task>();
 
         foreach (var id in roomIds)
         {
             if (_rooms.TryRemove(id, out var lazy) && lazy.IsValueCreated)
             {
-                disposeTasks.Add(lazy.Value.DisposeAsync());
+                disposeTasks.Add(lazy.Value.DisposeAsync().AsTask());
             }
         }
 
-        foreach (var task in disposeTasks)
-        {
-            await task;
-        }
+        await Task.WhenAll(disposeTasks);
     }
 }

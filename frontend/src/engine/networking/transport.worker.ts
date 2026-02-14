@@ -39,7 +39,6 @@ let isClosed = false;
 let url = '';
 let token = '';
 
-const _encoder = new TextEncoder();
 const _decoder = new TextDecoder();
 
 // Pre-allocated inbound player array for zero-GC batch decoding

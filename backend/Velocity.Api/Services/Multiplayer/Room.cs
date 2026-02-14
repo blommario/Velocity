@@ -357,9 +357,9 @@ public sealed class Room : IAsyncDisposable
     /// <summary>
     /// Broadcasts a MessagePack-encoded control message to all connected players in the room.
     /// </summary>
-    public async Task BroadcastJsonAsync<T>(string type, T data, CancellationToken ct = default)
+    public Task BroadcastJsonAsync<T>(string type, T data, CancellationToken ct = default)
     {
-        var bytes = MessagePackSerializer.Serialize(new { type, data }, MsgPackOptions);
+        var bytes = MessagePackSerializer.Serialize(new { type, data }, MsgPackOptions, ct);
 
         var frame = new byte[1 + bytes.Length];
         frame[0] = TransportSettings.MsgTypeMsgPack;
@@ -375,7 +375,7 @@ public sealed class Room : IAsyncDisposable
             }
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -706,7 +706,7 @@ public sealed class Room : IAsyncDisposable
         try
         {
             // Convert MessagePack to JSON for handler compatibility during transition
-            var json = MessagePackSerializer.ConvertToJson(data, MsgPackOptions);
+            var json = MessagePackSerializer.ConvertToJson(data, MsgPackOptions, ct);
             var jsonBytes = Encoding.UTF8.GetBytes(json);
             await ProcessJsonMessage(slot, jsonBytes, ct);
         }
