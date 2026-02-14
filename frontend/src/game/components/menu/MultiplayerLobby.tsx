@@ -27,7 +27,7 @@ export function MultiplayerLobby() {
   useEffect(() => {
     return () => {
       const { multiplayerStatus } = useMultiplayerStore.getState();
-      if (multiplayerStatus !== MULTIPLAYER_STATUS.RACING && multiplayerStatus !== MULTIPLAYER_STATUS.COUNTDOWN) {
+      if (multiplayerStatus !== MULTIPLAYER_STATUS.INGAME && multiplayerStatus !== MULTIPLAYER_STATUS.COUNTDOWN) {
         disconnectFromMatch();
       }
     };

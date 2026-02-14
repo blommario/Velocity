@@ -118,10 +118,10 @@ export function handleHudAndReplay(ctx: TickContext, numCollisions: number): voi
     }
   }
 
-  // Multiplayer: send position at 20Hz when racing
+  // Multiplayer: send position at configured rate when ingame
   if (now - s.lastPositionSend > POSITION_SEND_INTERVAL) {
     const mp = useMultiplayerStore.getState();
-    if (mp.multiplayerStatus === MULTIPLAYER_STATUS.RACING) {
+    if (mp.multiplayerStatus === MULTIPLAYER_STATUS.INGAME) {
       const t = mp.getTransport();
       if (t) {
         const hSpd = getHorizontalSpeed(velocity);

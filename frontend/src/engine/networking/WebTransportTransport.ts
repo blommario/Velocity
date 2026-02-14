@@ -205,6 +205,10 @@ export class WebTransportTransport implements IGameTransport {
       case 'error':
         devLog.error('WebTransport', msg.message);
         break;
+
+      case 'debug':
+        devLog.info('Worker', msg.message);
+        break;
     }
   }
 }

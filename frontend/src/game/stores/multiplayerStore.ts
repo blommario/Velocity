@@ -1,5 +1,5 @@
 /**
- * Multiplayer store — manages lobby state + WebTransport for real-time racing.
+ * Multiplayer store — manages lobby state + WebTransport for real-time multiplayer.
  * REST endpoints handle room CRUD; WebTransport handles position streaming + lifecycle events.
  * Position data flows via SharedArrayBuffer (zero-copy, off-main-thread).
  *
@@ -34,13 +34,13 @@ import { devLog } from '@engine/stores/devLogStore';
 type Vec3 = [number, number, number];
 
 /** Client-side multiplayer match status. Maps from backend RoomStatus at boundary. */
-export type MultiplayerStatus = 'lobby' | 'countdown' | 'racing' | 'finished';
+export type MultiplayerStatus = 'lobby' | 'countdown' | 'ingame' | 'finished';
 
 /** Named constants for MultiplayerStatus — eliminates magic strings in comparisons. */
 export const MULTIPLAYER_STATUS = {
   LOBBY: 'lobby',
   COUNTDOWN: 'countdown',
-  RACING: 'racing',
+  INGAME: 'ingame',
   FINISHED: 'finished',
 } as const satisfies Record<string, MultiplayerStatus>;
 
@@ -245,17 +245,27 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     transport.onJson<RoomSnapshotData>(
       'room_snapshot',
       (data) => {
+        devLog.info('Net', `room_snapshot: yourSlot=${data.yourSlot} players=${data.players.length} status=${data.status ?? 'initial'}`);
+        for (const p of data.players) {
+          devLog.info('Net', `  player: id=${p.playerId} name=${p.name} slot=${p.slot}`);
+        }
+
         slotToPlayer.clear();
         clearInterpolators();
         const localPlayerId = useAuthStore.getState().playerId;
+        devLog.info('Net', `  localPlayerId=${localPlayerId}`);
         const newRemoteIds = new Set<string>();
         for (const p of data.players) {
-          if (!p.playerId) continue;
+          if (!p.playerId) {
+            devLog.warn('Net', `  skipping player with no playerId (raw keys: ${Object.keys(p).join(',')})`);
+            continue;
+          }
           slotToPlayer.set(p.slot, { playerId: p.playerId, playerName: p.name });
           if (p.playerId !== localPlayerId) {
             newRemoteIds.add(p.playerId);
           }
         }
+        devLog.info('Net', `  remotePlayerIds=[${[...newRemoteIds].join(', ')}] slotToPlayer size=${slotToPlayer.size}`);
         set({ localSlot: data.yourSlot, remotePlayerIds: newRemoteIds });
 
         // T7: restore state from enriched rejoin snapshot
@@ -263,7 +273,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           const statusMap: Record<string, MultiplayerStatus> = {
             waiting: MULTIPLAYER_STATUS.LOBBY,
             countdown: MULTIPLAYER_STATUS.COUNTDOWN,
-            racing: MULTIPLAYER_STATUS.RACING,
+            ingame: MULTIPLAYER_STATUS.INGAME,
             finished: MULTIPLAYER_STATUS.FINISHED,
           };
           const multiplayerStatus = statusMap[data.status] ?? MULTIPLAYER_STATUS.LOBBY;
@@ -296,6 +306,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     transport.onJson<{ playerId: string; playerName: string; slot: number }>(
       'player_joined',
       (data) => {
+        devLog.info('Net', `player_joined: id=${data.playerId} name=${data.playerName} slot=${data.slot}`);
         if (!data.playerId) return;
         slotToPlayer.set(data.slot, { playerId: data.playerId, playerName: data.playerName });
         // Update remote player set for rendering
@@ -327,6 +338,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     transport.onJson<{ playerId: string; playerName: string; slot: number }>(
       'player_left',
       (data) => {
+        devLog.info('Net', `player_left: id=${data.playerId} name=${data.playerName} slot=${data.slot}`);
         slotToPlayer.delete(data.slot);
         removeInterpolator(data.playerId);
         const ids = new Set(get().remotePlayerIds);
@@ -348,21 +360,23 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     );
 
     transport.onJson<{ countdown: number }>('countdown', (data) => {
+      devLog.info('Net', `countdown: ${data.countdown}`);
       set({ countdown: data.countdown, multiplayerStatus: MULTIPLAYER_STATUS.COUNTDOWN });
     });
 
     // T1: match_start — server sends multiplayerStartTime (epoch ms)
     transport.onJson<{ matchStartTime: number }>('match_start', (data) => {
+      devLog.info('Net', `match_start: startTime=${data.matchStartTime}`);
       set({
         multiplayerStartTime: data.matchStartTime,
-        multiplayerStatus: MULTIPLAYER_STATUS.RACING,
+        multiplayerStatus: MULTIPLAYER_STATUS.INGAME,
         countdown: null,
         localFinished: false,
         finishResults: [],
       });
       const room = get().currentRoom;
       if (room) {
-        set({ currentRoom: { ...room, status: 'racing' } });
+        set({ currentRoom: { ...room, status: 'ingame' } });
 
         // Transition to game screen — load the multiplayer map
         // mapId from server is a GUID; OFFICIAL_MAP_BY_ID keys by slug, so try both
@@ -471,10 +485,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     });
 
     transport.onOpen(() => {
+      devLog.success('Net', 'WebTransport connected');
       set({ isConnected: true, disconnectedMessage: null, reconnectAttempt: 0, isReconnecting: false });
     });
 
     transport.onClose((_code, reason) => {
+      devLog.warn('Net', `WebTransport closed: ${reason}`);
       set({ isConnected: false });
       if (!get().disconnectedMessage && reason) {
         set({ disconnectedMessage: reason || 'Connection lost' });

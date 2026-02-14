@@ -29,4 +29,5 @@ export type WorkerToMainMsg =
   | { type: 'reconnect' }
   | { type: 'reconnect_attempt'; attempt: number; maxAttempts: number }
   | { type: 'closed'; code: number; reason: string }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'debug'; message: string };

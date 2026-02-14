@@ -13,14 +13,14 @@ import type { MapResponse, RoomResponse } from '@game/services/types';
 const ROOM_STATUS_LABELS: Record<string, string> = {
   waiting: 'Waiting',
   countdown: 'Starting...',
-  racing: 'In Progress',
+  ingame: 'In Progress',
   finished: 'Finished',
 } as const;
 
 const ROOM_STATUS_COLORS: Record<string, string> = {
   waiting: 'text-green-400',
   countdown: 'text-yellow-400',
-  racing: 'text-orange-400',
+  ingame: 'text-orange-400',
   finished: 'text-gray-500',
 } as const;
 

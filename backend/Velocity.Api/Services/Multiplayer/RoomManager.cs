@@ -118,8 +118,8 @@ public sealed class RoomManager(ILoggerFactory loggerFactory) : IAsyncDisposable
                     stale.Add((kv.Key, $"Waiting room idle for {idleMs / 1000}s"));
                     break;
 
-                case RoomStatus.Racing when idleMs > TransportSettings.MatchTimeoutMs:
-                    stale.Add((kv.Key, $"Racing room exceeded timeout ({idleMs / 1000}s)"));
+                case RoomStatus.InGame when idleMs > TransportSettings.MatchTimeoutMs:
+                    stale.Add((kv.Key, $"InGame room exceeded timeout ({idleMs / 1000}s)"));
                     break;
 
                 case RoomStatus.Finished when idleMs > TransportSettings.FinishedGracePeriodSeconds * 1000:

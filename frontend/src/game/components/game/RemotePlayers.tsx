@@ -21,7 +21,7 @@ import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
 
 const REMOTE_COLORS = [
-  '#ff4466', '#44bbff', '#44ff88', '#ffaa44',
+  '#4488ff', '#ff4466', '#44ff88', '#ffaa44',
   '#bb44ff', '#44ffee', '#ff8844', '#88ff44',
 ] as const;
 
@@ -65,6 +65,11 @@ const _slotToId = new Map<number, string>();
 /** Reusable snapshot object for pushing to interpolators — zero alloc. */
 const _snap = { position: [0, 0, 0] as [number, number, number], yaw: 0, pitch: 0, serverTime: 0 };
 
+/** Throttle counters for devLog in the render loop. */
+let _pollLogTimer = 0;
+const POLL_LOG_INTERVAL = 2; // seconds between position debug logs
+let _lastSnapshotCount = 0;
+
 export function RemotePlayers() {
   const remotePlayerIds = useMultiplayerStore((s) => s.remotePlayerIds);
   const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
@@ -76,7 +81,7 @@ export function RemotePlayers() {
   }, []);
 
   // Poll inbound SharedArrayBuffer for remote player positions at 60Hz
-  useFrame(() => {
+  useFrame((_state, delta) => {
     const transport = useMultiplayerStore.getState().getTransport();
     if (!transport) return;
     const sab = transport.getInboundBuffer();
@@ -86,6 +91,7 @@ export function RemotePlayers() {
     _slotToId.clear();
     slotToPlayer.forEach((info, slot) => { _slotToId.set(slot, info.playerId); });
 
+    let snapshotCount = 0;
     pollInboundPositions(sab, _slotToId, (playerId, snap) => {
       _snap.position[0] = snap.posX;
       _snap.position[1] = snap.posY;
@@ -94,17 +100,27 @@ export function RemotePlayers() {
       _snap.pitch = snap.pitch;
       _snap.serverTime = snap.timestamp;
       pushRemoteSnapshot(playerId, _snap);
+      snapshotCount++;
     });
+
+    // Throttled debug logging
+    _pollLogTimer += delta;
+    if (_pollLogTimer >= POLL_LOG_INTERVAL) {
+      _pollLogTimer = 0;
+      const slots = Array.from(_slotToId.entries()).map(([s, id]) => `${s}→${id?.slice(0, 8)}`).join(', ');
+      devLog.info('Net', `poll: slotMap=[${slots}] snaps=${_lastSnapshotCount}/frame remoteIds=${remotePlayerIds.size}`);
+      _lastSnapshotCount = 0;
+    }
+    _lastSnapshotCount += snapshotCount;
   });
 
-  if (multiplayerStatus !== MULTIPLAYER_STATUS.RACING && multiplayerStatus !== MULTIPLAYER_STATUS.COUNTDOWN) return null;
+  if (multiplayerStatus !== MULTIPLAYER_STATUS.INGAME && multiplayerStatus !== MULTIPLAYER_STATUS.COUNTDOWN) return null;
 
-  const players: { id: string; index: number }[] = [];
-  let i = 0;
-  remotePlayerIds.forEach((id) => {
-    if (!id) return;
-    players.push({ id, index: i });
-    i++;
+  const players: { id: string; slot: number }[] = [];
+  slotToPlayer.forEach((info, slot) => {
+    if (!info.playerId) return;
+    if (!remotePlayerIds.has(info.playerId)) return;
+    players.push({ id: info.playerId, slot });
   });
 
   return (
@@ -117,7 +133,7 @@ export function RemotePlayers() {
             model={playerModel}
             modelScale={MODEL_SCALE}
             yOffset={MODEL_Y_OFFSET}
-            color={REMOTE_COLORS[p.index % REMOTE_COLORS.length]}
+            color={REMOTE_COLORS[p.slot % REMOTE_COLORS.length]}
           />
         ) : (
           <NetworkedCapsule
@@ -125,7 +141,7 @@ export function RemotePlayers() {
             playerId={p.id}
             radius={PHYSICS.PLAYER_RADIUS}
             height={PHYSICS.PLAYER_HEIGHT}
-            color={REMOTE_COLORS[p.index % REMOTE_COLORS.length]}
+            color={REMOTE_COLORS[p.slot % REMOTE_COLORS.length]}
           />
         ),
       )}

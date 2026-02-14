@@ -57,9 +57,19 @@ function post(msg: WorkerToMainMsg): void {
   self.postMessage(msg);
 }
 
+function postDebug(message: string): void {
+  post({ type: 'debug', message });
+}
+
 function postState(state: TransportState): void {
   post({ type: 'state_change', state });
 }
+
+/** Throttle counters for worker debug logging. */
+let _batchLogTimer = 0;
+let _batchCount = 0;
+let _playerCount = 0;
+const BATCH_LOG_INTERVAL_MS = 2000;
 
 // ── Connect ──
 
@@ -105,6 +115,7 @@ async function doConnect(): Promise<void> {
     const wasReconnect = reconnectAttempts > 0;
     reconnectAttempts = 0;
 
+    postDebug(`connected to ${url.split('?')[0]} (reconnect=${wasReconnect})`);
     postState('open');
 
     if (wasReconnect) {
@@ -147,6 +158,9 @@ function stopOutboundLoop(): void {
   }
 }
 
+let _outboundCount = 0;
+let _outboundLogTimer = 0;
+
 function sendOutboundPosition(): void {
   if (!outSab || !positionWriter) return;
 
@@ -162,6 +176,19 @@ function sendOutboundPosition(): void {
   positionWriter.write(copy).catch(() => {
     // Stream may be closing
   });
+
+  // Throttled outbound logging
+  _outboundCount++;
+  const now = performance.now();
+  if (now - _outboundLogTimer > BATCH_LOG_INTERVAL_MS) {
+    const view = new DataView(result.data.buffer, result.data.byteOffset, result.data.byteLength);
+    const posX = view.getFloat32(1, true);
+    const posY = view.getFloat32(5, true);
+    const posZ = view.getFloat32(9, true);
+    postDebug(`outbound: ${_outboundCount} msgs in ${BATCH_LOG_INTERVAL_MS}ms | pos=[${posX.toFixed(1)},${posY.toFixed(1)},${posZ.toFixed(1)}] gen=${result.generation}`);
+    _outboundLogTimer = now;
+    _outboundCount = 0;
+  }
 }
 
 // ── Inbound position reader ──
@@ -206,6 +233,18 @@ async function readPositionStream(): Promise<void> {
 
         // Write the latest batch to SAB (only the most recent matters for interpolation)
         writeInboundBatch(inSab, _inboundPlayers, count);
+
+        // Throttled debug logging
+        _batchCount++;
+        _playerCount += count;
+        const now = performance.now();
+        if (now - _batchLogTimer > BATCH_LOG_INTERVAL_MS) {
+          const sample = _inboundPlayers[0];
+          postDebug(`inbound: ${_batchCount} batches, ${_playerCount} players in ${BATCH_LOG_INTERVAL_MS}ms | last: slot=${sample.slot} pos=[${sample.posX.toFixed(1)},${sample.posY.toFixed(1)},${sample.posZ.toFixed(1)}] ts=${sample.timestamp}`);
+          _batchLogTimer = now;
+          _batchCount = 0;
+          _playerCount = 0;
+        }
 
         offset += batchSize;
       }
@@ -263,6 +302,7 @@ async function readControlStream(): Promise<void> {
           }
 
           if (msgType) {
+            postDebug(`ctrl recv: ${msgType}`);
             post({ type: 'json_message', msgType, data: parsed.data ?? parsed });
           }
         } catch {

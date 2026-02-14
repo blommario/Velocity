@@ -1,6 +1,6 @@
 /**
  * Room lobby — shows participants, ready state, and host controls.
- * T1: adds kick button for host, leave via WebSocket, racing status display.
+ * T1: adds kick button for host, leave via WebSocket, ingame status display.
  *
  * Depends on: multiplayerStore, authStore
  * Used by: MultiplayerLobby
@@ -22,14 +22,14 @@ const READY_COLORS = {
 const STATUS_LABELS: Record<string, string> = {
   waiting: 'Waiting',
   countdown: 'Starting...',
-  racing: 'Racing',
+  ingame: 'In Game',
   finished: 'Finished',
 } as const;
 
 const STATUS_COLORS: Record<string, string> = {
   waiting: 'text-green-400',
   countdown: 'text-yellow-400',
-  racing: 'text-orange-400',
+  ingame: 'text-orange-400',
   finished: 'text-gray-400',
 } as const;
 
@@ -58,7 +58,7 @@ export function RoomLobby() {
   const statusColor = STATUS_COLORS[currentRoom.status] ?? 'text-gray-400';
 
   const handleLeave = () => {
-    if (multiplayerStatus === MULTIPLAYER_STATUS.RACING || multiplayerStatus === MULTIPLAYER_STATUS.COUNTDOWN) {
+    if (multiplayerStatus === MULTIPLAYER_STATUS.INGAME || multiplayerStatus === MULTIPLAYER_STATUS.COUNTDOWN) {
       sendLeave();
     }
     disconnectFromMatch();

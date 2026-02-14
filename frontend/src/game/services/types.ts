@@ -143,7 +143,7 @@ export interface CreateRoomRequest {
   mapId: string;
 }
 
-export type RoomStatus = 'waiting' | 'countdown' | 'racing' | 'finished';
+export type RoomStatus = 'waiting' | 'countdown' | 'ingame' | 'finished';
 
 // ── Multiplayer SSE Events ──
 export interface MultiplayerCountdownEvent {

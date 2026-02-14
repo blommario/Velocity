@@ -19,6 +19,6 @@ public static class MultiplayerRoomStatus
 {
     public const string Waiting = "waiting";
     public const string Countdown = "countdown";
-    public const string Racing = "racing";
+    public const string InGame = "ingame";
     public const string Finished = "finished";
 }

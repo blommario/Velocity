@@ -10,6 +10,12 @@
  */
 
 import { readInboundRing, type InboundPlayerData } from './SharedPositionBuffer';
+import { devLog } from '@engine/stores/devLogStore';
+
+/** Throttle for slot-miss warnings to avoid spam. */
+let _slotMissLogTimer = 0;
+const _missedSlots = new Set<number>();
+const MISS_LOG_INTERVAL_MS = 2000;
 
 /** Tracks the last read ring index to avoid re-processing stale data. */
 let _lastReadIdx = 0;
@@ -41,9 +47,13 @@ export function pollInboundPositions(
     timestamp: number;
   }) => void,
 ): void {
+  const now = performance.now();
   _lastReadIdx = readInboundRing(sab, _lastReadIdx, (p: InboundPlayerData) => {
     const playerId = slotToPlayer.get(p.slot);
-    if (!playerId) return;
+    if (!playerId) {
+      _missedSlots.add(p.slot);
+      return;
+    }
 
     pushSnapshot(playerId, {
       posX: p.posX,
@@ -56,4 +66,12 @@ export function pollInboundPositions(
       timestamp: p.timestamp,
     });
   });
+
+  // Throttled warning for missed slots
+  if (_missedSlots.size > 0 && now - _slotMissLogTimer > MISS_LOG_INTERVAL_MS) {
+    _slotMissLogTimer = now;
+    const mapEntries = Array.from(slotToPlayer.entries()).map(([s, id]) => `${s}→${id}`).join(', ');
+    devLog.warn('Net', `pollInbound: no playerId for slots [${[..._missedSlots].join(',')}] slotMap=[${mapEntries}]`);
+    _missedSlots.clear();
+  }
 }

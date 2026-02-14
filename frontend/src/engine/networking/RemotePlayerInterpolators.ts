@@ -7,6 +7,7 @@
  * Used by: multiplayerStore (push), RemotePlayers (read in useFrame)
  */
 import { NetworkInterpolator, type NetSnapshot } from './NetworkInterpolator';
+import { devLog } from '@engine/stores/devLogStore';
 
 const _interpolators = new Map<string, NetworkInterpolator>();
 
@@ -19,6 +20,7 @@ export function pushRemoteSnapshot(playerId: string, snapshot: NetSnapshot): voi
   if (!interp) {
     interp = new NetworkInterpolator(10);
     _interpolators.set(playerId, interp);
+    devLog.info('Net', `new interpolator for ${playerId.slice(0, 8)} pos=[${snapshot.position.map(v => v.toFixed(1)).join(',')}]`);
   }
   interp.push(snapshot);
   _latestSnapshots.set(playerId, snapshot);
@@ -31,12 +33,16 @@ export function getInterpolator(playerId: string): NetworkInterpolator | undefin
 
 /** Remove a player's interpolator (on leave/disconnect). */
 export function removeInterpolator(playerId: string): void {
+  devLog.info('Net', `remove interpolator for ${playerId.slice(0, 8)}`);
   _interpolators.delete(playerId);
   _latestSnapshots.delete(playerId);
 }
 
 /** Clear all interpolators (on disconnect/reset). */
 export function clearInterpolators(): void {
+  if (_interpolators.size > 0) {
+    devLog.info('Net', `clearing ${_interpolators.size} interpolators`);
+  }
   _interpolators.clear();
   _latestSnapshots.clear();
 }

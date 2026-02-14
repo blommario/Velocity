@@ -148,7 +148,7 @@ public static class WebTransportEndpoints
             await room.SendJsonToPlayerAsync(slot, "room_snapshot", new
             {
                 roomId,
-                players = snapshot.Select(p => new { p.PlayerId, p.Name, p.Slot }),
+                players = snapshot.Select(p => new { playerId = p.PlayerId, name = p.Name, slot = p.Slot }),
                 yourSlot = slot,
             });
 

@@ -15,7 +15,7 @@ namespace Velocity.Api.Services.Multiplayer;
 /// Positions are relayed immediately on receive (zero tick delay) — each ReceiveLoop
 /// serializes and sends a single-player batch to all other players inline.
 /// JSON control messages use a separate unbounded channel (never dropped).
-/// Match state machine: Waiting→Countdown→Racing→Finished with finish tracking,
+/// Match state machine: Waiting→Countdown→InGame→Finished with finish tracking,
 /// leave/kick, host succession, and match timeout.
 /// </summary>
 /// <remarks>
@@ -143,6 +143,9 @@ public sealed class Room : IAsyncDisposable
     /// </summary>
     public (int slot, Task disconnectTask) AddPlayer(Guid playerId, string playerName, IPlayerConnection connection)
     {
+        int assignedSlot = -1;
+        Task? disconnectTask = null;
+
         lock (_playerLock)
         {
             for (var i = 0; i < _players.Length; i++)
@@ -157,8 +160,6 @@ public sealed class Room : IAsyncDisposable
                     Connection = connection,
                 };
 
-                lock (_positionLock) { _positions[i] = default; }
-
                 _disconnectSignals[i] = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _playerCount++;
 
@@ -167,17 +168,25 @@ public sealed class Room : IAsyncDisposable
                     _hostPlayerId = playerId;
 
                 _lastActivityAt = Environment.TickCount64;
+                assignedSlot = i;
+                disconnectTask = _disconnectSignals[i].Task;
 
                 _logger.LogInformation("Player {PlayerId} ({PlayerName}) joined room {RoomId} slot {Slot} ({Count} players)",
                     playerId, playerName, _roomId, i, _playerCount);
 
-                _ = Task.Run(() => ReceiveLoop(i));
-
-                return (i, _disconnectSignals[i].Task);
+                break;
             }
         }
 
-        return (-1, Task.CompletedTask);
+        if (assignedSlot < 0)
+            return (-1, Task.CompletedTask);
+
+        // Reset position outside _playerLock — never nest locks
+        lock (_positionLock) { _positions[assignedSlot] = default; }
+
+        _ = Task.Run(() => ReceiveLoop(assignedSlot));
+
+        return (assignedSlot, disconnectTask!);
     }
 
     private static TaskCompletionSource[] CreateSignals(int count)
@@ -199,11 +208,12 @@ public sealed class Room : IAsyncDisposable
 
             _players[slot]!.IsActive = false;
             _players[slot] = null;
-            lock (_positionLock) { _positions[slot] = default; }
             _playerCount--;
-
-            return _playerCount == 0;
         }
+
+        lock (_positionLock) { _positions[slot] = default; }
+
+        return _playerCount == 0;
     }
 
     /// <summary>
@@ -212,6 +222,8 @@ public sealed class Room : IAsyncDisposable
     /// </summary>
     public (int slot, bool isEmpty) RemovePlayerById(Guid playerId)
     {
+        int removedSlot = -1;
+
         lock (_playerLock)
         {
             for (var i = 0; i < _players.Length; i++)
@@ -220,21 +232,23 @@ public sealed class Room : IAsyncDisposable
 
                 _players[i]!.IsActive = false;
                 _players[i] = null;
-                lock (_positionLock) { _positions[i] = default; }
                 _playerCount--;
-
-                return (i, _playerCount == 0);
+                removedSlot = i;
+                break;
             }
         }
 
-        return (-1, _playerCount == 0);
+        if (removedSlot >= 0)
+            lock (_positionLock) { _positions[removedSlot] = default; }
+
+        return (removedSlot, _playerCount == 0);
     }
 
     // ── Match lifecycle (T1) ──
 
     /// <summary>
     /// Starts the countdown sequence as a background task. Called from MultiplayerHandlers.StartMatch.
-    /// Broadcasts countdown 3→2→1→0 (GO) then transitions to Racing.
+    /// Broadcasts countdown 3→2→1→0 (GO) then transitions to InGame.
     /// </summary>
     public void StartCountdown()
     {
@@ -258,7 +272,7 @@ public sealed class Room : IAsyncDisposable
 
             // GO!
             _matchStartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            _status = RoomStatus.Racing;
+            _status = RoomStatus.InGame;
             _finishedCount = 0;
 
             // Reset finish state for all players
@@ -301,7 +315,7 @@ public sealed class Room : IAsyncDisposable
         {
             await Task.Delay(TransportSettings.MatchTimeoutMs, ct);
 
-            if (_status != RoomStatus.Racing) return;
+            if (_status != RoomStatus.InGame) return;
 
             _logger.LogInformation("Room {RoomId} match timeout — force finishing", _roomId);
             await FinishMatch(ct);
@@ -459,7 +473,7 @@ public sealed class Room : IAsyncDisposable
 
                         var msgLen = remaining >= ClientSizeWithTimestamp ? ClientSizeWithTimestamp : ClientMinSize;
 
-                        if (_status == RoomStatus.Racing)
+                        if (_status == RoomStatus.InGame)
                         {
                             ParsePositionDirect(slot, buffer.AsSpan(offset, Math.Min(remaining, ClientSizeWithTimestamp)));
                             needsRelay = true;
@@ -542,13 +556,16 @@ public sealed class Room : IAsyncDisposable
     /// <summary>
     /// Immediately relays a single player's latest position to all other connected players.
     /// Serializes a 1-player batch and sends without waiting for a tick — zero added latency.
-    /// Called directly from ReceiveLoop when a position update is parsed.
+    /// Lock ordering: _positionLock first (snapshot), release, then _playerLock (targets).
+    /// Never holds both locks simultaneously — prevents AB-BA deadlock with RemovePlayer/CleanupPlayer.
     /// </summary>
     private async Task RelayPositionAsync(int senderSlot, CancellationToken ct)
     {
+        // 1. Snapshot position (short lock, released before touching _playerLock)
         PositionSnapshot pos;
         lock (_positionLock) { pos = _positions[senderSlot]; }
 
+        // 2. Serialize batch (no locks held)
         var batchSize = BatchHeaderSize + BytesPerPlayer;
         var batch = ArrayPool<byte>.Shared.Rent(batchSize);
 
@@ -569,6 +586,7 @@ public sealed class Room : IAsyncDisposable
         span[offset + BatchCheckpointOffset] = pos.Checkpoint;
         BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + BatchTimestampOffset)..], serverTimeMs);
 
+        // 3. Collect targets (separate lock, never nested with _positionLock)
         var sendData = new ReadOnlyMemory<byte>(batch, 0, batchSize);
         var sendTasks = new List<Task>();
 
@@ -576,13 +594,14 @@ public sealed class Room : IAsyncDisposable
         {
             for (var i = 0; i < _players.Length; i++)
             {
-                if (i == senderSlot) continue; // don't echo back to sender
+                if (i == senderSlot) continue;
                 var p = _players[i];
                 if (p is null || !p.Connection.IsOpen) continue;
                 sendTasks.Add(SendBinarySafeAsync(p, sendData, ct));
             }
         }
 
+        // 4. Fire sends outside all locks
         if (sendTasks.Count > 0)
             _ = ReturnBufferAfterSends(sendTasks, batch);
         else
@@ -591,7 +610,7 @@ public sealed class Room : IAsyncDisposable
 
     /// <summary>
     /// Removes a player from the room and notifies others. Called from ReceiveLoop cleanup.
-    /// Handles host succession and DNF during racing.
+    /// Handles host succession and DNF during match.
     /// </summary>
     private async Task CleanupPlayer(int slot)
     {
@@ -614,10 +633,11 @@ public sealed class Room : IAsyncDisposable
             wasHost = p.PlayerId == _hostPlayerId;
             p.IsActive = false;
             _players[slot] = null;
-            lock (_positionLock) { _positions[slot] = default; }
             _playerCount--;
             isEmpty = _playerCount == 0;
         }
+
+        lock (_positionLock) { _positions[slot] = default; }
 
         _logger.LogInformation("Player {PlayerId} ({PlayerName}) left room {RoomId} slot {Slot} ({Count} remaining)",
             leftPlayerId, leftPlayerName, _roomId, slot, _playerCount);
@@ -632,8 +652,8 @@ public sealed class Room : IAsyncDisposable
                 PromoteNewHost();
             }
 
-            // During racing: check if all remaining players finished
-            if (_status == RoomStatus.Racing && !isEmpty)
+            // During match: check if all remaining players finished
+            if (_status == RoomStatus.InGame && !isEmpty)
             {
                 await CheckAllFinished(_cts.Token);
             }
@@ -823,7 +843,7 @@ public sealed class Room : IAsyncDisposable
 
     private async Task HandleFinish(int slot, JsonElement root, CancellationToken ct)
     {
-        if (_status != RoomStatus.Racing) return;
+        if (_status != RoomStatus.InGame) return;
 
         if (!root.TryGetProperty("finishTime", out var ftProp)) return;
         var finishTime = (float)ftProp.GetDouble();
@@ -951,12 +971,12 @@ public sealed class Room : IAsyncDisposable
 
     /// <summary>
     /// Validates and applies a hit event from the attacking player.
-    /// Checks: racing state, both alive, not self, distance, rate limit, damage cap.
+    /// Checks: ingame state, both alive, not self, distance, rate limit, damage cap.
     /// On kill: broadcasts player_killed and schedules respawn.
     /// </summary>
     private async Task HandleHit(int slot, JsonElement root, CancellationToken ct)
     {
-        if (_status != RoomStatus.Racing) return;
+        if (_status != RoomStatus.InGame) return;
 
         if (!root.TryGetProperty("data", out var data)) return;
         if (!data.TryGetProperty("targetPlayerId", out var targetProp)) return;
@@ -1084,6 +1104,7 @@ public sealed class Room : IAsyncDisposable
     {
         var players = new List<object>();
         var positions = new List<object>();
+        var activeSlots = new List<int>();
 
         lock (_playerLock)
         {
@@ -1106,12 +1127,19 @@ public sealed class Room : IAsyncDisposable
                     deaths = p.Deaths,
                 });
 
-                // Include current position data if racing
-                if (_status == RoomStatus.Racing)
-                {
-                    PositionSnapshot pos;
-                    lock (_positionLock) { pos = _positions[i]; }
+                if (_status == RoomStatus.InGame)
+                    activeSlots.Add(i);
+            }
+        }
 
+        // Read positions outside _playerLock — never nest locks
+        if (activeSlots.Count > 0)
+        {
+            lock (_positionLock)
+            {
+                foreach (var i in activeSlots)
+                {
+                    var pos = _positions[i];
                     positions.Add(new
                     {
                         slot = i,
@@ -1322,7 +1350,7 @@ public enum RoomStatus
 {
     Waiting,
     Countdown,
-    Racing,
+    InGame,
     Finished,
 }
 
