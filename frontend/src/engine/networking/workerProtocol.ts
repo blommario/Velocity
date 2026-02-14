@@ -15,6 +15,7 @@ export type MainToWorkerMsg =
       token: string;
       outSab: SharedArrayBuffer;
       inSab: SharedArrayBuffer;
+      certHash?: string;
     }
   | { type: 'disconnect' }
   | { type: 'send_json'; payload: Record<string, unknown> }

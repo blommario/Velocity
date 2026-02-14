@@ -38,6 +38,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let isClosed = false;
 let url = '';
 let token = '';
+let certHash: string | undefined;
 
 const _decoder = new TextDecoder();
 
@@ -71,7 +72,19 @@ async function doConnect(): Promise<void> {
     const separator = url.includes('?') ? '&' : '?';
     const fullUrl = `${url}${separator}token=${encodeURIComponent(token)}`;
 
-    transport = new WebTransport(fullUrl);
+    const options: WebTransportOptions = {};
+    if (certHash) {
+      const binaryStr = atob(certHash);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      options.serverCertificateHashes = [
+        { algorithm: 'sha-256', value: bytes.buffer },
+      ];
+    }
+
+    transport = new WebTransport(fullUrl, options);
     await transport.ready;
 
     // Open two bidirectional streams: position + control.
@@ -328,15 +341,18 @@ function cleanup(): void {
   stopOutboundLoop();
   stopPing();
 
-  try { positionWriter?.close(); } catch { /* noop */ }
-  try { controlWriter?.close(); } catch { /* noop */ }
-  try { positionReader?.cancel(); } catch { /* noop */ }
-  try { controlReader?.cancel(); } catch { /* noop */ }
+  positionWriter?.close().catch(() => {});
+  controlWriter?.close().catch(() => {});
+  positionReader?.cancel().catch(() => {});
+  controlReader?.cancel().catch(() => {});
 
   positionWriter = null;
   positionReader = null;
   controlWriter = null;
   controlReader = null;
+
+  try { transport?.close(); } catch { /* noop */ }
+  transport = null;
 }
 
 // ── Message handler ──
@@ -350,6 +366,7 @@ self.onmessage = (e: MessageEvent<MainToWorkerMsg>) => {
       reconnectAttempts = 0;
       url = msg.url;
       token = msg.token;
+      certHash = msg.certHash;
       outSab = msg.outSab;
       inSab = msg.inSab;
       lastOutboundGen = 0;
@@ -372,9 +389,9 @@ self.onmessage = (e: MessageEvent<MainToWorkerMsg>) => {
     case 'reset_reconnect':
       reconnectAttempts = 0;
       clearReconnect();
-      if (!transport || transport.ready === undefined) {
-        doConnect();
-      }
+      try { transport?.close(); } catch { /* noop */ }
+      transport = null;
+      doConnect();
       break;
   }
 };

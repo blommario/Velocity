@@ -11,7 +11,7 @@
 export type TransportState = 'disconnected' | 'connecting' | 'open' | 'closed';
 
 export interface IGameTransport {
-  connect(url: string, token: string): void;
+  connect(url: string, token: string, certHash?: string): void;
   sendBinary(buffer: ArrayBuffer): void;
   /** Fire-and-forget position send — writes to SharedArrayBuffer for zero-copy transfer. */
   sendUnreliable(buffer: ArrayBuffer): void;
@@ -41,7 +41,7 @@ export interface IGameTransport {
  * In production, uses the current page host (reverse proxy handles it).
  */
 export function buildTransportUrl(path: string): string {
-  const isDev = window.location.port === '5173';
-  const host = isDev ? 'localhost:5001' : window.location.host;
+  // Dev: WebTransport on port 5002 (ECDSA cert), prod: same host
+  const host = import.meta.env.DEV ? 'localhost:5002' : window.location.host;
   return `https://${host}${path}`;
 }

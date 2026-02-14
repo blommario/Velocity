@@ -11,12 +11,14 @@ function openChrome(): PluginOption {
   return {
     name: 'open-chrome',
     configureServer(server) {
-      server.httpServer?.once('listening', () => {
+      const _printUrls = server.printUrls
+      server.printUrls = () => {
+        _printUrls()
         if (opened) return
         opened = true
         const address = server.resolvedUrls?.local[0] ?? 'http://localhost:5173'
         exec(`"${CHROME_PATH}" "${address}"`)
-      })
+      }
     },
   }
 }

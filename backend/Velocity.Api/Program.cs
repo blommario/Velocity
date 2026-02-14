@@ -15,14 +15,35 @@ using Velocity.Data.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Dev: ephemeral ECDSA cert for WebTransport serverCertificateHashes ──
+var devCertProvider = builder.Environment.IsDevelopment() ? new DevCertProvider() : null;
+
 // ── Kestrel: HTTP/3 + WebTransport ──
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(5001, listenOptions =>
+    if (devCertProvider is not null)
     {
-        listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
-    });
+        // Dev: two ports — REST on 5001 (dev cert), WebTransport on 5002 (ECDSA cert)
+        options.ListenAnyIP(5001, listenOptions =>
+        {
+            listenOptions.UseHttps();
+            listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+        });
+        options.ListenAnyIP(5002, listenOptions =>
+        {
+            listenOptions.UseHttps(devCertProvider.Certificate);
+            listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+        });
+    }
+    else
+    {
+        // Production: single port
+        options.ListenAnyIP(5001, listenOptions =>
+        {
+            listenOptions.UseHttps();
+            listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+        });
+    }
 });
 
 // ── JWT Settings (Options pattern) ──
@@ -92,6 +113,8 @@ builder.Services.AddHealthChecks()
 builder.Services.AddOpenApi();
 
 // ── Services ──
+if (devCertProvider is not null)
+    builder.Services.AddSingleton(devCertProvider);
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<RoomManager>();
 builder.Services.AddSingleton<MetricsCollector>();
@@ -148,10 +171,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 
-// ── OpenAPI endpoint (dev only) ──
+// ── Dev-only endpoints ──
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapDevEndpoints();
 }
 
 // ── Health check ──

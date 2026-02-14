@@ -15,6 +15,7 @@ import type { IGameTransport, TransportState } from './GameTransport';
 import { createOutboundBuffer, createInboundBuffer, writeOutboundPosition } from './SharedPositionBuffer';
 import { TRANSPORT_CONFIG } from './NetworkConstants';
 import type { WorkerToMainMsg } from './workerProtocol';
+import { devLog } from '@engine/stores/devLogStore';
 
 type JsonHandler = (data: unknown) => void;
 
@@ -58,7 +59,7 @@ export class WebTransportTransport implements IGameTransport {
     return true;
   }
 
-  connect(url: string, token: string): void {
+  connect(url: string, token: string, certHash?: string): void {
     this._closed = false;
     this._reconnectAttempts = 0;
 
@@ -87,6 +88,7 @@ export class WebTransportTransport implements IGameTransport {
       token,
       outSab: this._outSab,
       inSab: this._inSab,
+      certHash,
     });
   }
 
@@ -201,7 +203,7 @@ export class WebTransportTransport implements IGameTransport {
         break;
 
       case 'error':
-        // Log via devLog if available, otherwise ignore
+        devLog.error('WebTransport', msg.message);
         break;
     }
   }

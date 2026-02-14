@@ -93,7 +93,7 @@ interface MultiplayerState {
   joinRoom: (roomId: string) => Promise<void>;
   setReady: () => Promise<void>;
   startMatch: () => Promise<void>;
-  connectToMatch: (roomId: string) => void;
+  connectToMatch: (roomId: string) => Promise<void>;
   disconnectFromMatch: () => void;
   sendFinish: (finishTimeMs: number) => void;
   sendLeave: () => void;
@@ -204,7 +204,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     }
   },
 
-  connectToMatch: (roomId: string) => {
+  connectToMatch: async (roomId: string) => {
     if (transport) {
       transport.disconnect();
       transport = null;
@@ -496,9 +496,23 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       if (transport) set({ latency: transport.latencyMs });
     }, LATENCY_POLL_MS);
 
+    // In dev, fetch the self-signed cert hash for WebTransport serverCertificateHashes
+    let devCertHash: string | undefined;
+    if (import.meta.env.DEV) {
+      try {
+        const res = await fetch('/api/cert-hash');
+        if (res.ok) {
+          const data = await res.json() as { hash: string };
+          devCertHash = data.hash;
+        }
+      } catch {
+        // Backend may not be running yet — connect without hash (will fail TLS)
+      }
+    }
+
     // Connect
     const wtUrl = buildTransportUrl(`/wt/multiplayer/${roomId}`);
-    transport.connect(wtUrl, token);
+    transport.connect(wtUrl, token, devCertHash);
   },
 
   // T1: Send finish time to server
