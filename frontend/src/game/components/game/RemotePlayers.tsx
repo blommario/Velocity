@@ -1,22 +1,20 @@
 /**
  * Renders networked player models for remote players during a multiplayer match.
- * Loads Player.obj once, then delegates interpolation to engine NetworkedPlayer.
- * Falls back to capsule while model is loading.
- * Uses remotePlayerIds (Set) to drive the component list — position data flows
- * through RemotePlayerInterpolators outside React for zero-churn 60Hz sampling.
+ * Loads animated player FBX once via assetManager, then delegates interpolation
+ * and animation to engine NetworkedPlayer. Falls back to capsule while loading.
  *
- * Depends on: multiplayerStore, engine NetworkedPlayer, OBJLoader
+ * Depends on: multiplayerStore, engine NetworkedPlayer, assetManager
  * Used by: GameCanvas
  */
 import { useState, useEffect, useRef } from 'react';
-import { Group } from 'three';
 import { useFrame } from '@react-three/fiber';
-import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import type { Group, AnimationClip } from 'three';
 import { NetworkedPlayer } from '@engine/rendering/NetworkedPlayer';
 import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
 import { clearInterpolators, pushRemoteSnapshot } from '@engine/networking/RemotePlayerInterpolators';
 import { pollInboundPositions } from '@engine/networking/pollInboundPositions';
 import { useMultiplayerStore, slotToPlayer, MULTIPLAYER_STATUS } from '@game/stores/multiplayerStore';
+import { loadModelWithAnimations } from '@game/services/assetManager';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
 
@@ -25,35 +23,38 @@ const REMOTE_COLORS = [
   '#bb44ff', '#44ffee', '#ff8844', '#88ff44',
 ] as const;
 
-/** Player.obj is ~20.74 units tall; scale to PLAYER_HEIGHT. */
-const MODEL_HEIGHT = 20.74;
+/** Animated Human FBX is ~525.94 units tall; scale to PLAYER_HEIGHT. */
+const MODEL_HEIGHT = 525.94;
 const MODEL_SCALE = PHYSICS.PLAYER_HEIGHT / MODEL_HEIGHT;
 
 /** Network sends body center; model origin is at feet → shift down half height. */
 const MODEL_Y_OFFSET = -PHYSICS.PLAYER_HEIGHT / 2;
 
-let _cachedModel: Group | null = null;
-let _loadPromise: Promise<Group> | null = null;
+/** FBX model faces +X by default; rotate -90° so it faces the yaw direction. */
+const MODEL_YAW_OFFSET = -Math.PI / 2;
 
-function loadPlayerOBJ(): Promise<Group> {
-  if (_cachedModel) return Promise.resolve(_cachedModel);
+const PLAYER_MODEL_NAME = 'player_animated.fbx';
+
+interface PlayerModelAsset {
+  scene: Group;
+  animations: AnimationClip[];
+}
+
+let _cachedAsset: PlayerModelAsset | null = null;
+let _loadPromise: Promise<PlayerModelAsset> | null = null;
+
+function loadPlayerModel(): Promise<PlayerModelAsset> {
+  if (_cachedAsset) return Promise.resolve(_cachedAsset);
   if (_loadPromise) return _loadPromise;
 
-  const loader = new OBJLoader();
-  _loadPromise = new Promise<Group>((resolve, reject) => {
-    loader.load(
-      '/assets/models/player.obj',
-      (group) => {
-        _cachedModel = group;
-        devLog.success('Net', 'Player model loaded');
-        resolve(group);
-      },
-      undefined,
-      (err) => {
-        devLog.error('Net', `Failed to load player model: ${err}`);
-        reject(err);
-      },
-    );
+  _loadPromise = loadModelWithAnimations(PLAYER_MODEL_NAME).then((asset) => {
+    _cachedAsset = asset;
+    devLog.success('Net', `Player model loaded (${asset.animations.length} animations)`);
+    return asset;
+  }).catch((err) => {
+    devLog.error('Net', `Failed to load player model: ${err}`);
+    _loadPromise = null;
+    throw err;
   });
 
   return _loadPromise;
@@ -73,10 +74,10 @@ let _lastSnapshotCount = 0;
 export function RemotePlayers() {
   const remotePlayerIds = useMultiplayerStore((s) => s.remotePlayerIds);
   const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
-  const [playerModel, setPlayerModel] = useState<Group | null>(null);
+  const [playerAsset, setPlayerAsset] = useState<PlayerModelAsset | null>(null);
 
   useEffect(() => {
-    loadPlayerOBJ().then(setPlayerModel).catch(() => {});
+    loadPlayerModel().then(setPlayerAsset).catch(() => {});
     return () => { clearInterpolators(); };
   }, []);
 
@@ -126,13 +127,15 @@ export function RemotePlayers() {
   return (
     <group>
       {players.map((p) =>
-        playerModel ? (
+        playerAsset ? (
           <NetworkedPlayer
             key={p.id}
             playerId={p.id}
-            model={playerModel}
+            model={playerAsset.scene}
+            animations={playerAsset.animations}
             modelScale={MODEL_SCALE}
             yOffset={MODEL_Y_OFFSET}
+            modelYawOffset={MODEL_YAW_OFFSET}
             color={REMOTE_COLORS[p.slot % REMOTE_COLORS.length]}
           />
         ) : (
