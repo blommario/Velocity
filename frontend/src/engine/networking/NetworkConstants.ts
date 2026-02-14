@@ -10,14 +10,20 @@
 export const TRANSPORT_CONFIG = {
   /** Outbound SAB total size: 4B generation + 20B position data. */
   OUTBOUND_BUFFER_SIZE: 24,
-  /** Inbound SAB header: 4B generation + 4B player count. */
-  INBOUND_HEADER_SIZE: 8,
   /** Bytes per remote player slot in inbound SAB. */
   INBOUND_PLAYER_SIZE: 28,
   /** Max remote players supported. */
   MAX_REMOTE_PLAYERS: 32,
-  /** Total inbound SAB size: header + 32 * 28. */
-  INBOUND_BUFFER_SIZE: 904,
+  /** Ring buffer: number of batch slots. Must be power of 2 for fast modulo. */
+  INBOUND_RING_SLOTS: 8,
+  /** Ring buffer header: 4B writeIndex (atomic). */
+  INBOUND_RING_HEADER: 4,
+  /** Per-slot header: 4B count (Uint32). */
+  INBOUND_SLOT_HEADER: 4,
+  /** Per-slot size: slotHeader + MAX_REMOTE_PLAYERS * PLAYER_SIZE = 4 + 32*28 = 900. */
+  INBOUND_SLOT_SIZE: 900,
+  /** Total inbound SAB: ringHeader + RING_SLOTS * SLOT_SIZE = 4 + 8*900 = 7204. */
+  INBOUND_BUFFER_SIZE: 7204,
   /** Worker polls outbound SAB at this rate (ms) — 20Hz. */
   WORKER_SEND_INTERVAL_MS: 50,
   /** Reconnect exponential backoff base delay (ms). */

@@ -63,7 +63,7 @@ function loadPlayerOBJ(): Promise<Group> {
 const _slotToId = new Map<number, string>();
 
 /** Reusable snapshot object for pushing to interpolators — zero alloc. */
-const _snap = { position: [0, 0, 0] as [number, number, number], yaw: 0, serverTime: 0 };
+const _snap = { position: [0, 0, 0] as [number, number, number], yaw: 0, pitch: 0, serverTime: 0 };
 
 export function RemotePlayers() {
   const remotePlayerIds = useMultiplayerStore((s) => s.remotePlayerIds);
@@ -91,6 +91,7 @@ export function RemotePlayers() {
       _snap.position[1] = snap.posY;
       _snap.position[2] = snap.posZ;
       _snap.yaw = snap.yaw;
+      _snap.pitch = snap.pitch;
       _snap.serverTime = snap.timestamp;
       pushRemoteSnapshot(playerId, _snap);
     });

@@ -6,17 +6,19 @@
  *   [0-3]   generation (Uint32, Atomics) — main thread bumps after write
  *   [4-23]  position data (20 bytes, same layout as PositionCodec encode)
  *
- * Inbound SAB (904 bytes): server → worker → remote player positions
- *   [0-3]   generation (Uint32, Atomics) — worker bumps after write
- *   [4-7]   playerCount (Uint32)
- *   [8...]  32 player slots × 28 bytes each:
- *     [0-3]   slot (Uint32)
- *     [4-7]   posX (Float32)
- *     [8-11]  posY (Float32)
- *     [12-15] posZ (Float32)
- *     [16-19] yaw (Float32, decoded from Int16)
- *     [20-23] pitch (Float32, decoded from Int16)
- *     [24-27] timestamp (Uint32, ms since match start)
+ * Inbound SAB (7204 bytes): server → worker → remote player positions
+ *   Ring buffer with 8 slots. Single-producer (worker), single-consumer (main thread).
+ *   [0-3]   writeIndex (Uint32, Atomics) — worker increments after each write
+ *   [4...]  8 ring slots × 900 bytes each:
+ *     [0-3]   playerCount (Uint32)
+ *     [4...]  32 player entries × 28 bytes each:
+ *       [0-3]   slot (Uint32)
+ *       [4-7]   posX (Float32)
+ *       [8-11]  posY (Float32)
+ *       [12-15] posZ (Float32)
+ *       [16-19] yaw (Float32)
+ *       [20-23] pitch (Float32)
+ *       [24-27] timestamp (Uint32, ms since match start)
  *
  * Depends on: NetworkConstants
  * Used by: WebTransportTransport, transport.worker, pollInboundPositions
@@ -71,11 +73,13 @@ export function readOutboundPosition(
   };
 }
 
-// ── Inbound (worker writes, main thread reads) ──
+// ── Inbound ring buffer (worker writes, main thread reads) ──
 
-const INBOUND_GEN_OFFSET = 0;
-const INBOUND_COUNT_OFFSET = 4;
-const INBOUND_SLOTS_OFFSET = TRANSPORT_CONFIG.INBOUND_HEADER_SIZE;
+const RING_HEADER_OFFSET = 0;
+const RING_SLOTS_START = TRANSPORT_CONFIG.INBOUND_RING_HEADER;
+const RING_SLOTS = TRANSPORT_CONFIG.INBOUND_RING_SLOTS;
+const SLOT_SIZE = TRANSPORT_CONFIG.INBOUND_SLOT_SIZE;
+const SLOT_HEADER = TRANSPORT_CONFIG.INBOUND_SLOT_HEADER;
 const PLAYER_SIZE = TRANSPORT_CONFIG.INBOUND_PLAYER_SIZE;
 
 /** Creates a SharedArrayBuffer for inbound position data (server → remote players). */
@@ -95,7 +99,7 @@ export interface InboundPlayerData {
 }
 
 /**
- * Writes a decoded position batch into the inbound SAB.
+ * Writes a decoded position batch into the next ring slot.
  * Called from the worker when a position batch arrives from the server.
  */
 export function writeInboundBatch(
@@ -103,12 +107,21 @@ export function writeInboundBatch(
   players: readonly InboundPlayerData[],
   count: number,
 ): void {
+  // Read current write index to find the slot to write into
+  const idxArr = new Int32Array(sab, RING_HEADER_OFFSET, 1);
+  const writeIdx = Atomics.load(idxArr, 0);
+  const ringSlot = writeIdx & (RING_SLOTS - 1); // fast modulo for power-of-2
+  const slotBase = RING_SLOTS_START + ringSlot * SLOT_SIZE;
+
   const view = new DataView(sab);
+
+  // Write player count into slot header
+  view.setUint32(slotBase, count, true);
 
   // Write player data
   for (let i = 0; i < count; i++) {
     const p = players[i];
-    const offset = INBOUND_SLOTS_OFFSET + i * PLAYER_SIZE;
+    const offset = slotBase + SLOT_HEADER + i * PLAYER_SIZE;
 
     view.setUint32(offset, p.slot, true);
     view.setFloat32(offset + 4, p.posX, true);
@@ -119,59 +132,62 @@ export function writeInboundBatch(
     view.setUint32(offset + 24, p.timestamp, true);
   }
 
-  // Write count
-  const countArr = new Uint32Array(sab, INBOUND_COUNT_OFFSET, 1);
-  Atomics.store(countArr, 0, count);
-
-  // Bump generation atomically to signal new data
-  const gen = new Int32Array(sab, INBOUND_GEN_OFFSET, 1);
-  Atomics.add(gen, 0, 1);
-}
-
-/** Output structure for reading inbound batch from SAB. */
-export interface InboundReadResult {
-  count: number;
-  generation: number;
+  // Increment write index atomically (signals new data to reader)
+  Atomics.add(idxArr, 0, 1);
 }
 
 /**
- * Reads the latest inbound position batch from the SAB.
- * Called from the main thread renderer (60fps useFrame).
- * Returns the generation and count. Caller reads individual player slots.
+ * Reads all unread ring slots since lastReadIdx.
+ * Returns the new read index, or the same value if nothing new.
+ * Calls pushPlayer for each player entry in each unread slot.
+ *
+ * @param sab - Inbound SharedArrayBuffer
+ * @param lastReadIdx - The writeIndex value from the last read
+ * @param pushPlayer - Callback for each player in each batch
+ * @returns New lastReadIdx to pass on next call
  */
-export function readInboundHeader(
+export function readInboundRing(
   sab: SharedArrayBuffer,
-  lastGen: number,
-): InboundReadResult | null {
-  const gen = new Int32Array(sab, INBOUND_GEN_OFFSET, 1);
-  const currentGen = Atomics.load(gen, 0);
+  lastReadIdx: number,
+  pushPlayer: (player: InboundPlayerData) => void,
+): number {
+  const idxArr = new Int32Array(sab, RING_HEADER_OFFSET, 1);
+  const writeIdx = Atomics.load(idxArr, 0);
 
-  if (currentGen === lastGen) return null;
+  if (writeIdx === lastReadIdx) return lastReadIdx;
 
-  const countArr = new Uint32Array(sab, INBOUND_COUNT_OFFSET, 1);
-  const count = Atomics.load(countArr, 0);
+  // If we're more than RING_SLOTS behind, skip to avoid reading stale data
+  const behind = writeIdx - lastReadIdx;
+  const startIdx = behind > RING_SLOTS ? writeIdx - RING_SLOTS : lastReadIdx;
 
-  return { count, generation: currentGen };
-}
-
-/**
- * Reads a single player's position data from the inbound SAB.
- * Called after readInboundHeader returns non-null.
- */
-export function readInboundPlayer(
-  sab: SharedArrayBuffer,
-  index: number,
-): InboundPlayerData {
   const view = new DataView(sab);
-  const offset = INBOUND_SLOTS_OFFSET + index * PLAYER_SIZE;
 
-  return {
-    slot: view.getUint32(offset, true),
-    posX: view.getFloat32(offset + 4, true),
-    posY: view.getFloat32(offset + 8, true),
-    posZ: view.getFloat32(offset + 12, true),
-    yaw: view.getFloat32(offset + 16, true),
-    pitch: view.getFloat32(offset + 20, true),
-    timestamp: view.getUint32(offset + 24, true),
-  };
+  for (let idx = startIdx; idx < writeIdx; idx++) {
+    const ringSlot = idx & (RING_SLOTS - 1);
+    const slotBase = RING_SLOTS_START + ringSlot * SLOT_SIZE;
+
+    const count = view.getUint32(slotBase, true);
+
+    for (let i = 0; i < count; i++) {
+      const offset = slotBase + SLOT_HEADER + i * PLAYER_SIZE;
+
+      // Reuse pre-allocated _readPlayer to avoid GC
+      _readPlayer.slot = view.getUint32(offset, true);
+      _readPlayer.posX = view.getFloat32(offset + 4, true);
+      _readPlayer.posY = view.getFloat32(offset + 8, true);
+      _readPlayer.posZ = view.getFloat32(offset + 12, true);
+      _readPlayer.yaw = view.getFloat32(offset + 16, true);
+      _readPlayer.pitch = view.getFloat32(offset + 20, true);
+      _readPlayer.timestamp = view.getUint32(offset + 24, true);
+
+      pushPlayer(_readPlayer);
+    }
+  }
+
+  return writeIdx;
 }
+
+/** Pre-allocated read buffer — reused in readInboundRing to avoid GC. */
+const _readPlayer: InboundPlayerData = {
+  slot: 0, posX: 0, posY: 0, posZ: 0, yaw: 0, pitch: 0, timestamp: 0,
+};

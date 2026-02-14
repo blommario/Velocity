@@ -1,26 +1,27 @@
 /**
  * Main-thread poller for inbound remote player positions from SharedArrayBuffer.
  * Called from the render loop (60fps useFrame) to feed NetworkInterpolator buffers.
+ * Reads all unread ring buffer slots since the last poll — no batch is ever lost.
  *
  * Pure function — no React, no hooks, no side effects beyond calling pushSnapshot.
  *
- * Depends on: SharedPositionBuffer, NetworkInterpolator (NetSnapshot type)
- * Used by: game layer (RemotePlayers component or similar)
+ * Depends on: SharedPositionBuffer
+ * Used by: game layer (RemotePlayers component)
  */
 
-import { readInboundHeader, readInboundPlayer } from './SharedPositionBuffer';
+import { readInboundRing, type InboundPlayerData } from './SharedPositionBuffer';
 
-/** Tracks the last read generation to avoid re-processing stale data. */
-let _lastInboundGen = 0;
+/** Tracks the last read ring index to avoid re-processing stale data. */
+let _lastReadIdx = 0;
 
-/** Resets the generation tracker (call when disconnecting). */
+/** Resets the ring read tracker (call when disconnecting). */
 export function resetInboundPoll(): void {
-  _lastInboundGen = 0;
+  _lastReadIdx = 0;
 }
 
 /**
- * Polls the inbound SharedArrayBuffer for new remote player position data.
- * If new data is available, reads each player slot and calls pushSnapshot.
+ * Polls the inbound SharedArrayBuffer ring buffer for new remote player position data.
+ * Reads all unread slots and calls pushSnapshot for each player entry found.
  *
  * @param sab - The inbound SharedArrayBuffer (from WebTransportTransport.getInboundBuffer())
  * @param slotToPlayer - Map from slot number to player ID string
@@ -40,15 +41,9 @@ export function pollInboundPositions(
     timestamp: number;
   }) => void,
 ): void {
-  const result = readInboundHeader(sab, _lastInboundGen);
-  if (!result) return;
-
-  _lastInboundGen = result.generation;
-
-  for (let i = 0; i < result.count; i++) {
-    const p = readInboundPlayer(sab, i);
+  _lastReadIdx = readInboundRing(sab, _lastReadIdx, (p: InboundPlayerData) => {
     const playerId = slotToPlayer.get(p.slot);
-    if (!playerId) continue;
+    if (!playerId) return;
 
     pushSnapshot(playerId, {
       posX: p.posX,
@@ -56,9 +51,9 @@ export function pollInboundPositions(
       posZ: p.posZ,
       yaw: p.yaw,
       pitch: p.pitch,
-      speed: 0, // Speed not in inbound SAB (visual-only, interpolated)
+      speed: 0,
       checkpoint: 0,
       timestamp: p.timestamp,
     });
-  }
+  });
 }

@@ -55,7 +55,7 @@ export function NetworkedCapsule({
     }
 
     mesh.position.set(sampled.position[0], sampled.position[1], sampled.position[2]);
-    _euler.set(0, sampled.yaw, 0);
+    _euler.set(sampled.pitch, sampled.yaw, 0);
     mesh.rotation.copy(_euler);
     mesh.visible = true;
   });
