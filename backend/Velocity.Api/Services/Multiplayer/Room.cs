@@ -787,6 +787,10 @@ public sealed class Room : IAsyncDisposable
                 case CombatMessageTypes.Hit:
                     await HandleHit(slot, root, ct);
                     break;
+
+                case "weapon_switch":
+                    await HandleWeaponSwitch(slot, root, ct);
+                    break;
             }
 
             _lastActivityAt = Environment.TickCount64;
@@ -839,6 +843,28 @@ public sealed class Room : IAsyncDisposable
         {
             await SendJsonToPlayerAsync(slot, "pong", new { t = clientT, serverT }, ct);
         }
+    }
+
+    /// <summary>
+    /// Handles a weapon switch event — stores weapon on PlayerSocket and broadcasts to other players.
+    /// </summary>
+    private async Task HandleWeaponSwitch(int slot, JsonElement root, CancellationToken ct)
+    {
+        if (!root.TryGetProperty("data", out var dataProp)) return;
+        if (!dataProp.TryGetProperty("weapon", out var weaponProp)) return;
+        var weapon = weaponProp.GetString();
+        if (string.IsNullOrEmpty(weapon)) return;
+
+        Guid playerId;
+        lock (_playerLock)
+        {
+            var player = _players[slot];
+            if (player is null) return;
+            player.CurrentWeapon = weapon;
+            playerId = player.PlayerId;
+        }
+
+        await BroadcastJsonAsync("weapon_switch", new { playerId, weapon }, ct);
     }
 
     private async Task HandleFinish(int slot, JsonElement root, CancellationToken ct)
@@ -1125,6 +1151,7 @@ public sealed class Room : IAsyncDisposable
                     isDead = p.IsDead,
                     kills = p.Kills,
                     deaths = p.Deaths,
+                    currentWeapon = p.CurrentWeapon,
                 });
 
                 if (_status == RoomStatus.InGame)

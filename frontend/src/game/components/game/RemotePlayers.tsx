@@ -3,14 +3,17 @@
  * Loads animated player FBX once, then delegates interpolation and animation
  * to engine NetworkedPlayer. Falls back to capsule while loading.
  *
+ * Each player also renders a RemotePlayerWeapon that reads weapon_switch events
+ * and mounts the correct GLB on the RightHand bone via useBoneSocket.
+ *
  * Loads the FBX directly (not via assetManager) so NetworkedPlayer receives
  * the original scene graph — required for SkeletonUtils.clone() to correctly
  * rebind SkinnedMesh skeletons per player instance.
  *
- * Depends on: multiplayerStore, engine NetworkedPlayer, FBXLoader
+ * Depends on: multiplayerStore, engine NetworkedPlayer, FBXLoader, RemotePlayerWeapon
  * Used by: GameCanvas
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Group, AnimationClip } from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -19,6 +22,7 @@ import { NetworkedCapsule } from '@engine/rendering/NetworkedCapsule';
 import { clearInterpolators, pushRemoteSnapshot } from '@engine/networking/RemotePlayerInterpolators';
 import { pollInboundPositions } from '@engine/networking/pollInboundPositions';
 import { useMultiplayerStore, slotToPlayer, MULTIPLAYER_STATUS } from '@game/stores/multiplayerStore';
+import { RemotePlayerWeapon } from './RemotePlayerWeapon';
 import { PHYSICS } from './physics/constants';
 import { devLog } from '@engine/stores/devLogStore';
 
@@ -90,6 +94,45 @@ let _pollLogTimer = 0;
 const POLL_LOG_INTERVAL = 2; // seconds between position debug logs
 let _lastSnapshotCount = 0;
 
+/** Per-player wrapper — captures the cloned scene from NetworkedPlayer to pass to RemotePlayerWeapon. */
+function RemotePlayerWithWeapon({
+  playerId,
+  asset,
+  color,
+}: {
+  playerId: string;
+  asset: PlayerModelAsset;
+  color: string;
+}) {
+  const [clonedScene, setClonedScene] = useState<Group | null>(null);
+
+  const handleClonedScene = useCallback((scene: Group) => {
+    setClonedScene(scene);
+  }, []);
+
+  return (
+    <>
+      <NetworkedPlayer
+        playerId={playerId}
+        model={asset.scene}
+        animations={asset.animations}
+        modelScale={MODEL_SCALE}
+        yOffset={MODEL_Y_OFFSET}
+        modelYawOffset={MODEL_YAW_OFFSET}
+        color={color}
+        onClonedScene={handleClonedScene}
+      />
+      {clonedScene && (
+        <RemotePlayerWeapon
+          playerId={playerId}
+          clonedScene={clonedScene}
+          color={color}
+        />
+      )}
+    </>
+  );
+}
+
 export function RemotePlayers() {
   const remotePlayerIds = useMultiplayerStore((s) => s.remotePlayerIds);
   const multiplayerStatus = useMultiplayerStore((s) => s.multiplayerStatus);
@@ -147,14 +190,10 @@ export function RemotePlayers() {
     <group>
       {players.map((p) =>
         playerAsset ? (
-          <NetworkedPlayer
+          <RemotePlayerWithWeapon
             key={p.id}
             playerId={p.id}
-            model={playerAsset.scene}
-            animations={playerAsset.animations}
-            modelScale={MODEL_SCALE}
-            yOffset={MODEL_Y_OFFSET}
-            modelYawOffset={MODEL_YAW_OFFSET}
+            asset={playerAsset}
             color={REMOTE_COLORS[p.slot % REMOTE_COLORS.length]}
           />
         ) : (

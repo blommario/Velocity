@@ -111,6 +111,9 @@ let latencyInterval: ReturnType<typeof setInterval> | null = null;
 /** Slot-to-playerId mapping, populated by room_snapshot and player_joined events. */
 export const slotToPlayer = new Map<number, { playerId: string; playerName: string }>();
 
+/** Remote player weapon state — populated by weapon_switch events. Read from render loop (zero React re-renders). */
+export const remotePlayerWeapons = new Map<string, string>();
+
 const LATENCY_POLL_MS = 5000;
 
 export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
@@ -233,7 +236,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     interface RoomSnapshotData {
       roomId: string;
-      players: Array<{ playerId: string; name: string; slot: number }>;
+      players: Array<{ playerId: string; name: string; slot: number; currentWeapon?: string }>;
       yourSlot: number;
       // T7: enriched rejoin fields (optional — not present on initial connect)
       status?: string;
@@ -251,6 +254,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         }
 
         slotToPlayer.clear();
+        remotePlayerWeapons.clear();
         clearInterpolators();
         const localPlayerId = useAuthStore.getState().playerId;
         devLog.info('Net', `  localPlayerId=${localPlayerId}`);
@@ -263,6 +267,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           slotToPlayer.set(p.slot, { playerId: p.playerId, playerName: p.name });
           if (p.playerId !== localPlayerId) {
             newRemoteIds.add(p.playerId);
+            if (p.currentWeapon) {
+              remotePlayerWeapons.set(p.playerId, p.currentWeapon);
+            }
           }
         }
         devLog.info('Net', `  remotePlayerIds=[${[...newRemoteIds].join(', ')}] slotToPlayer size=${slotToPlayer.size}`);
@@ -340,6 +347,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       (data) => {
         devLog.info('Net', `player_left: id=${data.playerId} name=${data.playerName} slot=${data.slot}`);
         slotToPlayer.delete(data.slot);
+        remotePlayerWeapons.delete(data.playerId);
         removeInterpolator(data.playerId);
         const ids = new Set(get().remotePlayerIds);
         ids.delete(data.playerId);
@@ -450,6 +458,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       slotToPlayer.forEach((val, key) => {
         if (val.playerId === data.playerId) slotToPlayer.delete(key);
       });
+      remotePlayerWeapons.delete(data.playerId);
       removeInterpolator(data.playerId);
       const ids = new Set(get().remotePlayerIds);
       ids.delete(data.playerId);
@@ -465,6 +474,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         });
       } else {
         set({ remotePlayerIds: ids });
+      }
+    });
+
+    // Weapon switch — update remote player weapon state
+    transport.onJson<{ playerId: string; weapon: string }>('weapon_switch', (data) => {
+      if (data.playerId && data.weapon) {
+        remotePlayerWeapons.set(data.playerId, data.weapon);
       }
     });
 

@@ -57,6 +57,8 @@ export interface NetworkedPlayerProps {
   yOffset?: number;
   /** Extra yaw rotation to correct model forward direction (radians). */
   modelYawOffset?: number;
+  /** Callback fired with the cloned scene Group — allows game layer to attach objects (e.g. weapons) to bones. */
+  onClonedScene?: (scene: Group) => void;
   /** Display color (CSS string). */
   color: string;
   /** Emissive intensity. */
@@ -76,6 +78,7 @@ export function NetworkedPlayer({
   modelScale,
   yOffset = 0,
   modelYawOffset = 0,
+  onClonedScene,
   color,
   emissiveIntensity = 0.6,
 }: NetworkedPlayerProps) {
@@ -91,7 +94,11 @@ export function NetworkedPlayer({
   });
 
   // Clone model with correct skeleton rebinding (SkeletonUtils handles bone→mesh binding)
-  const clonedScene = useMemo(() => SkeletonUtils.clone(model) as Group, [model]);
+  const clonedScene = useMemo(() => {
+    const clone = SkeletonUtils.clone(model) as Group;
+    onClonedScene?.(clone);
+    return clone;
+  }, [model]);
 
   // Create AnimationMixer and actions
   const mixerRef = useRef<AnimationMixer | null>(null);

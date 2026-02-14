@@ -10,6 +10,7 @@ import { PHYSICS, RELOAD_CONFIG } from '@game/components/game/physics/constants'
 import type { WeaponType } from '@game/components/game/physics/types';
 import { WEAPON_SLOTS } from '@game/components/game/physics/types';
 import { clearHitboxRegistry, type HitboxZone } from '@engine/physics/hitboxRegistry';
+import { useMultiplayerStore } from '@game/stores/multiplayerStore';
 
 // Internal regen accumulator — avoids store writes every physics tick.
 // Health regenerates smoothly at 128Hz internally, but store only updates
@@ -275,6 +276,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       breathHoldTime: 0,
       scopeTime: 0,
     });
+    // Notify remote players of weapon change
+    const transport = useMultiplayerStore.getState().getTransport();
+    if (transport) {
+      transport.sendJson('weapon_switch', { weapon: w } as Record<string, unknown>);
+    }
   },
 
   switchWeaponBySlot: (slot) => {

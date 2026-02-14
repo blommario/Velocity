@@ -40,4 +40,7 @@ public sealed class PlayerSocket
 
     /// <summary>Total deaths this match.</summary>
     public int Deaths { get; set; }
+
+    /// <summary>Currently equipped weapon name (e.g. "assault", "rocket"). Broadcast to other players on switch.</summary>
+    public string CurrentWeapon { get; set; } = "assault";
 }
