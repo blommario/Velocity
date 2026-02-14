@@ -24,8 +24,8 @@ export const TRANSPORT_CONFIG = {
   INBOUND_SLOT_SIZE: 900,
   /** Total inbound SAB: ringHeader + RING_SLOTS * SLOT_SIZE = 4 + 8*900 = 7204. */
   INBOUND_BUFFER_SIZE: 7204,
-  /** Worker polls outbound SAB at this rate (ms) — 20Hz. */
-  WORKER_SEND_INTERVAL_MS: 50,
+  /** Worker polls outbound SAB at this rate (ms) — 100Hz. */
+  WORKER_SEND_INTERVAL_MS: 10,
   /** Reconnect exponential backoff base delay (ms). */
   RECONNECT_BASE_DELAY_MS: 1000,
   /** Reconnect max delay (ms). */

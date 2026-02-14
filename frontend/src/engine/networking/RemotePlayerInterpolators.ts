@@ -17,7 +17,7 @@ const _latestSnapshots = new Map<string, NetSnapshot>();
 export function pushRemoteSnapshot(playerId: string, snapshot: NetSnapshot): void {
   let interp = _interpolators.get(playerId);
   if (!interp) {
-    interp = new NetworkInterpolator(50);
+    interp = new NetworkInterpolator(10);
     _interpolators.set(playerId, interp);
   }
   interp.push(snapshot);

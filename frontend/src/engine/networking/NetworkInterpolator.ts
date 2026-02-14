@@ -105,7 +105,7 @@ export class NetworkInterpolator {
   private static readonly MAX_EXTRAP_MS = 150;
   private static readonly MIN_SPAN = 1;
 
-  constructor(intervalMs = 50) {
+  constructor(intervalMs = 10) {
     this._intervalMs = intervalMs;
     this._minDelayMs = intervalMs * 1.5;
     this._maxDelayMs = intervalMs * 4;

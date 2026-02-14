@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.IO.Pipelines;
 using Microsoft.AspNetCore.Connections;
 
 namespace Velocity.Api.Services.Multiplayer;
@@ -55,7 +56,16 @@ public sealed class WebTransportPlayerConnection(
 
         // Read from position stream (binary position data from client).
         var reader = positionCtx.Transport.Input;
-        var readResult = await reader.ReadAsync(ct);
+        ReadResult readResult;
+        try
+        {
+            readResult = await reader.ReadAsync(ct);
+        }
+        catch (ConnectionAbortedException)
+        {
+            _isOpen = false;
+            return new ReceiveResult(0, true);
+        }
 
         if (readResult.IsCanceled || readResult.IsCompleted)
         {

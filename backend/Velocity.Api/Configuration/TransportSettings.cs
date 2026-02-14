@@ -8,8 +8,8 @@ namespace Velocity.Api.Configuration;
 /// </remarks>
 public static class TransportSettings
 {
-    /// <summary>Server broadcast tick rate in milliseconds (20Hz = 50ms).</summary>
-    public const int BroadcastIntervalMs = 50;
+    /// <summary>Server broadcast tick rate in milliseconds (100Hz = 10ms).</summary>
+    public const int BroadcastIntervalMs = 10;
 
     /// <summary>Heartbeat ping interval in milliseconds.</summary>
     public const int HeartbeatIntervalMs = 5000;
@@ -24,7 +24,7 @@ public static class TransportSettings
     public const int InboundChannelCapacity = 256;
 
     /// <summary>Maximum inbound messages per second per player (position rate limit).</summary>
-    public const int MaxPositionMessagesPerSecond = 25;
+    public const int MaxPositionMessagesPerSecond = 105;
 
     /// <summary>Receive buffer size in bytes.</summary>
     public const int ReceiveBufferSize = 1024;
