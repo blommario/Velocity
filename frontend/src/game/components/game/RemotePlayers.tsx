@@ -106,7 +106,7 @@ export function RemotePlayers() {
   });
 
   return (
-    <>
+    <group>
       {players.map((p) =>
         playerModel ? (
           <NetworkedPlayer
@@ -127,6 +127,6 @@ export function RemotePlayers() {
           />
         ),
       )}
-    </>
+    </group>
   );
 }
